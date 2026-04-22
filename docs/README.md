@@ -13,7 +13,7 @@
   <a href="https://github.com/randheimer/KaizerIDE/releases"><img src="https://img.shields.io/github/v/release/randheimer/KaizerIDE?style=flat-square" alt="Release"></a>
   <a href="https://github.com/randheimer/KaizerIDE/releases"><img src="https://img.shields.io/github/downloads/randheimer/KaizerIDE/total?style=flat-square" alt="Downloads"></a>
   <a href="https://github.com/randheimer/KaizerIDE/stargazers"><img src="https://img.shields.io/github/stars/randheimer/KaizerIDE?style=flat-square" alt="Stars"></a>
-  <a href="https://github.com/randheimer/KaizerIDE/blob/main/LICENSE"><img src="https://img.shields.io/github/license/randheimer/KaizerIDE?style=flat-square" alt="License"></a>
+  <a href="https://github.com/randheimer/KaizerIDE/blob/main/docs/LICENSE"><img src="https://img.shields.io/badge/license-Custom-blue?style=flat-square" alt="License"></a>
 </p>
 
 ---
@@ -196,7 +196,13 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📝 License
 
-KaizerIDE is open-source software licensed under the [MIT License](LICENSE).
+KaizerIDE is open-source software licensed under a [Custom License](LICENSE).
+
+**Key Points:**
+- ✅ Free to use and modify
+- ✅ Must include attribution to original author
+- ❌ Commercial use requires permission
+- ✅ Open source with restrictions
 
 ---
 
