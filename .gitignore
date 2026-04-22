@@ -1,13 +1,23 @@
+# Dependencies
 node_modules
+
+# Build outputs
 dist
 release
 build
-electron
+
+# Logs
 *.log
+
+# Documentation (except specific files)
 *.md
-.DS_Store
 !README.md
 !BUILD.md
 !CHAT_CURSOR_REDESIGN.md
 !CHAT_REFACTOR_SUMMARY.md
 !TEST/README.md
+
+# OS files
+.DS_Store
+build.bat
+start.bat
