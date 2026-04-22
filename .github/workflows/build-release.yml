@@ -5,6 +5,10 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      force_version:
+        description: "Optional manual version (e.g. 2.0.0)"
+        required: false
 
 permissions:
   contents: write
@@ -17,92 +21,72 @@ jobs:
       tag: ${{ steps.semver.outputs.tag }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Semantic Versioning
         id: semver
         shell: pwsh
         run: |
+          $forced = "${{ github.event.inputs.force_version }}"
           $package = Get-Content package.json | ConvertFrom-Json
           $version = $package.version
           $parts = $version -split '\.'
-
           $major = [int]$parts[0]
           $minor = [int]$parts[1]
           $patch = [int]$parts[2]
-
-          $lastTag = git describe --tags --abbrev=0 2>$null
-
-          if ($lastTag) {
-            $commits = git log "$lastTag..HEAD" --pretty=format:"%s"
-          } else {
-            $commits = git log --pretty=format:"%s"
+          # ---------------- FORCE VERSION (MANUAL OVERRIDE) ----------------
+          if ($forced) {
+            $newVersion = $forced
           }
-
-          $bumpMajor = $false
-          $bumpMinor = $false
-          $bumpPatch = $false
-
-          foreach ($c in $commits) {
-            if ($c -match "BREAKING CHANGE") { $bumpMajor = $true }
-            elseif ($c -match "^feat:") { $bumpMinor = $true }
-            elseif ($c -match "^fix:" -or $c -match "^chore:") { $bumpPatch = $true }
+          else {
+            $lastTag = git describe --tags --abbrev=0 2>$null
+            if ($lastTag) {
+              $commits = git log "$lastTag..HEAD" --pretty=format:"%s"
+            } else {
+              $commits = git log --pretty=format:"%s"
+            }
+            $bumpMajor = $false
+            $bumpMinor = $false
+            $bumpPatch = $false
+            foreach ($c in $commits) {
+              if ($c -match "BREAKING CHANGE") { $bumpMajor = $true }
+              elseif ($c -match "^feat:") { $bumpMinor = $true }
+              elseif ($c -match "^fix:" -or $c -match "^chore:") { $bumpPatch = $true }
+            }
+            if ($bumpMajor) {
+              $major++; $minor=0; $patch=0
+            }
+            elseif ($bumpMinor) {
+              $minor++; $patch=0
+            }
+            elseif ($bumpPatch) {
+              $patch++
+            }
+            $newVersion = "$major.$minor.$patch"
           }
-
-          if ($bumpMajor) {
-            $major++
-            $minor = 0
-            $patch = 0
-          }
-          elseif ($bumpMinor) {
-            $minor++
-            $patch = 0
-          }
-          elseif ($bumpPatch) {
-            $patch++
-          }
-
-          $newVersion = "$major.$minor.$patch"
-
           $package.version = $newVersion
           $package | ConvertTo-Json -Depth 100 | Set-Content package.json
-
           echo "version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "tag=v$newVersion" >> $env:GITHUB_OUTPUT
 
-  build-vite:
-    runs-on: windows-latest
-    needs: version
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci --prefer-offline --no-audit
-
-      - name: Build Vite
-        run: npm run build
-        env:
-          NODE_ENV: production
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: vite-dist
-          path: dist
-
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.semver.outputs.version }}" || echo "No changes to commit"
+          git push || echo "Nothing to push"
   build-electron:
     runs-on: windows-latest
     needs: version
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-node@v4
         with:
@@ -110,14 +94,6 @@ jobs:
           cache: npm
 
       - run: npm ci --prefer-offline --no-audit
-
-      - name: Install icon deps
-        run: npm install sharp png-to-ico
-
-      - name: Convert icon
-        shell: pwsh
-        run: |
-          node -e "const sharp=require('sharp');const fs=require('fs');async function c(){await sharp('docs/images/logo.png').resize(256,256,{fit:'contain',background:{r:0,g:0,b:0,alpha:0}}).png().toFile('docs/images/logo-256.png');const {default:pngToIco}=await import('png-to-ico');const buf=await pngToIco(['docs/images/logo-256.png']);fs.writeFileSync('docs/images/logo.ico',buf);}c().catch(e=>{console.error(e);process.exit(1);});"
 
       - name: Build Electron
         run: npm run electron:build
@@ -125,15 +101,28 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
+      # ---------------- REMOVE DUPLICATE FILES + RENAME ----------------
+      - name: Prepare single installer
+        shell: pwsh
+        run: |
+          $version = "${{ needs.version.outputs.version }}"
+          mkdir release-final
+          Get-ChildItem release/*.exe | ForEach-Object {
+            Copy-Item $_.FullName "release-final/KaizerIDE-$version.exe"
+          }
+          # delete original junk outputs (prevents 2 files issue)
+          Remove-Item release/*.exe -Force -ErrorAction SilentlyContinue
       - uses: actions/upload-artifact@v4
         with:
           name: electron-build
-          path: release/*.exe
+          path: release-final/*.exe
 
   release:
     runs-on: windows-latest
-    needs: [version, build-vite, build-electron]
+    needs: [version, build-electron]
 
+        with:
+          fetch-depth: 0
     steps:
       - uses: actions/checkout@v4
 
@@ -143,56 +132,25 @@ jobs:
           path: artifacts
 
       # ---------------- CHANGELOG ----------------
-      - name: Generate categorized changelog
+      - name: Generate changelog
         id: changelog
         shell: pwsh
         run: |
           $lastTag = git describe --tags --abbrev=0 2>$null
-
           if ($lastTag) {
             $commits = git log "$lastTag..HEAD" --pretty=format:"%s"
           } else {
             $commits = git log --pretty=format:"%s"
           }
-
-          $feat = @()
-          $fix = @()
-          $chore = @()
-          $breaking = @()
-
-          foreach ($c in $commits) {
-            if ($c -match "BREAKING CHANGE") { $breaking += "- $c" }
-            elseif ($c -match "^feat:") { $feat += "- $c" }
-            elseif ($c -match "^fix:") { $fix += "- $c" }
-            elseif ($c -match "^chore:") { $chore += "- $c" }
-          }
-
-          $body = ""
-
-          if ($breaking.Count -gt 0) {
-            $body += "## ⚠️ Breaking Changes`n$($breaking -join "`n")`n`n"
-          }
-
-          if ($feat.Count -gt 0) {
-            $body += "## ✨ Features`n$($feat -join "`n")`n`n"
-          }
-
-          if ($fix.Count -gt 0) {
-            $body += "## 🐛 Fixes`n$($fix -join "`n")`n`n"
-          }
-
-          if ($chore.Count -gt 0) {
-            $body += "## 🧹 Chores`n$($chore -join "`n")"
-          }
-
+          $body = $commits | Where-Object {
+            $_ -notmatch "merge" -and $_ -notmatch "wip"
+          } | ForEach-Object { "- $_" } | Out-String
           if (-not $body) {
             $body = "Minor updates and improvements"
           }
-
           echo "changes<<EOF" >> $env:GITHUB_OUTPUT
           echo "$body" >> $env:GITHUB_OUTPUT
           echo "EOF" >> $env:GITHUB_OUTPUT
-
       # ---------------- RELEASE ----------------
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -202,10 +160,8 @@ jobs:
           files: artifacts/electron-build/*.exe
           body: |
             ## 🚀 KaizerIDE v${{ needs.version.outputs.version }}
-
             ${{ steps.changelog.outputs.changes }}
-
             ---
-            ⚡ Built automatically via CI/CD pipeline
+            ⚡ Auto build system
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
