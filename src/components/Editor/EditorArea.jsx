@@ -705,6 +705,20 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       }
     });
 
+    // Disable Monaco's built-in "Go to Definition" for C/C++ to prevent errors
+    // Our custom click handler above will handle include navigation
+    const disposables = [];
+    disposables.push(
+      monaco.languages.registerDefinitionProvider('cpp', {
+        provideDefinition: () => null
+      })
+    );
+    disposables.push(
+      monaco.languages.registerDefinitionProvider('c', {
+        provideDefinition: () => null
+      })
+    );
+
     // Set theme
     monaco.editor.setTheme('kaizer-dark');
 
