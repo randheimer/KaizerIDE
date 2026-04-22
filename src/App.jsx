@@ -56,6 +56,50 @@ function App() {
     loadWorkspace();
   }, []);
 
+  // Handle context menu integration - open files/folders from Windows Explorer
+  useEffect(() => {
+    console.log('[App] Setting up context menu listeners...');
+    
+    const handleFolderFromArgs = async (folderPath) => {
+      console.log('[App] Received folder from context menu:', folderPath);
+      setWorkspacePath(folderPath);
+      await window.electron.saveWorkspacePath(folderPath);
+      
+      // Load file tree
+      const result = await window.electron.getFileTree(folderPath);
+      if (result.success) {
+        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: result.tree }));
+      }
+    };
+    
+    const handleFileFromArgs = async (filePath) => {
+      console.log('[App] Received file from context menu:', filePath);
+      
+      // Set workspace to parent directory
+      const parentDir = filePath.substring(0, filePath.lastIndexOf('\\'));
+      setWorkspacePath(parentDir);
+      await window.electron.saveWorkspacePath(parentDir);
+      
+      // Load file tree
+      const treeResult = await window.electron.getFileTree(parentDir);
+      if (treeResult.success) {
+        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: treeResult.tree }));
+      }
+      
+      // Open the file in editor
+      handleFileOpen(filePath);
+    };
+    
+    const cleanupFolder = window.electron.onOpenFolderFromArgs(handleFolderFromArgs);
+    const cleanupFile = window.electron.onOpenFileFromArgs(handleFileFromArgs);
+    
+    return () => {
+      console.log('[App] Cleaning up context menu listeners');
+      cleanupFolder();
+      cleanupFile();
+    };
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
