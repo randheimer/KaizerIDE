@@ -187,6 +187,66 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     };
   }, [activeTab]);
 
+  // Listen for editor settings changes (including theme)
+  useEffect(() => {
+    const handleSettingsChanged = (e) => {
+      const settings = e.detail;
+      console.log('[EditorArea] Settings changed:', settings);
+      
+      if (editorRef.current && monacoRef.current) {
+        // Apply all editor settings
+        editorRef.current.updateOptions({
+          fontSize: settings.fontSize,
+          tabSize: settings.tabSize,
+          wordWrap: settings.wordWrap,
+          minimap: { enabled: settings.minimap },
+          lineNumbers: settings.lineNumbers ? 'on' : 'off',
+          fontFamily: settings.fontFamily,
+          cursorStyle: settings.cursorStyle,
+          renderWhitespace: settings.renderWhitespace,
+          bracketPairColorization: { enabled: settings.bracketPairColorization },
+          formatOnType: settings.formatOnSave,
+          formatOnPaste: settings.formatOnSave
+        });
+        
+        // Apply theme
+        console.log('[EditorArea] Applying theme:', settings.theme);
+        monacoRef.current.editor.setTheme(settings.theme);
+      }
+    };
+
+    window.addEventListener('kaizer:editor-settings-changed', handleSettingsChanged);
+    
+    return () => {
+      window.removeEventListener('kaizer:editor-settings-changed', handleSettingsChanged);
+    };
+  }, []);
+
+  // Load and apply editor settings on mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('kaizer-editor-settings');
+    if (savedSettings && editorRef.current && monacoRef.current) {
+      const settings = JSON.parse(savedSettings);
+      console.log('[EditorArea] Loading saved settings:', settings);
+      
+      editorRef.current.updateOptions({
+        fontSize: settings.fontSize,
+        tabSize: settings.tabSize,
+        wordWrap: settings.wordWrap,
+        minimap: { enabled: settings.minimap },
+        lineNumbers: settings.lineNumbers ? 'on' : 'off',
+        fontFamily: settings.fontFamily,
+        cursorStyle: settings.cursorStyle,
+        renderWhitespace: settings.renderWhitespace,
+        bracketPairColorization: { enabled: settings.bracketPairColorization },
+        formatOnType: settings.formatOnSave,
+        formatOnPaste: settings.formatOnSave
+      });
+      
+      monacoRef.current.editor.setTheme(settings.theme);
+    }
+  }, [editorRef.current, monacoRef.current]);
+
   // Apply pending diff when switching tabs
   useEffect(() => {
     if (activeTab && pendingDiffs.current[activeTab] && editorRef.current) {

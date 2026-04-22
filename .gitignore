@@ -26,3 +26,7 @@ build.bat
 start.bat
 start-quick.bat
 start-dev.bat
+
+*.backup
+*.new
+*.old

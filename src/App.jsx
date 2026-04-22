@@ -3,6 +3,7 @@ import TitleBar from './components/Layout/TitleBar';
 import FileExplorer from './components/Sidebar/FileExplorer';
 import EditorArea from './components/Editor/EditorArea';
 import ChatPanel from './components/AI/chat/ChatPanel';
+import TerminalPanel from './components/Terminal/TerminalPanel';
 import StatusBar from './components/Common/StatusBar';
 import SettingsModal from './components/Modals/SettingsModal';
 import ErrorToast from './components/Common/ErrorToast';
@@ -476,13 +477,21 @@ function App() {
           }}
           visible={sidebarVisible}
         />
-        <EditorArea
-          tabs={tabs}
-          activeTab={activeTabPath}
-          onTabSelect={handleTabSelect}
-          onTabClose={handleTabClose}
-          onContentChange={handleContentChange}
-        />
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          overflow: 'hidden'
+        }}>
+          <EditorArea
+            tabs={tabs}
+            activeTab={activeTabPath}
+            onTabSelect={handleTabSelect}
+            onTabClose={handleTabClose}
+            onContentChange={handleContentChange}
+          />
+          <TerminalPanel workspacePath={workspacePath} />
+        </div>
         <div style={{
           width: '340px',
           minWidth: '340px',
