@@ -1101,7 +1101,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     }
   };
 
-  const toggleThinking = (msgId, blockIndex) => {
+  const toggleThinking = useCallback((msgId, blockIndex) => {
     setMessages(prev => prev.map(m => {
       if (m.id !== msgId) return m;
       const blocks = [...(m.thinkingBlocks || [])];
@@ -1110,7 +1110,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       }
       return { ...m, thinkingBlocks: blocks };
     }));
-  };
+  }, []);
 
   const renderStreamingMessage = (msg) => {
     return (
@@ -1265,7 +1265,17 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               <div key={blockIdx} className="thinking-block">
                 <div 
                   className="thinking-header"
-                  onClick={() => toggleThinking(msg.id, blockIdx)}
+                  onClick={() => {
+                    // Toggle the expanded state directly in the messages array
+                    setMessages(prev => prev.map((m, i) => {
+                      if (i !== idx) return m;
+                      const blocks = [...(m.thinkingBlocks || [])];
+                      if (blockIdx >= 0 && blockIdx < blocks.length) {
+                        blocks[blockIdx] = { ...blocks[blockIdx], expanded: !blocks[blockIdx].expanded };
+                      }
+                      return { ...m, thinkingBlocks: blocks };
+                    }));
+                  }}
                 >
                   <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
                   <span className="thinking-label">

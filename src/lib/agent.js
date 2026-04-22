@@ -386,7 +386,7 @@ async function executeTool(toolName, args, workspacePath) {
 /**
  * Consume SSE stream and accumulate content + tool calls + thinking
  */
-async function consumeStream(response, onToken, onThinkingToken) {
+async function consumeStream(response, onToken, onThinkingToken, alreadyStartedThinking = false) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -394,6 +394,7 @@ async function consumeStream(response, onToken, onThinkingToken) {
   let fullThinking = '';
   let thinkBuffer = '';
   let inThink = false;
+  let hasStartedThinking = alreadyStartedThinking;
   let toolCallMap = {};
   
   try {
@@ -420,7 +421,6 @@ async function consumeStream(response, onToken, onThinkingToken) {
           if (delta?.reasoning_content) {
             fullThinking += delta.reasoning_content;
             if (onThinkingToken) onThinkingToken(delta.reasoning_content);
-            console.log('[Agent] Thinking (reasoning_content):', delta.reasoning_content.substring(0, 50));
           }
           
           // Method 2: thinking delta type (Anthropic-style via proxy)
@@ -428,7 +428,6 @@ async function consumeStream(response, onToken, onThinkingToken) {
             const thinkingText = delta.thinking || '';
             fullThinking += thinkingText;
             if (onThinkingToken) onThinkingToken(thinkingText);
-            console.log('[Agent] Thinking (delta.thinking):', thinkingText.substring(0, 50));
           }
           
           // Method 3: <think> tags inside content - parse character by character
@@ -449,8 +448,10 @@ async function consumeStream(response, onToken, onThinkingToken) {
                   }
                   inThink = true;
                   thinkBuffer = '';
-                  if (onThinkingToken) onThinkingToken('__START__');
-                  console.log('[Agent] Detected <think> tag, entering thinking mode');
+                  if (onThinkingToken && !hasStartedThinking) {
+                    onThinkingToken('__START__');
+                    hasStartedThinking = true;
+                  }
                 } else if (!'<think>'.startsWith(thinkBuffer)) {
                   // Not a partial match, flush buffer as content
                   mainContent += thinkBuffer;
@@ -476,7 +477,6 @@ async function consumeStream(response, onToken, onThinkingToken) {
                     if (onToken) onToken(after);
                   }
                   thinkBuffer = '';
-                  console.log('[Agent] Detected </think> tag, exiting thinking mode');
                 } else if (!'</think>'.startsWith(thinkBuffer)) {
                   // Not building toward closing tag, stream the character
                   const charToStream = thinkBuffer.slice(0, -('<'.length));
@@ -519,8 +519,6 @@ async function consumeStream(response, onToken, onThinkingToken) {
   }
   
   const toolCallsArray = Object.values(toolCallMap);
-  
-  console.log('[Agent] Stream complete - Main content:', mainContent.length, 'chars, Thinking:', fullThinking.length, 'chars');
   
   return {
     content: mainContent,
@@ -645,7 +643,13 @@ export async function runAgentTurn({
       }
       
       // Consume stream and get full message
-      const { content, thinkingContent, message } = await consumeStream(response, onToken, onThinkingToken);
+      // Pass true for alreadyStartedThinking on iterations after the first to prevent duplicate thinking blocks
+      const { content, thinkingContent, message } = await consumeStream(
+        response, 
+        onToken, 
+        onThinkingToken, 
+        iteration > 0 // Don't start new thinking block on subsequent iterations
+      );
       
       console.log(`[Agent] Iteration ${iteration}: content="${content?.slice(0, 50)}...", thinking="${thinkingContent?.slice(0, 50)}...", tool_calls=${message.tool_calls?.length || 0}`);
       
