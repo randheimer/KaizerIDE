@@ -10,10 +10,85 @@
   user-select: none;
 }
 
+.titlebar-macos {
+  padding-left: 8px;
+}
+
+.titlebar-windows {
+  padding-left: 12px;
+}
+
 .titlebar-left {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* macOS Window Controls */
+.window-controls-macos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.macos-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.macos-btn svg {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.titlebar:hover .macos-btn svg {
+  opacity: 1;
+}
+
+.macos-btn.close {
+  background: #ff5f57;
+}
+
+.macos-btn.close:hover {
+  background: #ff4136;
+}
+
+.macos-btn.close svg {
+  color: #8b0000;
+}
+
+.macos-btn.minimize {
+  background: #ffbd2e;
+}
+
+.macos-btn.minimize:hover {
+  background: #ffaa00;
+}
+
+.macos-btn.minimize svg {
+  color: #995700;
+}
+
+.macos-btn.maximize {
+  background: #28c840;
+}
+
+.macos-btn.maximize:hover {
+  background: #1fa832;
+}
+
+.macos-btn.maximize svg {
+  color: #006400;
 }
 
 .logo {
@@ -55,6 +130,7 @@
   color: var(--text-0);
 }
 
+/* Windows Window Controls */
 .titlebar-right {
   display: flex;
   gap: 1px;
@@ -67,7 +143,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  background: transparent;
+  border: none;
   color: var(--text-1);
+  cursor: pointer;
   transition: background 0.15s ease;
 }
 

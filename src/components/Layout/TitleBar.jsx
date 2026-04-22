@@ -1,8 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import MenuBar from './MenuBar';
 import './TitleBar.css';
 
 function TitleBar({ workspacePath, onSettingsClick, onMenuAction }) {
+  const [isMacOS, setIsMacOS] = useState(false);
+
+  useEffect(() => {
+    // Load appearance settings
+    const saved = localStorage.getItem('kaizer-appearance-settings');
+    const settings = saved ? JSON.parse(saved) : { windowControlsTheme: 'windows' };
+    
+    // Determine theme
+    setIsMacOS(settings.windowControlsTheme === 'macos');
+
+    // Listen for settings changes
+    const handleSettingsChange = (e) => {
+      const newSettings = e.detail;
+      setIsMacOS(newSettings.windowControlsTheme === 'macos');
+    };
+
+    window.addEventListener('kaizer:appearance-settings-changed', handleSettingsChange);
+    return () => window.removeEventListener('kaizer:appearance-settings-changed', handleSettingsChange);
+  }, []);
+
   const handleMinimize = () => {
     window.electron?.windowMinimize();
   };
@@ -16,8 +36,27 @@ function TitleBar({ workspacePath, onSettingsClick, onMenuAction }) {
   };
 
   return (
-    <div className="titlebar">
+    <div className={`titlebar ${isMacOS ? 'titlebar-macos' : 'titlebar-windows'}`}>
       <div className="titlebar-left">
+        {isMacOS && (
+          <div className="window-controls-macos">
+            <button className="macos-btn close" onClick={handleClose} title="Close">
+              <svg width="6" height="6" viewBox="0 0 6 6">
+                <path d="M0 0L6 6M6 0L0 6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+              </svg>
+            </button>
+            <button className="macos-btn minimize" onClick={handleMinimize} title="Minimize">
+              <svg width="8" height="2" viewBox="0 0 8 2">
+                <rect width="8" height="2" fill="currentColor" />
+              </svg>
+            </button>
+            <button className="macos-btn maximize" onClick={handleMaximize} title="Maximize">
+              <svg width="6" height="6" viewBox="0 0 6 6">
+                <path d="M0 2L3 5L6 2" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+        )}
         <div className="logo">K</div>
         <MenuBar onMenuAction={onMenuAction} />
       </div>
@@ -29,23 +68,25 @@ function TitleBar({ workspacePath, onSettingsClick, onMenuAction }) {
           </svg>
         </button>
       </div>
-      <div className="titlebar-right">
-        <button className="titlebar-btn minimize" onClick={handleMinimize}>
-          <svg width="12" height="12" viewBox="0 0 12 12">
-            <rect x="0" y="5" width="12" height="2" fill="currentColor" />
-          </svg>
-        </button>
-        <button className="titlebar-btn maximize" onClick={handleMaximize}>
-          <svg width="12" height="12" viewBox="0 0 12 12">
-            <rect x="0" y="0" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-        </button>
-        <button className="titlebar-btn close" onClick={handleClose}>
-          <svg width="12" height="12" viewBox="0 0 12 12">
-            <path d="M1 1L11 11M11 1L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </button>
-      </div>
+      {!isMacOS && (
+        <div className="titlebar-right">
+          <button className="titlebar-btn minimize" onClick={handleMinimize}>
+            <svg width="12" height="12" viewBox="0 0 12 12">
+              <rect x="0" y="5" width="12" height="2" fill="currentColor" />
+            </svg>
+          </button>
+          <button className="titlebar-btn maximize" onClick={handleMaximize}>
+            <svg width="12" height="12" viewBox="0 0 12 12">
+              <rect x="0" y="0" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          </button>
+          <button className="titlebar-btn close" onClick={handleClose}>
+            <svg width="12" height="12" viewBox="0 0 12 12">
+              <path d="M1 1L11 11M11 1L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -33,7 +33,8 @@ function SettingsModal({ settings, onSave, onClose }) {
       sidebarPosition: 'left',
       showStatusBar: true,
       compactMode: false,
-      accentColor: '#a855f7'
+      accentColor: '#a855f7',
+      windowControlsTheme: 'windows'
     };
   });
 
@@ -49,7 +50,8 @@ function SettingsModal({ settings, onSave, onClose }) {
   const handleSaveAppearance = () => {
     localStorage.setItem('kaizer-appearance-settings', JSON.stringify(appearanceSettings));
     document.documentElement.style.setProperty('--accent', appearanceSettings.accentColor);
-    alert('Appearance settings saved!');
+    window.dispatchEvent(new CustomEvent('kaizer:appearance-settings-changed', { detail: appearanceSettings }));
+    alert('Appearance settings saved! Refresh to apply window controls theme.');
   };
 
   const handleAddModel = () => {
@@ -349,6 +351,19 @@ function SettingsModal({ settings, onSave, onClose }) {
 
           {activeTab === 'appearance' && (
             <div className="settings-panel">
+              <div className="setting-group">
+                <label>Window Controls Theme</label>
+                <select
+                  value={appearanceSettings.windowControlsTheme}
+                  onChange={(e) => setAppearanceSettings(prev => ({ ...prev, windowControlsTheme: e.target.value }))}
+                  className="model-select"
+                >
+                  <option value="macos">macOS Style</option>
+                  <option value="windows">Windows Style</option>
+                </select>
+                <span className="setting-description">Choose window controls style (minimize, maximize, close buttons)</span>
+              </div>
+
               <div className="setting-group">
                 <label>Accent Color</label>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
