@@ -41,6 +41,7 @@
       "electron/**/*",
       "package.json"
     ],
+    "compression": "normal",
     "win": {
       "icon": "images/logo.png",
       "target": [
