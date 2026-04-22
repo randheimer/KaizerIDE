@@ -24,6 +24,21 @@
   gap: 8px;
 }
 
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-macos .titlebar-right {
+  gap: 8px;
+}
+
+.titlebar-windows .titlebar-right {
+  gap: 1px;
+}
+
 /* macOS Window Controls */
 .window-controls-macos {
   display: flex;
@@ -131,12 +146,6 @@
 }
 
 /* Windows Window Controls */
-.titlebar-right {
-  display: flex;
-  gap: 1px;
-  -webkit-app-region: no-drag;
-}
-
 .titlebar-btn {
   width: 46px;
   height: 36px;

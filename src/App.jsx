@@ -466,6 +466,10 @@ function App() {
         setShowHelpModal(true);
         break;
       
+      case 'open-settings':
+        setShowSettings(true);
+        break;
+      
       case 'new-terminal':
         setTerminalVisible(true);
         window.dispatchEvent(new CustomEvent('kaizer:new-terminal'));

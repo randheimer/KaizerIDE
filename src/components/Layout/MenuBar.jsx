@@ -3,7 +3,24 @@ import './MenuBar.css';
 
 function MenuBar({ onMenuAction }) {
   const [activeMenu, setActiveMenu] = useState(null);
+  const [isMacOS, setIsMacOS] = useState(false);
   const menuBarRef = useRef(null);
+
+  useEffect(() => {
+    // Load appearance settings
+    const saved = localStorage.getItem('kaizer-appearance-settings');
+    const settings = saved ? JSON.parse(saved) : { windowControlsTheme: 'windows' };
+    setIsMacOS(settings.windowControlsTheme === 'macos');
+
+    // Listen for settings changes
+    const handleSettingsChange = (e) => {
+      const newSettings = e.detail;
+      setIsMacOS(newSettings.windowControlsTheme === 'macos');
+    };
+
+    window.addEventListener('kaizer:appearance-settings-changed', handleSettingsChange);
+    return () => window.removeEventListener('kaizer:appearance-settings-changed', handleSettingsChange);
+  }, []);
 
   const menus = {
     file: {
@@ -94,6 +111,8 @@ function MenuBar({ onMenuAction }) {
         { label: 'Welcome', action: 'show-welcome' },
         { label: 'Documentation', action: 'show-docs' },
         { type: 'separator' },
+        { label: 'Settings', shortcut: 'Ctrl+,', action: 'open-settings' },
+        { type: 'separator' },
         { label: 'About', action: 'show-about' },
       ]
     }
@@ -134,9 +153,12 @@ function MenuBar({ onMenuAction }) {
     }
   };
 
+  const menuEntries = Object.entries(menus);
+  const orderedMenus = isMacOS ? [...menuEntries].reverse() : menuEntries;
+
   return (
-    <div className="menu-bar" ref={menuBarRef}>
-      {Object.entries(menus).map(([key, menu]) => (
+    <div className={`menu-bar ${isMacOS ? 'menu-bar-macos' : ''}`} ref={menuBarRef}>
+      {orderedMenus.map(([key, menu]) => (
         <div key={key} className="menu-item">
           <button
             className={`menu-button ${activeMenu === key ? 'active' : ''}`}

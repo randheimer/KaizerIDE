@@ -53,6 +53,11 @@
   animation: menuDropdownIn 120ms ease forwards;
 }
 
+.menu-bar-macos .menu-dropdown {
+  left: auto;
+  right: 0;
+}
+
 @keyframes menuDropdownIn {
   from {
     opacity: 0;
