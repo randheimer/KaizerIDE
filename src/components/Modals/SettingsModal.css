@@ -287,10 +287,6 @@
   line-height: 1.5;
 }
 
-.prompt-textarea:focus {
-  border-color: var(--accent);
-}
-
 .prompt-preview {
   background: var(--bg-1);
   border: 1px solid var(--border);
@@ -303,4 +299,55 @@
   max-height: 200px;
   overflow-y: auto;
   line-height: 1.6;
+}
+
+.setting-description {
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+  margin-top: -4px;
+}
+
+.number-input {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100px;
+}
+
+.number-input:focus {
+  border-color: var(--accent);
+}
+
+.checkbox-group {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  font-size: 13px;
+  color: var(--text-1);
+  cursor: pointer;
+  font-weight: normal;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.checkbox-group .setting-description {
+  margin-left: 24px;
 }

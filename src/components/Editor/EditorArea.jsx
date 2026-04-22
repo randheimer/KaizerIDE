@@ -908,6 +908,6 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
 }
 
 export default EditorArea;
-      
+
 
 
