@@ -234,12 +234,8 @@ function ToolGroupCard({ group, onToggleExpanded, onToggleRowExpanded }) {
 }
 
 function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onOpenFile }) {
-  // Only log on mount and when workspacePath actually changes
-  useEffect(() => {
-    console.log('[ChatPanel] Rendered with workspacePath:', workspacePath);
-  }, [workspacePath]);
-  
   const [messages, setMessages] = useState([]);
+  const [streamingMsg, setStreamingMsg] = useState(null);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isAgentRunning, setIsAgentRunning] = useState(false);
@@ -260,7 +256,6 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const [modelPopupPosition, setModelPopupPosition] = useState({ x: 0, y: 0 });
   const [commandPermissionRequest, setCommandPermissionRequest] = useState(null);
   const thinkStartTime = useRef(null);
-  const currentMsgIdRef = useRef(null);
   const [autoApproveCommands, setAutoApproveCommands] = useState(false);
   const [filesChangedCard, setFilesChangedCard] = useState(null);
   
@@ -268,12 +263,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const messagesContainerRef = useRef(null);
   const isUserScrolledUp = useRef(false);
   const lastScrollTop = useRef(0);
-  const streamingRef = useRef(null);
-  const thinkingRef = useRef(null);
-  const streamingContentRef = useRef('');
-  const streamingThinkingRef = useRef('');
-  const streamingDomRef = useRef(null);
-  const thinkingDomRef = useRef(null);
+  const streamingMsgRef = useRef(null);
+  const streamingUpdateTimer = useRef(null);
   const abortControllerRef = useRef(null);
   const textareaRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -282,6 +273,18 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const contextButtonRef = useRef(null);
   const modeButtonRef = useRef(null);
   const modelButtonRef = useRef(null);
+
+  // Update streaming message with throttling
+  const updateStreaming = useCallback((patch) => {
+    streamingMsgRef.current = { ...streamingMsgRef.current, ...patch };
+    // Throttle to ~30fps to prevent flicker
+    if (!streamingUpdateTimer.current) {
+      streamingUpdateTimer.current = setTimeout(() => {
+        setStreamingMsg({ ...streamingMsgRef.current });
+        streamingUpdateTimer.current = null;
+      }, 33);
+    }
+  }, []);
 
   // Scroll to bottom helper
   const scrollToBottom = useCallback((force = false) => {
@@ -588,23 +591,17 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       [turnId]: newToolGroup
     }));
 
-    // Create placeholder assistant message immediately
-    const assistantMsgId = crypto.randomUUID();
-    currentMsgIdRef.current = assistantMsgId;
-    streamingContentRef.current = '';
-    streamingThinkingRef.current = '';
-    setMessages(prev => [...prev, {
-      id: assistantMsgId,
-      role: 'assistant',
-      content: '__STREAMING__',
-      thinkingBlocks: [], // Array to store multiple thinking sessions
-      currentThinkingIndex: -1,
-      isDone: false
-    }]);
+    // Initialize streaming message
+    streamingMsgRef.current = {
+      content: '',
+      thinkingContent: '',
+      isThinking: false,
+      thinkingExpanded: true,
+      thinkingDuration: null
+    };
+    setStreamingMsg({ ...streamingMsgRef.current });
 
     abortControllerRef.current = new AbortController();
-
-    console.log('[ChatPanel] Calling runAgentTurn with workspacePath:', workspacePath);
 
     try {
       await runAgentTurn({
@@ -614,104 +611,32 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         activeFile,
         activeFileContent,
         onToken: (token) => {
-          // Accumulate in ref
-          streamingContentRef.current += token;
+          streamingMsgRef.current.content += token;
+          updateStreaming({ content: streamingMsgRef.current.content });
           
-          // Update DOM directly for streaming content
-          if (streamingDomRef.current) {
-            streamingDomRef.current.textContent = streamingContentRef.current;
-          }
-          
-          // Update state periodically for ReactMarkdown rendering (every ~50 tokens or ~200 chars)
-          if (streamingContentRef.current.length % 200 < token.length) {
-            setMessages(prev => prev.map(m => m.id === currentMsgIdRef.current
-              ? { ...m, content: streamingContentRef.current }
-              : m
-            ));
-          }
-          
-          // Scroll to bottom without triggering react re-render
+          // Scroll to bottom
           if (!isUserScrolledUp.current && messagesContainerRef.current) {
             messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
           }
         },
         onThinkingToken: (token) => {
-          console.log('[ChatPanel] onThinkingToken called with:', token.substring(0, 50));
-          
-          // Handle special signals
           if (token === '__START__') {
-            console.log('[ChatPanel] Starting new thinking phase');
             thinkStartTime.current = Date.now();
-            streamingThinkingRef.current = '';
-            
-            // Add new thinking block to the message
-            setMessages(prev => prev.map(m => m.id === currentMsgIdRef.current
-              ? {
-                  ...m,
-                  thinkingBlocks: [
-                    ...(m.thinkingBlocks || []),
-                    {
-                      content: '__STREAMING__',
-                      isThinking: true,
-                      expanded: true,
-                      duration: null
-                    }
-                  ],
-                  currentThinkingIndex: (m.thinkingBlocks || []).length
-                }
-              : m
-            ));
+            updateStreaming({ isThinking: true, thinkingExpanded: true });
             return;
           }
           
           if (token === '__END__') {
-            console.log('[ChatPanel] Ending thinking phase');
-            const duration = thinkStartTime.current ? Date.now() - thinkStartTime.current : 0;
-            const savedContent = streamingThinkingRef.current;
-            
-            console.log('[ChatPanel] Saving thinking content:', {
-              length: savedContent.length,
-              preview: savedContent.substring(0, 100),
-              duration
+            updateStreaming({
+              isThinking: false,
+              thinkingExpanded: false,
+              thinkingDuration: Date.now() - thinkStartTime.current
             });
-            
-            // Finalize current thinking block - keep it expanded
-            setMessages(prev => prev.map(m => {
-              if (m.id !== currentMsgIdRef.current) return m;
-              
-              const blocks = [...(m.thinkingBlocks || [])];
-              const currentIdx = m.currentThinkingIndex;
-              
-              console.log('[ChatPanel] Finalizing block', currentIdx, 'of', blocks.length);
-              
-              if (currentIdx >= 0 && currentIdx < blocks.length) {
-                blocks[currentIdx] = {
-                  ...blocks[currentIdx],
-                  content: savedContent,
-                  isThinking: false,
-                  expanded: true, // Keep expanded instead of collapsing
-                  duration
-                };
-                
-                console.log('[ChatPanel] Updated block:', blocks[currentIdx]);
-              }
-              
-              return {
-                ...m,
-                thinkingBlocks: blocks,
-                currentThinkingIndex: -1
-              };
-            }));
-            
-            streamingThinkingRef.current = '';
             return;
           }
           
-          // Write directly to DOM, NO setState
-          streamingThinkingRef.current += token;
-          if (thinkingDomRef.current) {
-            thinkingDomRef.current.textContent = streamingThinkingRef.current;
-          }
+          streamingMsgRef.current.thinkingContent += token;
+          updateStreaming({ thinkingContent: streamingMsgRef.current.thinkingContent });
         },
         onToolCall: ({ id, name, args }) => {
           // Add tool to current turn's group
@@ -762,41 +687,24 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           });
         },
         onDone: () => {
+          clearTimeout(streamingUpdateTimer.current);
+          streamingUpdateTimer.current = null;
+          
+          // Commit streaming message to messages
+          const finalMsg = {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: streamingMsgRef.current.content,
+            thinkingContent: streamingMsgRef.current.thinkingContent,
+            thinkingDuration: streamingMsgRef.current.thinkingDuration,
+            thinkingExpanded: false
+          };
+          
+          setMessages(prev => [...prev, finalMsg]);
+          setStreamingMsg(null);
           setIsStreaming(false);
           setIsAgentRunning(false);
-          
-          // Commit everything to state ONCE
-          setMessages(prev => prev.map(m => {
-            if (m.id !== currentMsgIdRef.current) return m;
-            
-            const blocks = [...(m.thinkingBlocks || [])];
-            const currentIdx = m.currentThinkingIndex;
-            
-            // If there's an active thinking block, finalize it
-            if (currentIdx >= 0 && currentIdx < blocks.length && streamingThinkingRef.current) {
-              blocks[currentIdx] = {
-                ...blocks[currentIdx],
-                content: streamingThinkingRef.current,
-                isThinking: false,
-                expanded: true, // Keep expanded
-                duration: thinkStartTime.current ? Date.now() - thinkStartTime.current : 0
-              };
-            }
-            
-            return {
-              ...m,
-              content: streamingContentRef.current,
-              thinkingBlocks: blocks,
-              currentThinkingIndex: -1,
-              isDone: true
-            };
-          }));
-          
-          // Clear refs
-          streamingContentRef.current = '';
-          streamingThinkingRef.current = '';
-          
-          console.log('[ChatPanel] Agent done');
+          streamingMsgRef.current = null;
           
           // Mark tool group as done and collapse it
           setToolGroups(prev => {
@@ -814,7 +722,6 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           });
           
           setCurrentTurnId(null);
-          currentMsgIdRef.current = null;
           thinkStartTime.current = null;
           
           // Scroll to bottom when agent finishes
@@ -897,8 +804,11 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         setIsStreaming(false);
         setIsAgentRunning(false);
         setCurrentTurnId(null);
-        currentMsgIdRef.current = null;
         thinkStartTime.current = null;
+        setStreamingMsg(null);
+        streamingMsgRef.current = null;
+        clearTimeout(streamingUpdateTimer.current);
+        streamingUpdateTimer.current = null;
         
         // Mark tool group as done on error
         if (turnId && toolGroups[turnId]) {
@@ -920,39 +830,24 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       
-      console.log('[ChatPanel] Stop - Aborting agent turn');
+      clearTimeout(streamingUpdateTimer.current);
+      streamingUpdateTimer.current = null;
       
-      // Commit partial content to state
-      setMessages(prev => prev.map(m => {
-        if (m.id !== currentMsgIdRef.current) return m;
-        
-        const blocks = [...(m.thinkingBlocks || [])];
-        const currentIdx = m.currentThinkingIndex;
-        
-        // If there's an active thinking block, finalize it
-        if (currentIdx >= 0 && currentIdx < blocks.length && streamingThinkingRef.current) {
-          blocks[currentIdx] = {
-            ...blocks[currentIdx],
-            content: streamingThinkingRef.current,
-            isThinking: false,
-            expanded: true, // Keep expanded
-            duration: thinkStartTime.current ? Date.now() - thinkStartTime.current : 0
-          };
-        }
-        
-        return {
-          ...m,
-          content: streamingContentRef.current,
-          thinkingBlocks: blocks,
-          currentThinkingIndex: -1,
-          isDone: true
+      // Commit partial content to messages
+      if (streamingMsgRef.current) {
+        const finalMsg = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: streamingMsgRef.current.content,
+          thinkingContent: streamingMsgRef.current.thinkingContent,
+          thinkingDuration: streamingMsgRef.current.thinkingDuration,
+          thinkingExpanded: false
         };
-      }));
+        setMessages(prev => [...prev, finalMsg]);
+      }
       
-      // Clear refs
-      streamingContentRef.current = '';
-      streamingThinkingRef.current = '';
-      
+      setStreamingMsg(null);
+      streamingMsgRef.current = null;
       setIsStreaming(false);
       setIsAgentRunning(false);
       
@@ -969,7 +864,6 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       }
       
       setCurrentTurnId(null);
-      currentMsgIdRef.current = null;
       thinkStartTime.current = null;
     }
   };
@@ -1188,20 +1082,126 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     }
   };
 
-  const toggleThinking = (msgId, blockIndex) => {
+  const toggleThinking = (msgId) => {
     setMessages(prev => prev.map(m => {
       if (m.id !== msgId) return m;
-      
-      const blocks = [...(m.thinkingBlocks || [])];
-      if (blockIndex >= 0 && blockIndex < blocks.length) {
-        blocks[blockIndex] = {
-          ...blocks[blockIndex],
-          expanded: !blocks[blockIndex].expanded
-        };
-      }
-      
-      return { ...m, thinkingBlocks: blocks };
+      return { ...m, thinkingExpanded: !m.thinkingExpanded };
     }));
+  };
+
+  const renderStreamingMessage = (msg) => {
+    return (
+      <div className="message-row assistant-row" key="streaming">
+        <div className="message-assistant">
+          {(msg.thinkingContent || msg.isThinking) && (
+            <div className="thinking-block">
+              <div 
+                className="thinking-header"
+                onClick={() => updateStreaming({ thinkingExpanded: !streamingMsgRef.current.thinkingExpanded })}
+              >
+                {msg.isThinking ? (
+                  <span className="thinking-spinner"></span>
+                ) : (
+                  <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
+                )}
+                <span className="thinking-label">
+                  {msg.isThinking
+                    ? 'Thinking...'
+                    : `Thought for ${((msg.thinkingDuration || 0) / 1000).toFixed(1)}s`}
+                </span>
+                <span 
+                  className="thinking-chevron"
+                  style={{transform: msg.thinkingExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
+                >
+                  ▸
+                </span>
+              </div>
+              {msg.thinkingExpanded && (
+                <div className="thinking-body">
+                  <pre>{msg.thinkingContent}</pre>
+                </div>
+              )}
+            </div>
+          )}
+          {msg.content && (
+            <div className="assistant-message">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code: ({ node, inline, className, children, ...props }) => {
+                    const match = /language-(\w+)/.exec(className || '');
+                    const language = match ? match[1] : '';
+                    
+                    if (!inline) {
+                      const codeContent = String(children).replace(/\n$/, '');
+                      
+                      return (
+                        <div className="code-block-wrapper">
+                          {language && (
+                            <div className="code-block-header">
+                              <span className="code-block-lang">{language}</span>
+                              <button className="code-copy-btn" onClick={() => {
+                                navigator.clipboard.writeText(codeContent);
+                              }}>
+                                Copy
+                              </button>
+                            </div>
+                          )}
+                          <SyntaxHighlighter
+                            style={vscDarkPlus}
+                            language={language || 'text'}
+                            PreTag="div"
+                            customStyle={{
+                              margin: 0,
+                              borderRadius: language ? '0 0 8px 8px' : '8px',
+                              fontSize: '12.5px',
+                              background: 'var(--bg-2)',
+                            }}
+                            codeTagProps={{
+                              style: {
+                                fontFamily: 'var(--font-mono)',
+                                lineHeight: '1.5'
+                              }
+                            }}
+                            {...props}
+                          >
+                            {codeContent}
+                          </SyntaxHighlighter>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <code className="inline-code" {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                  p: ({ children }) => <div className="assistant-paragraph">{children}</div>,
+                  strong: ({ children }) => <strong className="assistant-bold">{children}</strong>,
+                  em: ({ children }) => <em className="assistant-italic">{children}</em>,
+                  h1: ({ children }) => <h1 className="assistant-h1">{children}</h1>,
+                  h2: ({ children }) => <h2 className="assistant-h2">{children}</h2>,
+                  h3: ({ children }) => <h3 className="assistant-h3">{children}</h3>,
+                  h4: ({ children }) => <h4 className="assistant-h4">{children}</h4>,
+                  h5: ({ children }) => <h5 className="assistant-h5">{children}</h5>,
+                  h6: ({ children }) => <h6 className="assistant-h6">{children}</h6>,
+                  ul: ({ children }) => <ul className="assistant-ul">{children}</ul>,
+                  ol: ({ children }) => <ol className="assistant-ol">{children}</ol>,
+                  li: ({ children }) => <li className="assistant-li">{children}</li>,
+                  blockquote: ({ children }) => <blockquote className="assistant-blockquote">{children}</blockquote>,
+                  hr: () => <hr className="assistant-hr" />,
+                  a: ({ href, children }) => <a className="assistant-link" href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
+                  del: ({ children }) => <del className="assistant-strikethrough">{children}</del>
+                }}
+              >
+                {msg.content}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const renderMessage = (msg, idx) => {
@@ -1230,76 +1230,37 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     }
 
     if (msg.role === 'assistant') {
-      console.log('[ChatPanel] Rendering assistant message:', msg.content?.substring(0, 200));
-      
-      // Check if this is a streaming message
-      const isStreamingMsg = msg.content === '__STREAMING__';
-      const thinkingBlocks = msg.thinkingBlocks || [];
-      const currentThinkingIdx = msg.currentThinkingIndex ?? -1;
-      
       return (
         <div key={idx} className="message-row assistant-row">
           <div className="message-assistant">
-            {/* Render all thinking blocks */}
-            {thinkingBlocks.map((block, blockIdx) => {
-              const isStreamingThinking = block.content === '__STREAMING__';
-              
-              console.log('[ChatPanel] Rendering thinking block', blockIdx, ':', {
-                isStreamingThinking,
-                hasContent: !!block.content,
-                contentLength: block.content?.length,
-                isThinking: block.isThinking,
-                expanded: block.expanded
-              });
-              
-              if (isStreamingThinking && blockIdx === currentThinkingIdx) {
-                // Currently streaming thinking block
-                return (
-                  <div key={blockIdx} className="thinking-block">
-                    <div 
-                      className="thinking-header"
-                      onClick={() => toggleThinking(msg.id, blockIdx)}
-                    >
-                      <span className="thinking-spinner"></span>
-                      <span className="thinking-label">Thinking...</span>
-                      <span 
-                        className="thinking-chevron"
-                        style={{transform: block.expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
-                      >
-                        ▸
-                      </span>
-                    </div>
-                    {block.expanded && (
-                      <div className="thinking-body" ref={thinkingDomRef}></div>
-                    )}
+            {msg.thinkingContent && (
+              <div className="thinking-block">
+                <div 
+                  className="thinking-header"
+                  onClick={() => toggleThinking(msg.id)}
+                >
+                  <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
+                  <span className="thinking-label">
+                    {msg.thinkingDuration 
+                      ? `Thought for ${(msg.thinkingDuration / 1000).toFixed(1)}s`
+                      : 'Thinking'}
+                  </span>
+                  <span 
+                    className="thinking-chevron"
+                    style={{transform: msg.thinkingExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
+                  >
+                    ▸
+                  </span>
+                </div>
+                {msg.thinkingExpanded && (
+                  <div className="thinking-body">
+                    <pre>{msg.thinkingContent}</pre>
                   </div>
-                );
-              }
-              
-              // Completed thinking block - render if it has content and is not streaming
-              if (!isStreamingThinking && block.content && block.content.trim()) {
-                return (
-                  <ThinkingBlock
-                    key={blockIdx}
-                    content={block.content}
-                    isThinking={block.isThinking}
-                    duration={block.duration}
-                    expanded={block.expanded}
-                    onToggle={() => toggleThinking(msg.id, blockIdx)}
-                  />
-                );
-              }
-              
-              return null;
-            })}
-            
-            {/* Streaming content */}
-            {isStreamingMsg && (
-              <div className="assistant-message" ref={streamingDomRef}></div>
+                )}
+              </div>
             )}
             
-            {/* Completed content */}
-            {!isStreamingMsg && msg.content && (
+            {msg.content && (
               <div className="assistant-message">
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm]}
@@ -1388,52 +1349,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       );
     }
 
-    // Skip files-changed messages in the main render - they're rendered separately
-    if (msg.role === 'files-changed') {
-      return null;
-    }
-
     return null;
   };
 
-  // ThinkingBlock component
-  const ThinkingBlock = ({ content, isThinking, duration, expanded, onToggle }) => {
-    const formatDuration = (ms) => {
-      if (!ms || ms <= 0) return '';
-      return `${(ms / 1000).toFixed(1)}s`;
-    };
-    
-    const durationText = formatDuration(duration);
-    
-    return (
-      <div className="thinking-block">
-        <div 
-          className="thinking-header"
-          onClick={onToggle}
-        >
-          {isThinking ? (
-            <span className="thinking-spinner"></span>
-          ) : (
-            <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
-          )}
-          <span className="thinking-label">
-            {isThinking ? 'Thinking...' : (durationText ? `Thought for ${durationText}` : 'Thinking')}
-          </span>
-          <span 
-            className="thinking-chevron"
-            style={{transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
-          >
-            ▸
-          </span>
-        </div>
-        {expanded && (
-          <div className="thinking-body">
-            <pre>{content}</pre>
-          </div>
-        )}
-      </div>
-    );
-  };
+  // Remove ThinkingBlock component - now inline
 
   return (
     <div className="chat-panel">
@@ -1508,9 +1427,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               
               return messageElement;
             })}
+            {streamingMsg && renderStreamingMessage(streamingMsg)}
           </>
         )}
-        {isAgentRunning && (
+        {isAgentRunning && !streamingMsg?.content && !streamingMsg?.thinkingContent && (
           <div className="typing-indicator">
             <span></span>
             <span></span>
