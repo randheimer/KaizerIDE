@@ -1,9 +1,47 @@
 ; Custom NSIS script for KaizerIDE context menu integration
 
-; Add "Open with KaizerIDE" to context menu for files (optional, user choice)
+; Variable to store user choice
+Var AddToContextMenu
+
+; Custom page to ask about context menu
+!macro customInit
+  StrCpy $AddToContextMenu "1"  ; Default to enabled
+!macroend
+
+; Add checkbox to installer page
+!macro customInstallPage
+  !insertmacro MUI_PAGE_DIRECTORY
+  
+  ; Custom page for context menu option
+  Page custom ContextMenuPage ContextMenuPageLeave
+  
+  !insertmacro MUI_PAGE_INSTFILES
+!macroend
+
+Function ContextMenuPage
+  !insertmacro MUI_HEADER_TEXT "Context Menu Integration" "Choose whether to add KaizerIDE to Windows context menu"
+  
+  nsDialogs::Create 1018
+  Pop $0
+  
+  ${NSD_CreateLabel} 0 0 100% 24u "Add 'Open with KaizerIDE' to the right-click context menu for files and folders?"
+  Pop $0
+  
+  ${NSD_CreateCheckbox} 0 30u 100% 12u "Add to context menu (recommended)"
+  Pop $1
+  ${NSD_SetState} $1 ${BST_CHECKED}
+  
+  nsDialogs::Show
+FunctionEnd
+
+Function ContextMenuPageLeave
+  ${NSD_GetState} $1 $AddToContextMenu
+FunctionEnd
+
+; Add "Open with KaizerIDE" to context menu for files
 !macro customInstall
   ; Only add context menu if user selected the option
-  ${If} $AddToContextMenu == "1"
+  ${If} $AddToContextMenu == ${BST_CHECKED}
     ; Register context menu for all files
     WriteRegStr HKCR "*\shell\KaizerIDE" "" "Open with KaizerIDE"
     WriteRegStr HKCR "*\shell\KaizerIDE" "Icon" "$INSTDIR\KaizerIDE.exe"
