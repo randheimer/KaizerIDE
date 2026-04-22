@@ -22,15 +22,13 @@ contextBridge.exposeInMainWorld('electron', {
   loadWorkspacePath: () => ipcRenderer.invoke('load-workspace-path'),
   getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
   
-  // Context menu integration - listen for file/folder paths from command line args
-  onOpenFolderFromArgs: (callback) => {
-    const listener = (event, folderPath) => callback(folderPath);
-    ipcRenderer.on('open-folder-from-args', listener);
-    return () => ipcRenderer.removeListener('open-folder-from-args', listener);
-  },
-  onOpenFileFromArgs: (callback) => {
-    const listener = (event, filePath) => callback(filePath);
-    ipcRenderer.on('open-file-from-args', listener);
-    return () => ipcRenderer.removeListener('open-file-from-args', listener);
+  // Context menu integration - get path passed from command line
+  getOpenPath: () => ipcRenderer.invoke('get-open-path'),
+  
+  // Listen for paths sent after startup (second instance)
+  onOpenPath: (callback) => {
+    const listener = (event, p) => callback(p);
+    ipcRenderer.on('open-path', listener);
+    return () => ipcRenderer.removeListener('open-path', listener);
   }
 });

@@ -9,8 +9,35 @@ const __dirname = path.dirname(__filename);
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
+let openPath = null;
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'release', '__pycache__', '.vscode', '.idea']);
+
+function getOpenPath() {
+  // In production: argv = [execPath, '--', path] or [execPath, path]
+  // In dev: argv = [electron, main.js, path]
+  const args = process.argv.slice(1);
+  
+  // Filter out electron/chromium internal flags
+  const filtered = args.filter(a =>
+    !a.startsWith('--') &&
+    !a.endsWith('main.js') &&
+    !a.endsWith('app.asar') &&
+    a.trim() !== '.'
+  );
+  
+  if (filtered.length > 0) {
+    const p = filtered[filtered.length - 1];
+    // Verify it's an actual path that exists
+    try {
+      fs.accessSync(p);
+      return p;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
 function buildFileTree(dirPath, depth = 0, maxDepth = 7) {
   if (depth > maxDepth) return null;
@@ -90,34 +117,56 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
+  // After page loads, send the open path to renderer
+  mainWindow.webContents.once('did-finish-load', () => {
+    if (openPath) {
+      mainWindow.webContents.send('open-path', openPath);
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  return mainWindow;
+}
+
+// Handle single instance lock - when app is already running and user right-clicks another folder
+const gotLock = app.requestSingleInstanceLock();
+
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, argv) => {
+    const secondArgs = argv.filter(a =>
+      !a.startsWith('--') &&
+      !a.endsWith('main.js') &&
+      !a.endsWith('app.asar') &&
+      a.trim() !== '.'
+    );
+    const secondPath = secondArgs[secondArgs.length - 1];
+    
+    const wins = BrowserWindow.getAllWindows();
+    if (wins.length > 0) {
+      const win = wins[0];
+      if (win.isMinimized()) win.restore();
+      win.focus();
+      if (secondPath) {
+        try {
+          fs.accessSync(secondPath);
+          win.webContents.send('open-path', secondPath);
+        } catch {}
+      }
+    }
   });
 }
 
 app.whenReady().then(() => {
+  // Get the path from command line arguments
+  openPath = getOpenPath();
+  
   createWindow();
   
-  // Handle command line arguments for opening folders/files
-  const args = process.argv.slice(isDev ? 2 : 1);
-  if (args.length > 0 && mainWindow) {
-    const pathToOpen = args[0];
-    if (fs.existsSync(pathToOpen)) {
-      const stats = fs.statSync(pathToOpen);
-      if (stats.isDirectory()) {
-        // Send folder path to renderer
-        mainWindow.webContents.once('did-finish-load', () => {
-          mainWindow.webContents.send('open-folder-from-args', pathToOpen);
-        });
-      } else if (stats.isFile()) {
-        // Send file path to renderer
-        mainWindow.webContents.once('did-finish-load', () => {
-          mainWindow.webContents.send('open-file-from-args', pathToOpen);
-        });
-      }
-    }
-  }
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -151,6 +200,10 @@ ipcMain.handle('window-close', () => {
   if (mainWindow) {
     mainWindow.close();
   }
+});
+
+ipcMain.handle('get-open-path', () => {
+  return openPath;
 });
 
 ipcMain.handle('open-folder', async () => {

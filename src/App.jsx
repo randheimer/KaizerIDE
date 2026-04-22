@@ -58,46 +58,62 @@ function App() {
 
   // Handle context menu integration - open files/folders from Windows Explorer
   useEffect(() => {
-    console.log('[App] Setting up context menu listeners...');
-    
-    const handleFolderFromArgs = async (folderPath) => {
-      console.log('[App] Received folder from context menu:', folderPath);
-      setWorkspacePath(folderPath);
-      await window.electron.saveWorkspacePath(folderPath);
+    async function checkOpenPath() {
+      if (!window.electron) return;
       
-      // Load file tree
-      const result = await window.electron.getFileTree(folderPath);
-      if (result.success) {
-        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: result.tree }));
+      // Method 1: get path that was available at startup
+      const startupPath = await window.electron.getOpenPath();
+      if (startupPath) {
+        console.log('[App] Received path from context menu:', startupPath);
+        await handleOpenPath(startupPath);
+        return;
       }
-    };
+    }
     
-    const handleFileFromArgs = async (filePath) => {
-      console.log('[App] Received file from context menu:', filePath);
+    checkOpenPath();
+
+    // Method 2: listen for paths sent after startup (second instance)
+    if (window.electron?.onOpenPath) {
+      const cleanup = window.electron.onOpenPath((p) => {
+        console.log('[App] Received path from second instance:', p);
+        handleOpenPath(p);
+      });
+      return cleanup;
+    }
+  }, []);
+
+  const handleOpenPath = async (p) => {
+    if (!p) return;
+    
+    // Check if path is file or folder
+    const info = await window.electron.getFileInfo(p);
+    
+    if (info.isDirectory) {
+      // Open as workspace
+      console.log('[App] Opening folder as workspace:', p);
+      setWorkspacePath(p);
+      await window.electron.saveWorkspacePath(p);
       
-      // Set workspace to parent directory
-      const parentDir = filePath.substring(0, filePath.lastIndexOf('\\'));
+      const tree = await window.electron.getFileTree(p);
+      if (tree.success) {
+        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
+      }
+    } else {
+      // It's a file — open its parent as workspace, then open the file in editor
+      console.log('[App] Opening file:', p);
+      const parentDir = p.split(/[\\/]/).slice(0, -1).join('\\') || p;
       setWorkspacePath(parentDir);
       await window.electron.saveWorkspacePath(parentDir);
       
-      // Load file tree
-      const treeResult = await window.electron.getFileTree(parentDir);
-      if (treeResult.success) {
-        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: treeResult.tree }));
+      const tree = await window.electron.getFileTree(parentDir);
+      if (tree.success) {
+        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
       }
       
-      // Open the file in editor
-      handleFileOpen(filePath);
-    };
-    
-    const cleanupFolder = window.electron.onOpenFolderFromArgs(handleFolderFromArgs);
-    const cleanupFile = window.electron.onOpenFileFromArgs(handleFileFromArgs);
-    
-    return () => {
-      console.log('[App] Cleaning up context menu listeners');
-      cleanupFolder();
-      cleanupFile();
-    };
+      // Open the file in a tab
+      handleFileOpen(p);
+    }
+  };
   }, []);
 
   useEffect(() => {
