@@ -1289,81 +1289,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             })}
             
             {/* Streaming content */}
-            {isStreamingMsg && msg.content !== '__STREAMING__' && (
-              <div className="assistant-message">
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    code: ({ node, inline, className, children, ...props }) => {
-                      const match = /language-(\w+)/.exec(className || '');
-                      const language = match ? match[1] : '';
-                      
-                      if (!inline) {
-                        const codeContent = String(children).replace(/\n$/, '');
-                        
-                        return (
-                          <div className="code-block-wrapper">
-                            {language && (
-                              <div className="code-block-header">
-                                <span className="code-block-lang">{language}</span>
-                                <button className="code-copy-btn" onClick={() => {
-                                  navigator.clipboard.writeText(codeContent);
-                                }}>
-                                  Copy
-                                </button>
-                              </div>
-                            )}
-                            <SyntaxHighlighter
-                              style={vscDarkPlus}
-                              language={language || 'text'}
-                              PreTag="div"
-                              customStyle={{
-                                margin: 0,
-                                borderRadius: language ? '0 0 8px 8px' : '8px',
-                                fontSize: '12.5px',
-                                background: 'var(--bg-2)',
-                              }}
-                              codeTagProps={{
-                                style: {
-                                  fontFamily: 'var(--font-mono)',
-                                  lineHeight: '1.5'
-                                }
-                              }}
-                              {...props}
-                            >
-                              {codeContent}
-                            </SyntaxHighlighter>
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <code className="inline-code" {...props}>
-                          {children}
-                        </code>
-                      );
-                    },
-                    p: ({ children }) => <p className="assistant-paragraph">{children}</p>,
-                    strong: ({ children }) => <strong className="assistant-bold">{children}</strong>,
-                    em: ({ children }) => <em className="assistant-italic">{children}</em>,
-                    h1: ({ children }) => <h1 className="assistant-h1">{children}</h1>,
-                    h2: ({ children }) => <h2 className="assistant-h2">{children}</h2>,
-                    h3: ({ children }) => <h3 className="assistant-h3">{children}</h3>,
-                    h4: ({ children }) => <h4 className="assistant-h4">{children}</h4>,
-                    h5: ({ children }) => <h5 className="assistant-h5">{children}</h5>,
-                    h6: ({ children }) => <h6 className="assistant-h6">{children}</h6>,
-                    ul: ({ children }) => <ul className="assistant-ul">{children}</ul>,
-                    ol: ({ children }) => <ol className="assistant-ol">{children}</ol>,
-                    li: ({ children }) => <li className="assistant-li">{children}</li>,
-                    blockquote: ({ children }) => <blockquote className="assistant-blockquote">{children}</blockquote>,
-                    hr: () => <hr className="assistant-hr" />,
-                    a: ({ href, children }) => <a className="assistant-link" href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
-                    del: ({ children }) => <del className="assistant-strikethrough">{children}</del>
-                  }}
-                >
-                  {msg.content}
-                </ReactMarkdown>
-              </div>
+            {isStreamingMsg && (
+              <div className="assistant-message" ref={streamingDomRef}></div>
             )}
             
             {/* Completed content */}

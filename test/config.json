@@ -1,0 +1,107 @@
+{
+  "editor": {
+    "fontSize": 14,
+    "fontFamily": "Consolas, 'Courier New', monospace",
+    "tabSize": 4,
+    "insertSpaces": true,
+    "wordWrap": "on",
+    "lineNumbers": true,
+    "minimap": true,
+    "autoSave": "afterDelay",
+    "autoSaveDelay": 1000,
+    "formatOnSave": false,
+    "trimTrailingWhitespace": true
+  },
+  "theme": {
+    "name": "dark",
+    "accentColor": "#007ACC",
+    "customColors": {
+      "background": "#1E1E1E",
+      "foreground": "#D4D4D4",
+      "selection": "#264F78",
+      "lineHighlight": "#2A2A2A"
+    }
+  },
+  "terminal": {
+    "shell": "cmd.exe",
+    "fontSize": 12,
+    "cursorStyle": "block",
+    "cursorBlink": true
+  },
+  "plugins": {
+    "autoLoad": true,
+    "pluginDirectory": "plugins",
+    "enabledPlugins": [
+      "hello-plugin",
+      "calculator-plugin",
+      "template-generator"
+    ]
+  },
+  "keybindings": {
+    "openFile": "Ctrl+O",
+    "saveFile": "Ctrl+S",
+    "saveAll": "Ctrl+Shift+S",
+    "find": "Ctrl+F",
+    "replace": "Ctrl+H",
+    "commandPalette": "Ctrl+Shift+P",
+    "quickOpen": "Ctrl+P",
+    "toggleTerminal": "Ctrl+`",
+    "toggleSidebar": "Ctrl+B",
+    "newFile": "Ctrl+N",
+    "closeFile": "Ctrl+W",
+    "undo": "Ctrl+Z",
+    "redo": "Ctrl+Y",
+    "comment": "Ctrl+/",
+    "duplicateLine": "Ctrl+D",
+    "deleteLine": "Ctrl+Shift+K",
+    "goToLine": "Ctrl+G"
+  },
+  "files": {
+    "exclude": [
+      "**/.git",
+      "**/.vs",
+      "**/node_modules",
+      "**/bin",
+      "**/obj",
+      "**/*.exe",
+      "**/*.dll"
+    ],
+    "associations": {
+      "*.config": "xml",
+      "*.json": "json",
+      "*.md": "markdown"
+    },
+    "defaultLanguage": "plaintext",
+    "encoding": "utf8"
+  },
+  "search": {
+    "exclude": [
+      "**/node_modules",
+      "**/bin",
+      "**/obj"
+    ],
+    "useIgnoreFiles": true,
+    "followSymlinks": false
+  },
+  "git": {
+    "enabled": true,
+    "autoFetch": true,
+    "confirmSync": true,
+    "showInlineChanges": true
+  },
+  "intellisense": {
+    "enabled": true,
+    "triggerCharacters": [".", ":", ">"],
+    "quickSuggestions": true,
+    "parameterHints": true,
+    "autoClosingBrackets": true,
+    "autoClosingQuotes": true
+  },
+  "ui": {
+    "showWelcomeScreen": true,
+    "showStatusBar": true,
+    "showActivityBar": true,
+    "sidebarPosition": "left",
+    "iconTheme": "default"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "Hello Plugin",
+  "version": "1.0.0",
+  "description": "A simple example plugin demonstrating KaizerIDE's plugin API",
+  "author": "KaizerIDE Team",
+  "main": "hello-plugin.lua",
+  "apiVersion": "1.0",
+  "permissions": [
+    "editor.read",
+    "editor.write",
+    "ui.dialogs",
+    "fs.read",
+    "events.subscribe"
+  ],
+  "commands": [
+    {
+      "id": "hello.greet",
+      "title": "Say Hello",
+      "category": "Hello Plugin"
+    },
+    {
+      "id": "hello.greetUser",
+      "title": "Greet User",
+      "category": "Hello Plugin"
+    },
+    {
+      "id": "hello.insertHeader",
+      "title": "Insert Header Comment",
+      "category": "Hello Plugin"
+    },
+    {
+      "id": "hello.codeStats",
+      "title": "Show Code Statistics",
+      "category": "Hello Plugin"
+    }
+  ],
+  "keybindings": [
+    {
+      "command": "hello.greet",
+      "key": "Ctrl+Shift+H"
+    }
+  ],
+  "activationEvents": [
+    "onStartup",
+    "onLanguage:lua"
+  ]
+}
