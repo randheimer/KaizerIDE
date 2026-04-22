@@ -178,7 +178,16 @@ function App() {
   useEffect(() => {
     if (!workspacePath) return;
     
-    console.log('[App] Workspace changed, checking index cache...');
+    console.log('[App] Workspace changed to:', workspacePath);
+    
+    // Check if workspace actually changed (not just re-render)
+    if (indexer.workspacePath && indexer.workspacePath !== workspacePath) {
+      console.log('[App] Workspace changed from', indexer.workspacePath, 'to', workspacePath);
+      console.log('[App] Clearing old index and starting fresh...');
+      indexer.index = []; // Clear old index
+    }
+    
+    console.log('[App] Checking index cache...');
     const cached = indexer.loadFromStorage(workspacePath);
     if (!cached) {
       console.log('[App] No cache found, starting indexing...');

@@ -371,7 +371,13 @@ export class WorkspaceIndexer {
       const key = `kaizer-index-${btoa(workspacePath).slice(0,20)}`
       const stored = JSON.parse(localStorage.getItem(key) || 'null')
       if (!stored) {
-        console.log('[Indexer] No cached index found')
+        console.log('[Indexer] No cached index found for:', workspacePath)
+        return false
+      }
+
+      // Verify the cached workspace matches the requested workspace
+      if (stored.workspace !== workspacePath) {
+        console.log('[Indexer] Cached workspace mismatch:', stored.workspace, '!==', workspacePath)
         return false
       }
 
@@ -382,7 +388,7 @@ export class WorkspaceIndexer {
         return false
       }
 
-      console.log('[Indexer] Loaded cached index:', stored.meta.length, 'files')
+      console.log('[Indexer] Loaded cached index:', stored.meta.length, 'files from', workspacePath)
       this.index = stored.meta
       this.workspacePath = workspacePath
       this.totalFiles = stored.meta.length
