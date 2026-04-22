@@ -276,36 +276,74 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       base: 'vs-dark',
       inherit: true,
       rules: [
+        // Comments
         { token: 'comment',          foreground: '4d5566', fontStyle: 'italic' },
+        { token: 'comment.doc',      foreground: '5a7a8c', fontStyle: 'italic' },
+        
+        // Keywords
         { token: 'keyword',          foreground: 'c792ea', fontStyle: 'bold' },
+        { token: 'keyword.control',  foreground: 'c792ea', fontStyle: 'bold' },
+        { token: 'keyword.operator', foreground: 'c792ea', fontStyle: 'bold' },
         { token: 'keyword.solution', foreground: 'c792ea', fontStyle: 'bold' },
         { token: 'keyword.version',  foreground: 'c792ea', fontStyle: 'bold' },
         { token: 'keyword.project',  foreground: 'c792ea', fontStyle: 'bold' },
         { token: 'keyword.global',   foreground: 'c792ea', fontStyle: 'bold' },
         { token: 'keyword.section',  foreground: '82aaff', fontStyle: 'bold' },
+        
+        // Strings
         { token: 'string',           foreground: 'c3e88d' },
         { token: 'string.quote',     foreground: 'c3e88d' },
         { token: 'string.escape',    foreground: 'f78c6c' },
         { token: 'string.invalid',   foreground: 'ff5370' },
+        
+        // Numbers
         { token: 'number',           foreground: 'f78c6c' },
         { token: 'number.float',     foreground: 'f78c6c' },
-        { token: 'constant.guid',    foreground: 'ffcb6b' },
+        { token: 'number.hex',       foreground: 'f78c6c' },
+        { token: 'number.octal',     foreground: 'f78c6c' },
+        { token: 'number.binary',    foreground: 'f78c6c' },
+        
+        // Types and classes
         { token: 'type',             foreground: '82aaff' },
+        { token: 'type.identifier',  foreground: '82aaff' },
         { token: 'type.config',      foreground: '89ddff' },
         { token: 'type.property',    foreground: 'f07178' },
         { token: 'type.section',     foreground: '82aaff' },
         { token: 'class',            foreground: 'ffcb6b' },
+        { token: 'class.name',       foreground: 'ffcb6b' },
+        { token: 'struct',           foreground: 'ffcb6b' },
+        { token: 'enum',             foreground: 'ffcb6b' },
+        
+        // Functions and identifiers
         { token: 'function',         foreground: '82aaff' },
+        { token: 'function.call',    foreground: '82aaff' },
+        { token: 'identifier',       foreground: 'eeffff' },
         { token: 'variable',         foreground: 'eeffff' },
         { token: 'variable.predefined', foreground: 'f07178' },
+        { token: 'parameter',        foreground: 'd4d4d4' },
+        
+        // Constants and macros
         { token: 'constant',         foreground: 'f78c6c' },
+        { token: 'constant.guid',    foreground: 'ffcb6b' },
+        { token: 'macro',            foreground: 'c792ea' },
+        { token: 'macro.name',       foreground: 'ffcb6b' },
+        
+        // Operators and delimiters
         { token: 'operator',         foreground: '89ddff' },
         { token: 'delimiter',        foreground: '89ddff' },
+        { token: 'delimiter.bracket', foreground: 'a0a0a0' },
+        { token: 'delimiter.parenthesis', foreground: 'a0a0a0' },
+        
+        // Tags and attributes
         { token: 'tag',              foreground: 'f07178' },
         { token: 'attribute.name',   foreground: 'ffcb6b' },
         { token: 'attribute.value',  foreground: 'c3e88d' },
         { token: 'regexp',           foreground: 'ff5370' },
         { token: 'metatag',          foreground: 'ff5370' },
+        
+        // Preprocessor directives
+        { token: 'annotation',       foreground: 'c792ea' },
+        { token: 'namespace',        foreground: '82aaff' },
       ],
       colors: {
         'editor.background':               '#0d0d0d',
