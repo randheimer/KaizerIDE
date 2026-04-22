@@ -1,6 +1,6 @@
 {
   "name": "kaizer-ide",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "KaizerIDE - Modern AI-Powered Desktop IDE",
   "author": "Randheimer",
   "main": "electron/main.js",
@@ -98,7 +98,9 @@
       "include": "installer.nsh",
       "warningsAsErrors": false,
       "displayLanguageSelector": false,
-      "installerLanguages": ["en_US"],
+      "installerLanguages": [
+        "en_US"
+      ],
       "language": "1033"
     },
     "fileAssociations": [
