@@ -42,12 +42,20 @@
       "package.json"
     ],
     "win": {
+      "icon": "build/icon.png",
       "target": [
         {
           "target": "nsis",
           "arch": [
             "x64"
           ]
+        }
+      ],
+      "fileAssociations": [
+        {
+          "ext": ["js", "jsx", "ts", "tsx", "json", "html", "css", "md", "txt", "py", "java", "cpp", "c", "h"],
+          "name": "Source Code",
+          "role": "Editor"
         }
       ]
     },
@@ -56,7 +64,17 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "KaizerIDE"
-    }
+      "shortcutName": "KaizerIDE",
+      "perMachine": false,
+      "allowElevation": true
+    },
+    "fileAssociations": [
+      {
+        "ext": ["js", "jsx", "ts", "tsx", "json", "html", "css", "md", "txt", "py", "java", "cpp", "c", "h"],
+        "name": "Source Code",
+        "description": "Open with KaizerIDE",
+        "role": "Editor"
+      }
+    ]
   }
 }
