@@ -9,7 +9,14 @@ import SearchPanel from '../Sidebar/SearchPanel';
 import './EditorArea.css';
 
 const getLanguageFromPath = (filePath) => {
-  const ext = filePath.split('.').pop().toLowerCase();
+  const fileName = filePath.split(/[\\/]/).pop().toLowerCase();
+  const ext = fileName.split('.').pop().toLowerCase();
+  
+  // Check for multi-extension files first
+  if (fileName.endsWith('.vcxproj.filters') || fileName.endsWith('.vcxproj.user')) {
+    return 'xml';
+  }
+  
   const langMap = {
     'js': 'javascript',
     'jsx': 'javascript',
@@ -30,17 +37,28 @@ const getLanguageFromPath = (filePath) => {
     'targets': 'xml',
     'csproj': 'xml',
     'vbproj': 'xml',
+    'filters': 'xml',
+    'user': 'xml',
     'sh': 'shell',
+    'bat': 'bat',
+    'cmd': 'bat',
     'lua': 'lua',
     'rs': 'rust',
     'go': 'go',
     'cpp': 'cpp',
+    'cc': 'cpp',
+    'cxx': 'cpp',
+    'hpp': 'cpp',
+    'hxx': 'cpp',
+    'h': 'cpp',
     'c': 'c',
     'cs': 'csharp',
     'java': 'java',
     'php': 'php',
     'rb': 'ruby',
-    'sql': 'sql'
+    'sql': 'sql',
+    'txt': 'plaintext',
+    'log': 'plaintext'
   };
   return langMap[ext] || 'plaintext';
 };
