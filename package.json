@@ -1,7 +1,7 @@
 {
   "name": "kaizer-ide",
   "version": "1.0.1",
-  "description": "KaizerIDE - Modern Desktop IDE",
+  "description": "KaizerIDE - Modern AI-Powered Desktop IDE",
   "main": "electron/main.js",
   "type": "module",
   "scripts": {
