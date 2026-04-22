@@ -13,7 +13,9 @@
 
 .settings-modal {
   width: 560px;
-  max-height: 80vh;
+  height: 600px;
+  max-height: 600px;
+  min-height: 600px;
   background: rgba(13, 13, 13, 0.85);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -26,6 +28,7 @@
   flex-direction: column;
   overflow: hidden;
   animation: modalSlideIn 200ms ease forwards;
+  resize: none;
 }
 
 @keyframes modalSlideIn {
