@@ -1,6 +1,6 @@
 {
   "name": "kaizer-ide",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "KaizerIDE - Modern AI-Powered Desktop IDE",
   "main": "electron/main.js",
   "type": "module",
@@ -54,7 +54,22 @@
       ],
       "fileAssociations": [
         {
-          "ext": ["js", "jsx", "ts", "tsx", "json", "html", "css", "md", "txt", "py", "java", "cpp", "c", "h"],
+          "ext": [
+            "js",
+            "jsx",
+            "ts",
+            "tsx",
+            "json",
+            "html",
+            "css",
+            "md",
+            "txt",
+            "py",
+            "java",
+            "cpp",
+            "c",
+            "h"
+          ],
           "name": "Source Code",
           "role": "Editor"
         }
@@ -81,7 +96,22 @@
     },
     "fileAssociations": [
       {
-        "ext": ["js", "jsx", "ts", "tsx", "json", "html", "css", "md", "txt", "py", "java", "cpp", "c", "h"],
+        "ext": [
+          "js",
+          "jsx",
+          "ts",
+          "tsx",
+          "json",
+          "html",
+          "css",
+          "md",
+          "txt",
+          "py",
+          "java",
+          "cpp",
+          "c",
+          "h"
+        ],
         "name": "Source Code",
         "description": "Open with KaizerIDE",
         "role": "Editor"
