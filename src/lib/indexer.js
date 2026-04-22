@@ -108,10 +108,125 @@ export class WorkspaceIndexer {
     if (depth > 8) return []
     const IGNORE = new Set(['node_modules','.git','dist','release','build',
       '__pycache__','target','.next','out','.cache','coverage','vendor'])
-    const BINARY_EXT = new Set(['.png','.jpg','.jpeg','.gif','.ico','.svg',
-      '.pdf','.zip','.tar','.gz','.exe','.dll','.so','.dylib','.woff',
-      '.woff2','.ttf','.eot','.mp4','.mp3','.wav','.bin','.dat'])
-    const MAX_FILE_SIZE = 500 * 1024  // 500KB max per file
+    
+    // Only index code and text files
+    const CODE_EXT = new Set([
+      // Web Frontend
+      '.js','.jsx','.ts','.tsx','.mjs','.cjs','.es6',
+      '.html','.htm','.xhtml',
+      '.css','.scss','.sass','.less','.styl','.stylus',
+      '.vue','.svelte','.astro','.marko',
+      // Web Backend & Frameworks
+      '.php','.phtml','.php3','.php4','.php5','.phps',
+      '.asp','.aspx','.cshtml','.vbhtml',
+      '.jsp','.jspx',
+      '.erb','.haml','.slim',
+      // JavaScript/TypeScript
+      '.mts','.cts','.d.ts',
+      // Python
+      '.py','.pyw','.pyx','.pxd','.pyi',
+      // Ruby
+      '.rb','.rbw','.rake','.gemspec',
+      // Java/JVM
+      '.java','.kt','.kts','.scala','.groovy','.gradle',
+      // Go
+      '.go','.mod','.sum',
+      // Rust
+      '.rs','.rlib',
+      // C/C++
+      '.c','.cpp','.cc','.cxx','.c++',
+      '.h','.hpp','.hxx','.hh','.h++','.inl','.ipp',
+      '.m','.mm',
+      // C#/.NET
+      '.cs','.csx','.vb','.fs','.fsx','.fsi',
+      // Swift/Objective-C
+      '.swift',
+      // Mobile
+      '.dart','.kt','.java',
+      // Scripting
+      '.sh','.bash','.zsh','.fish','.ksh','.csh','.tcsh',
+      '.ps1','.psm1','.psd1',
+      '.bat','.cmd',
+      '.awk','.sed',
+      // Functional
+      '.ml','.mli','.mll','.mly',
+      '.hs','.lhs',
+      '.elm',
+      '.clj','.cljs','.cljc','.edn',
+      '.ex','.exs','.erl','.hrl',
+      '.lisp','.lsp','.cl','.el',
+      '.scm','.ss','.rkt',
+      // Systems
+      '.asm','.s','.nasm',
+      '.v','.sv','.vhd','.vhdl',
+      // Data Science
+      '.r','.rmd','.rnw',
+      '.jl',
+      '.ipynb',
+      '.m','.mat',
+      // Web Assembly
+      '.wasm','.wat',
+      // Config & Data
+      '.json','.json5','.jsonc',
+      '.yaml','.yml',
+      '.toml',
+      '.xml','.xsl','.xsd',
+      '.ini','.cfg','.conf','.config',
+      '.env','.envrc',
+      '.properties',
+      '.lock',
+      // Build & Package
+      '.cmake','.make','.mk','.makefile',
+      '.gradle','.maven','.pom',
+      '.bazel','.bzl',
+      '.ninja',
+      // Documentation
+      '.md','.mdx','.markdown',
+      '.txt','.text',
+      '.rst','.rest',
+      '.adoc','.asciidoc',
+      '.tex','.latex',
+      // Database
+      '.sql','.psql','.mysql','.pgsql',
+      '.cql',
+      '.cypher',
+      // API & Schema
+      '.graphql','.gql',
+      '.proto','.protobuf',
+      '.thrift',
+      '.avro',
+      '.wsdl',
+      // Other Languages
+      '.lua',
+      '.vim','.vimrc',
+      '.pl','.pm','.perl',
+      '.tcl',
+      '.d',
+      '.nim',
+      '.zig',
+      '.odin',
+      '.v',
+      '.cr',
+      '.pas','.pp',
+      '.ada','.adb','.ads',
+      '.f','.f90','.f95','.f03',
+      '.cob','.cbl',
+      // Markup & Templates
+      '.pug','.jade',
+      '.ejs',
+      '.hbs','.handlebars',
+      '.mustache',
+      '.twig',
+      '.njk','.nunjucks',
+      // Misc
+      '.dockerfile','.containerfile',
+      '.gitignore','.gitattributes',
+      '.editorconfig',
+      '.prettierrc','.eslintrc',
+      '.babelrc',
+    ])
+    
+    const MAX_FILE_SIZE = 5 * 1024 * 1024  // 5MB max per file
 
     let result = []
     
@@ -138,11 +253,25 @@ export class WorkspaceIndexer {
         }
       } else {
         const ext = name && name.includes('.') ? '.' + name.split('.').pop().toLowerCase() : ''
-        if (!BINARY_EXT.has(ext)) {
+        const fullName = name.toLowerCase()
+        
+        // Check if it's a code file by extension or special filename
+        const isCodeFile = CODE_EXT.has(ext) || 
+                          fullName === 'makefile' || 
+                          fullName === 'dockerfile' || 
+                          fullName === 'rakefile' ||
+                          fullName === 'gemfile' ||
+                          fullName === 'podfile' ||
+                          fullName === 'vagrantfile' ||
+                          fullName === 'cmakelists.txt'
+        
+        if (isCodeFile) {
           // Check file size
           const info = await window.electron.getFileInfo(entry.path).catch(() => null)
           if (info && info.success && info.size < MAX_FILE_SIZE) {
             result.push(entry.path)
+          } else if (info && info.success) {
+            console.log('[Indexer] Skipping large file:', entry.path, `(${Math.round(info.size / 1024)}KB)`)
           }
         }
       }
@@ -155,7 +284,7 @@ export class WorkspaceIndexer {
       if (!filePath || typeof filePath !== 'string') return
       
       const result = await window.electron.readFile(filePath)
-      if (result.error || !result.success) return
+      if (!result || result.error || !result.success || result.content === null || result.content === undefined) return
 
       const content = result.content || ''
       const lines = content.split('\n')
