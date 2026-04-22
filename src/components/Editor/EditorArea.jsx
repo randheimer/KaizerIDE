@@ -72,6 +72,7 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
   const [editorContextMenu, setEditorContextMenu] = useState(null);
   const [tabContextMenu, setTabContextMenu] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
+  const [editorKey, setEditorKey] = useState(0);
   
   // Check if current tab is a preview
   const isPreviewTab = activeTab && activeTab.includes(':preview');
@@ -193,26 +194,8 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       const settings = e.detail;
       console.log('[EditorArea] Settings changed:', settings);
       
-      if (editorRef.current && monacoRef.current) {
-        // Apply all editor settings
-        editorRef.current.updateOptions({
-          fontSize: settings.fontSize,
-          tabSize: settings.tabSize,
-          wordWrap: settings.wordWrap,
-          minimap: { enabled: settings.minimap },
-          lineNumbers: settings.lineNumbers ? 'on' : 'off',
-          fontFamily: settings.fontFamily,
-          cursorStyle: settings.cursorStyle,
-          renderWhitespace: settings.renderWhitespace,
-          bracketPairColorization: { enabled: settings.bracketPairColorization },
-          formatOnType: settings.formatOnSave,
-          formatOnPaste: settings.formatOnSave
-        });
-        
-        // Apply theme
-        console.log('[EditorArea] Applying theme:', settings.theme);
-        monacoRef.current.editor.setTheme(settings.theme);
-      }
+      // Force editor to remount with new settings
+      setEditorKey(prev => prev + 1);
     };
 
     window.addEventListener('kaizer:editor-settings-changed', handleSettingsChanged);
@@ -1169,7 +1152,7 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
             ) : (
               <>
                 <Editor
-              key={activeTabData.path}
+              key={`${activeTabData.path}-${editorKey}`}
               height="100%"
               language={getLanguageFromPath(activeTabData.path)}
               value={activeTabData.showDiff ? activeTabData.newContent : activeTabData.content}
