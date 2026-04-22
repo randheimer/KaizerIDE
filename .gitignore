@@ -11,8 +11,7 @@ test
 *.log
 
 # Documentation (except specific files)
-*.md
-!README.md
+#*.md
 !BUILD.md
 !CHAT_CURSOR_REDESIGN.md
 !CHAT_REFACTOR_SUMMARY.md
