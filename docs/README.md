@@ -105,23 +105,44 @@ When you use AI features:
 
 | Feature | KaizerIDE | VS Code | Cursor | GitHub Copilot |
 |---------|-----------|---------|--------|----------------|
-| **Telemetry** | ❌ None | ✅ Yes (opt-out) | ✅ Yes | ✅ Yes |
-| **Usage Tracking** | ❌ None | ✅ Yes | ✅ Yes | ✅ Yes |
-| **Cloud Sync** | ❌ None | ✅ Optional | ✅ Yes | ✅ Yes |
+| **Telemetry** | ❌ None | ✅ Yes (opt-out) | ✅ Yes (configurable) | ✅ Yes |
+| **Usage Tracking** | ❌ None | ✅ Yes (opt-out) | ✅ Yes (privacy mode available) | ✅ Yes |
+| **Cloud Sync** | ❌ None | ✅ Optional | ✅ Yes | N/A |
 | **Account Required** | ❌ No | ❌ No | ✅ Yes | ✅ Yes |
-| **Code Sent to Servers** | ❌ Never | ⚠️ For features | ✅ Yes | ✅ Yes |
-| **Local AI Support** | ✅ Yes | ⚠️ Limited | ❌ No | ❌ No |
-| **Open Source** | ✅ Yes | ✅ Yes | ❌ No | ❌ No |
-| **Self-Hosted AI** | ✅ Yes | ⚠️ Limited | ❌ No | ❌ No |
+| **Code Sent to Servers** | ❌ Never* | ⚠️ For some features | ✅ Yes (for AI features) | ✅ Yes |
+| **Local AI Support** | ✅ Full (Ollama, LM Studio) | ✅ Full (via extensions) | ❌ Cloud-only** | ❌ Cloud-only |
+| **Open Source** | ✅ Yes | ✅ Core (MIT) | ❌ No (proprietary) | ❌ No |
+| **Self-Hosted AI** | ✅ Yes | ✅ Yes (via extensions) | ⚠️ Limited | ❌ No |
+| **Bring Your Own API** | ✅ Yes (direct) | ✅ Yes (via extensions) | ✅ Yes (via Cursor servers) | ❌ No |
+
+**\*Except when you use AI features - those go to YOUR chosen endpoint**  
+**\*\*Cursor routes all requests through their servers, even with custom API keys**
 
 ### Why This Matters
 
-- **For Professionals** - Work on sensitive projects without worrying about data leaks
-- **For Students** - Learn without being tracked or profiled
-- **For Teams** - Keep proprietary code completely private
-- **For Everyone** - Your data is yours, not a product to be sold
+**The Key Difference:**
+- **KaizerIDE** - Your AI requests go **directly** to your chosen endpoint (no middleman)
+- **VS Code** - Flexible, can be fully local with the right extensions
+- **Cursor** - All AI requests route through Cursor's servers (even with your own API key)
+- **Copilot** - Locked to GitHub's cloud service
 
-**Bottom Line:** If privacy matters to you, KaizerIDE is built for you.
+**Choose KaizerIDE if:**
+- You want **zero telemetry** by default (not opt-out)
+- You need **direct API connections** without intermediaries
+- You value **simplicity** over enterprise features
+- You want a **lightweight** alternative to heavy IDEs
+
+**Choose VS Code if:**
+- You need the **largest extension ecosystem**
+- You want **maximum flexibility** and customization
+- You're comfortable managing privacy settings yourself
+
+**Choose Cursor if:**
+- You want **polished AI UX** and don't mind cloud dependency
+- You're willing to pay for Pro features
+- You trust their privacy mode implementation
+
+**Bottom Line:** KaizerIDE prioritizes privacy and simplicity. VS Code offers flexibility. Cursor offers polish but requires trust in their infrastructure.
 
 ---
 
