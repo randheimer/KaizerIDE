@@ -1348,7 +1348,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                         </code>
                       );
                     },
-                    p: ({ children }) => <p className="assistant-paragraph">{children}</p>,
+                    p: ({ children }) => <div className="assistant-paragraph">{children}</div>,
                     strong: ({ children }) => <strong className="assistant-bold">{children}</strong>,
                     em: ({ children }) => <em className="assistant-italic">{children}</em>,
                     h1: ({ children }) => <h1 className="assistant-h1">{children}</h1>,
