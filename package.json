@@ -2,6 +2,7 @@
   "name": "kaizer-ide",
   "version": "1.0.2",
   "description": "KaizerIDE - Modern AI-Powered Desktop IDE",
+  "author": "Randheimer",
   "main": "electron/main.js",
   "type": "module",
   "scripts": {
