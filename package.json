@@ -25,9 +25,9 @@
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
-    "electron": "^33.0.0",
-    "electron-builder": "^25.1.8",
-    "vite": "^5.0.8",
+    "electron": "^41.2.2",
+    "electron-builder": "^26.8.1",
+    "vite": "^8.0.9",
     "wait-on": "^7.2.0"
   },
   "build": {
