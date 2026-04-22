@@ -100,12 +100,6 @@ jobs:
 
       - run: npm ci --prefer-offline --no-audit
 
-      - name: Install Wine (for Windows builds on Linux)
-        run: |
-          sudo dpkg --add-architecture i386
-          sudo apt-get update
-          sudo apt-get install -y wine64 wine32
-
       - name: Build Electron
         id: build
         run: npm run electron:build
