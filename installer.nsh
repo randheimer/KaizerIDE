@@ -1,25 +1,24 @@
-; Custom NSIS script for KaizerIDE context menu integration and dark mode
+; Custom NSIS script for KaizerIDE context menu integration
 
-; Dark mode installer theme
-!define MUI_BGCOLOR 0x1a1a1a
-!define MUI_TEXTCOLOR 0xffffff
-
-; Add "Open with KaizerIDE" to context menu for files
+; Add "Open with KaizerIDE" to context menu for files (optional, user choice)
 !macro customInstall
-  ; Register context menu for all files
-  WriteRegStr HKCR "*\shell\KaizerIDE" "" "Open with KaizerIDE"
-  WriteRegStr HKCR "*\shell\KaizerIDE" "Icon" "$INSTDIR\KaizerIDE.exe"
-  WriteRegStr HKCR "*\shell\KaizerIDE\command" "" '"$INSTDIR\KaizerIDE.exe" "%1"'
-  
-  ; Register context menu for folders
-  WriteRegStr HKCR "Directory\shell\KaizerIDE" "" "Open with KaizerIDE"
-  WriteRegStr HKCR "Directory\shell\KaizerIDE" "Icon" "$INSTDIR\KaizerIDE.exe"
-  WriteRegStr HKCR "Directory\shell\KaizerIDE\command" "" '"$INSTDIR\KaizerIDE.exe" "%1"'
-  
-  ; Register context menu for directory background (right-click in empty space)
-  WriteRegStr HKCR "Directory\Background\shell\KaizerIDE" "" "Open with KaizerIDE"
-  WriteRegStr HKCR "Directory\Background\shell\KaizerIDE" "Icon" "$INSTDIR\KaizerIDE.exe"
-  WriteRegStr HKCR "Directory\Background\shell\KaizerIDE\command" "" '"$INSTDIR\KaizerIDE.exe" "%V"'
+  ; Only add context menu if user selected the option
+  ${If} $AddToContextMenu == "1"
+    ; Register context menu for all files
+    WriteRegStr HKCR "*\shell\KaizerIDE" "" "Open with KaizerIDE"
+    WriteRegStr HKCR "*\shell\KaizerIDE" "Icon" "$INSTDIR\KaizerIDE.exe"
+    WriteRegStr HKCR "*\shell\KaizerIDE\command" "" '"$INSTDIR\KaizerIDE.exe" "%1"'
+    
+    ; Register context menu for folders
+    WriteRegStr HKCR "Directory\shell\KaizerIDE" "" "Open Folder in KaizerIDE"
+    WriteRegStr HKCR "Directory\shell\KaizerIDE" "Icon" "$INSTDIR\KaizerIDE.exe"
+    WriteRegStr HKCR "Directory\shell\KaizerIDE\command" "" '"$INSTDIR\KaizerIDE.exe" "%V"'
+    
+    ; Register context menu for directory background (right-click in empty space)
+    WriteRegStr HKCR "Directory\Background\shell\KaizerIDE" "" "Open in KaizerIDE"
+    WriteRegStr HKCR "Directory\Background\shell\KaizerIDE" "Icon" "$INSTDIR\KaizerIDE.exe"
+    WriteRegStr HKCR "Directory\Background\shell\KaizerIDE\command" "" '"$INSTDIR\KaizerIDE.exe" "%V"'
+  ${EndIf}
 !macroend
 
 ; Remove context menu entries on uninstall

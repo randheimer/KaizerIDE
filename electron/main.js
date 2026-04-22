@@ -97,6 +97,26 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  
+  // Handle command line arguments for opening folders/files
+  const args = process.argv.slice(isDev ? 2 : 1);
+  if (args.length > 0 && mainWindow) {
+    const pathToOpen = args[0];
+    if (fs.existsSync(pathToOpen)) {
+      const stats = fs.statSync(pathToOpen);
+      if (stats.isDirectory()) {
+        // Send folder path to renderer
+        mainWindow.webContents.once('did-finish-load', () => {
+          mainWindow.webContents.send('open-folder-from-args', pathToOpen);
+        });
+      } else if (stats.isFile()) {
+        // Send file path to renderer
+        mainWindow.webContents.once('did-finish-load', () => {
+          mainWindow.webContents.send('open-file-from-args', pathToOpen);
+        });
+      }
+    }
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -85,21 +85,21 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "KaizerIDE",
       "perMachine": true,
       "allowElevation": true,
       "installerIcon": "images/logo.ico",
       "uninstallerIcon": "images/logo.ico",
-      "installerHeader": "images/logo.ico",
-      "installerSidebar": "images/logo.ico",
-      "uninstallerSidebar": "images/logo.ico",
-      "installerHeaderIcon": "images/logo.ico",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
       "menuCategory": true,
-      "include": "installer.nsh"
+      "include": "installer.nsh",
+      "warningsAsErrors": false,
+      "displayLanguageSelector": false,
+      "installerLanguages": ["en_US"],
+      "language": "1033"
     },
     "fileAssociations": [
       {
