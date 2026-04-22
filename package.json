@@ -50,7 +50,7 @@
     "asarUnpack": [],
     "compression": "maximum",
     "win": {
-      "icon": "images/logo.ico",
+      "icon": "docs/images/logo.ico",
       "target": [
         {
           "target": "nsis",
@@ -90,8 +90,8 @@
       "shortcutName": "KaizerIDE",
       "perMachine": true,
       "allowElevation": true,
-      "installerIcon": "images/logo.ico",
-      "uninstallerIcon": "images/logo.ico",
+      "installerIcon": "docs/images/logo.ico",
+      "uninstallerIcon": "docs/images/logo.ico",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
       "menuCategory": true,

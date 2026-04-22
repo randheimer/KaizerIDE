@@ -324,36 +324,35 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
         { token: 'number.binary',    foreground: 'f78c6c' },
         
         // Types and classes
-        { token: 'type',             foreground: '82aaff', fontStyle: 'bold' },
-        { token: 'type.identifier',  foreground: '82aaff', fontStyle: 'bold' },
+        { token: 'type',             foreground: '82aaff' },
+        { token: 'type.identifier',  foreground: '82aaff' },
         { token: 'type.config',      foreground: '89ddff' },
         { token: 'type.property',    foreground: 'f07178' },
         { token: 'type.section',     foreground: '82aaff' },
-        { token: 'class',            foreground: 'ffcb6b', fontStyle: 'bold' },
-        { token: 'class.name',       foreground: 'ffcb6b', fontStyle: 'bold' },
-        { token: 'struct',           foreground: 'ffcb6b', fontStyle: 'bold' },
-        { token: 'enum',             foreground: 'ffcb6b', fontStyle: 'bold' },
+        { token: 'class',            foreground: 'ffcb6b' },
+        { token: 'class.name',       foreground: 'ffcb6b' },
+        { token: 'struct',           foreground: 'ffcb6b' },
+        { token: 'enum',             foreground: 'ffcb6b' },
         
         // Functions and identifiers
-        { token: 'function',         foreground: '82aaff', fontStyle: 'bold' },
-        { token: 'function.call',    foreground: '82aaff' },
-        { token: 'identifier',       foreground: 'c3e88d' },
-        { token: 'variable',         foreground: 'c3e88d' },
-        { token: 'variable.predefined', foreground: 'f07178' },
+        { token: 'function',         foreground: 'dcdcaa', fontStyle: 'bold' },
+        { token: 'function.call',    foreground: 'dcdcaa', fontStyle: 'bold' },
+        { token: 'identifier',       foreground: '9cdcfe' },
+        { token: 'variable',         foreground: '9cdcfe' },
+        { token: 'variable.predefined', foreground: '4fc1ff' },
         { token: 'parameter',        foreground: 'f78c6c' },
-        { token: 'parameter.name',   foreground: 'f78c6c' },
         
         // Constants and macros
-        { token: 'constant',         foreground: 'f78c6c' },
+        { token: 'constant',         foreground: '4fc1ff' },
         { token: 'constant.guid',    foreground: 'ffcb6b' },
-        { token: 'macro',            foreground: 'c792ea', fontStyle: 'bold' },
-        { token: 'macro.name',       foreground: 'ffcb6b' },
+        { token: 'macro',            foreground: 'c586c0', fontStyle: 'bold' },
+        { token: 'macro.name',       foreground: 'c586c0', fontStyle: 'bold' },
         
         // Operators and delimiters
-        { token: 'operator',         foreground: '89ddff' },
-        { token: 'delimiter',        foreground: '89ddff' },
-        { token: 'delimiter.bracket', foreground: 'a0a0a0' },
-        { token: 'delimiter.parenthesis', foreground: 'a0a0a0' },
+        { token: 'operator',         foreground: 'd4d4d4' },
+        { token: 'delimiter',        foreground: 'd4d4d4' },
+        { token: 'delimiter.bracket', foreground: 'ffd700' },
+        { token: 'delimiter.parenthesis', foreground: 'ffd700' },
         
         // Tags and attributes
         { token: 'tag',              foreground: 'f07178' },
