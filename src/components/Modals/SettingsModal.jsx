@@ -17,7 +17,7 @@ function SettingsModal({ settings, onSave, onClose }) {
       lineNumbers: true,
       autoSave: 'off',
       autoSaveDelay: 1000,
-      theme: 'vs-dark',
+      theme: 'kaizer-dark',
       fontFamily: 'Consolas, "Courier New", monospace',
       cursorStyle: 'line',
       renderWhitespace: 'selection',
@@ -223,8 +223,10 @@ function SettingsModal({ settings, onSave, onClose }) {
                   onChange={(e) => setEditorSettings(prev => ({ ...prev, theme: e.target.value }))}
                   className="model-select"
                 >
-                  <option value="vs-dark">Dark</option>
-                  <option value="vs">Light</option>
+                  <option value="kaizer-dark">Kaizer Dark (Default)</option>
+                  <option value="zero-syntax">Zero Syntax (Minimal)</option>
+                  <option value="vs-dark">VS Dark</option>
+                  <option value="vs">VS Light</option>
                   <option value="hc-black">High Contrast</option>
                 </select>
                 <span className="setting-description">Editor color theme</span>
