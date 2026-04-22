@@ -111,7 +111,7 @@ When you use AI features:
 | **Account Required** | ❌ No | ❌ No | ✅ Yes | ✅ Yes |
 | **Code Sent to Servers** | ❌ Never* | ⚠️ For some features | ✅ Yes (for AI features) | ✅ Yes (for AI features) |
 | **Local AI Support** | ✅ Yes | ✅ Full | ⚠️ Limited (via Cursor Pro) | ⚠️ Limited |
-| **Open Source** | ✅ Yes | ✅ Core (MIT) | ❌ No (proprietary) | ❌ No (proprietary) |
+| **Open Source** | ✅ Yes | ✅ Yes | ❌ No (proprietary) | ❌ No (proprietary) |
 | **Self-Hosted AI** | ✅ Yes | ✅ Yes | ⚠️ Limited (via Cursor Pro) | ⚠️ Enterprise only |
 | **Bring Your Own API** | ✅ Yes | ✅ Yes | ⚠️ Limited (via Cursor Pro) | ✅ Yes (via Windsurf servers) |
 
