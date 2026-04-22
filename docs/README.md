@@ -73,33 +73,56 @@
 
 ## 🔐 Privacy & Security
 
-**Your code stays on your machine. Period.**
+**Built for developers who demand absolute local control.**
 
-KaizerIDE is built with privacy as a core principle, not an afterthought. We believe your code, your projects, and your workflow are yours alone.
+KaizerIDE is engineered around a strict local-first philosophy: your code, your environment, and your workflow remain entirely under your control at all times.
 
-### What We DON'T Do
+### Data Ownership & Privacy
 
-- ❌ **No Telemetry** - We don't collect usage data, crash reports, or analytics
-- ❌ **No Tracking** - No user tracking, cookies, or third-party services
-- ❌ **No Cloud Sync** - Your code never gets uploaded to our servers (we don't have any!)
-- ❌ **No Account Required** - Use it completely offline, no sign-up needed
-- ❌ **No "Anonymous" Data** - We don't collect anything, period
+**We do not collect, store, or monetize your personal data.**
 
-### What We DO
+- ❌ **No telemetry or behavioral tracking**
+- ❌ **No background analytics or usage profiling**
+- ❌ **No cloud sync or remote state storage**
+- ❌ **No required accounts or identity systems**
+- ❌ **No transmission of your local project data to our infrastructure**
 
-- ✅ **Local Storage** - All settings, files, and data stay on your device
-- ✅ **Open Source** - Audit the code yourself, see exactly what it does
-- ✅ **Your API Keys** - Stored locally in your system, never transmitted to us
-- ✅ **Direct AI Calls** - AI requests go straight to YOUR chosen endpoint
-- ✅ **Offline Capable** - Works without internet (except for AI features)
+KaizerIDE operates without reliance on centralized data collection systems by design.
 
-### AI Privacy
+### Local-First Architecture
 
-When you use AI features:
-- 🔒 Requests go **directly** to your chosen API endpoint (OpenAI, Ollama, etc.)
-- 🔒 We **never** see your code, prompts, or responses
-- 🔒 Use **local models** (Ollama, LM Studio) for complete offline privacy
-- 🔒 **You control** what data leaves your machine
+**Everything you work on stays on your device:**
+
+- ✅ All project files remain locally stored
+- ✅ All configuration data is saved on-device
+- ✅ All editor state is managed locally
+- ✅ No hidden background uploads or indexing services
+
+You remain the sole custodian of your development environment.
+
+### AI Integration
+
+**AI capabilities are fully user-controlled and endpoint-driven:**
+
+- 🔒 AI requests are sent **directly** to the API provider you configure
+- 🔒 KaizerIDE does **not** proxy, inspect, or log AI traffic
+- 🔒 Supports OpenAI-compatible endpoints, including **local models** (Ollama, LM Studio, LocalAI)
+- 🔒 Enables **fully offline workflows** when using local inference models
+
+You decide what data leaves your machine — and where it goes.
+
+### Security Posture
+
+**KaizerIDE is designed with minimal attack surface principles:**
+
+- 🛡️ No mandatory network services
+- 🛡️ No background data pipelines
+- 🛡️ No silent data collection mechanisms
+- 🛡️ No external authentication dependencies
+
+### Bottom Line
+
+KaizerIDE is a **local-first development environment** built for privacy-conscious engineers and enterprise workflows where data control is non-negotiable.
 
 ### KaizerIDE vs Other IDEs
 
