@@ -1,41 +1,40 @@
 ; Custom NSIS script for KaizerIDE context menu integration
 
+!include "MUI2.nsh"
+!include "nsDialogs.nsh"
+
 ; Variable to store user choice
 Var AddToContextMenu
+Var Dialog
+Var Checkbox
 
 ; Custom page to ask about context menu
 !macro customInit
-  StrCpy $AddToContextMenu "1"  ; Default to enabled
-!macroend
-
-; Add checkbox to installer page
-!macro customInstallPage
-  !insertmacro MUI_PAGE_DIRECTORY
-  
-  ; Custom page for context menu option
-  Page custom ContextMenuPage ContextMenuPageLeave
-  
-  !insertmacro MUI_PAGE_INSTFILES
+  StrCpy $AddToContextMenu ${BST_CHECKED}  ; Default to enabled
 !macroend
 
 Function ContextMenuPage
   !insertmacro MUI_HEADER_TEXT "Context Menu Integration" "Choose whether to add KaizerIDE to Windows context menu"
   
   nsDialogs::Create 1018
-  Pop $0
+  Pop $Dialog
+  
+  ${If} $Dialog == error
+    Abort
+  ${EndIf}
   
   ${NSD_CreateLabel} 0 0 100% 24u "Add 'Open with KaizerIDE' to the right-click context menu for files and folders?"
   Pop $0
   
   ${NSD_CreateCheckbox} 0 30u 100% 12u "Add to context menu (recommended)"
-  Pop $1
-  ${NSD_SetState} $1 ${BST_CHECKED}
+  Pop $Checkbox
+  ${NSD_SetState} $Checkbox ${BST_CHECKED}
   
   nsDialogs::Show
 FunctionEnd
 
 Function ContextMenuPageLeave
-  ${NSD_GetState} $1 $AddToContextMenu
+  ${NSD_GetState} $Checkbox $AddToContextMenu
 FunctionEnd
 
 ; Add "Open with KaizerIDE" to context menu for files
