@@ -33,23 +33,37 @@ jobs:
           $package = Get-Content package.json | ConvertFrom-Json
           $version = $package.version
           
-          # Split version (e.g., 1.0.1 -> 1, 0, 1)
-          $parts = $version -split '\.'
-          $major = [int]$parts[0]
-          $minor = [int]$parts[1]
-          $patch = [int]$parts[2]
+          # Check if this version already has a release
+          $tag = "v$version"
+          $releaseExists = gh release view $tag 2>$null
           
-          # Increment patch version
-          $patch++
-          $newVersion = "$major.$minor.$patch"
-          
-          # Update package.json
-          $package.version = $newVersion
-          $package | ConvertTo-Json -Depth 100 | Set-Content package.json
+          if ($releaseExists) {
+            # Version already released, increment it
+            $parts = $version -split '\.'
+            $major = [int]$parts[0]
+            $minor = [int]$parts[1]
+            $patch = [int]$parts[2]
+            
+            # Increment patch version
+            $patch++
+            $newVersion = "$major.$minor.$patch"
+            
+            # Update package.json
+            $package.version = $newVersion
+            $package | ConvertTo-Json -Depth 100 | Set-Content package.json
+            
+            echo "Version incremented from $version to $newVersion"
+          } else {
+            # Version not released yet, use current version
+            $newVersion = $version
+            echo "Using current version $newVersion (not yet released)"
+          }
           
           # Output version
           echo "version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "tag=v$newVersion" >> $env:GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Commit version bump
         run: |
