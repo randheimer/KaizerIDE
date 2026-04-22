@@ -291,54 +291,18 @@ function App() {
     };
 
     const handleOpenIncludeFile = async (event) => {
-      console.log('[App] handleOpenIncludeFile called');
-      console.log('[App] Event detail:', event.detail);
-      
-      const { path, originalPath } = event.detail;
-      console.log('[App] Path:', path);
-      console.log('[App] Original path:', originalPath);
-      
-      // Get current directory from original path
-      const currentDir = originalPath.substring(0, originalPath.lastIndexOf('\\'));
-      console.log('[App] Current directory:', currentDir);
-      
-      let targetPath = path;
-      
-      // If path is relative (starts with . or doesn't have drive letter)
-      if (path.startsWith('.') || !path.match(/^[A-Z]:\\/i)) {
-        // Remove leading backslash if present
-        const cleanPath = path.replace(/^\\+/, '');
-        targetPath = `${currentDir}\\${cleanPath}`;
-        console.log('[App] Resolved relative path to:', targetPath);
-      }
-      
-      // Normalize path (resolve .. and .)
-      const pathParts = targetPath.split('\\').filter(p => p);
-      const normalizedParts = [];
-      for (const part of pathParts) {
-        if (part === '..') {
-          normalizedParts.pop();
-        } else if (part !== '.') {
-          normalizedParts.push(part);
-        }
-      }
-      targetPath = normalizedParts.join('\\');
-      console.log('[App] Normalized target path:', targetPath);
+      const { path } = event.detail;
       
       // Check if file exists and open it
       try {
-        const info = await window.electron.getFileInfo(targetPath);
-        console.log('[App] File info:', info);
+        const info = await window.electron.getFileInfo(path);
         
         if (info && info.success !== false && !info.isDirectory) {
-          console.log('[App] Opening file:', targetPath);
-          await handleFileOpen(targetPath);
+          await handleFileOpen(path);
         } else {
-          console.log('[App] File not found or is directory');
           setErrorMessage(`Could not find include file: ${path}`);
         }
       } catch (error) {
-        console.error('[App] Error checking file:', error);
         setErrorMessage(`Error opening include file: ${error.message}`);
       }
     };

@@ -641,81 +641,69 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       releaseDocumentSemanticTokens: () => {}
     });
 
-    // Register definition provider for C/C++ #include statements
-    const registerIncludeDefinitionProvider = (languageId) => {
-      monaco.languages.registerDefinitionProvider(languageId, {
-        provideDefinition: async (model, position) => {
-          console.log('[Include Navigation] provideDefinition called');
-          console.log('[Include Navigation] Language:', languageId);
-          console.log('[Include Navigation] Position:', position);
-          
-          const line = model.getLineContent(position.lineNumber);
-          console.log('[Include Navigation] Line content:', line);
-          
-          const includeMatch = line.match(/#include\s+["<]([^">]+)[">]/);
-          console.log('[Include Navigation] Include match:', includeMatch);
-          
-          if (!includeMatch) {
-            console.log('[Include Navigation] No include statement found');
-            return null;
-          }
-          
-          const includedFile = includeMatch[1];
-          console.log('[Include Navigation] Included file:', includedFile);
-          
-          // Get the actual file path from activeTab instead of model.uri
-          const currentFilePath = activeTab;
-          console.log('[Include Navigation] Current file path from activeTab:', currentFilePath);
-          
-          if (!currentFilePath || currentFilePath.includes(':preview')) {
-            console.log('[Include Navigation] Invalid or preview file, skipping');
-            return null;
-          }
-          
-          const currentDir = currentFilePath.substring(0, currentFilePath.lastIndexOf('\\'));
-          console.log('[Include Navigation] Current directory:', currentDir);
-          
-          // Resolve the target path
-          let targetPath;
-          
-          if (line.includes('"')) {
-            // Local include with quotes - resolve relative to current file
-            targetPath = `${currentDir}\\${includedFile}`;
-          } else {
-            // System include with <> - try current directory first
-            targetPath = `${currentDir}\\${includedFile}`;
-          }
-          
-          // Normalize path separators
-          targetPath = targetPath.replace(/\//g, '\\');
-          console.log('[Include Navigation] Target path:', targetPath);
-          
-          // Check if cursor is on the filename
-          const startIdx = line.indexOf(includedFile);
-          const endIdx = startIdx + includedFile.length;
-          const cursorIdx = position.column - 1;
-          
-          console.log('[Include Navigation] Cursor check - startIdx:', startIdx, 'endIdx:', endIdx, 'cursorIdx:', cursorIdx);
-          
-          if (cursorIdx >= startIdx && cursorIdx <= endIdx) {
-            console.log('[Include Navigation] Cursor is on filename, dispatching event');
-            
-            // Dispatch event to open the file
-            window.dispatchEvent(new CustomEvent('kaizer:open-include-file', {
-              detail: { path: targetPath, originalPath: currentFilePath }
-            }));
-            
-            return null; // Return null since we're handling it via event
-          }
-          
-          console.log('[Include Navigation] Cursor not on filename');
-          return null;
+    // Handle Ctrl+Click on #include statements (simpler approach)
+    editor.onMouseDown((e) => {
+      // Only handle if Ctrl/Cmd is pressed AND it's a left click
+      if ((!e.event.ctrlKey && !e.event.metaKey) || e.event.leftButton !== true) {
+        return;
+      }
+      
+      const position = e.target.position;
+      if (!position) return;
+      
+      const model = editor.getModel();
+      if (!model) return;
+      
+      const line = model.getLineContent(position.lineNumber);
+      const includeMatch = line.match(/#include\s+["<]([^">]+)[">]/);
+      
+      if (!includeMatch) return;
+      
+      const includedFile = includeMatch[1];
+      const startIdx = line.indexOf(includedFile);
+      const endIdx = startIdx + includedFile.length;
+      const cursorIdx = position.column - 1;
+      
+      // Check if cursor is on the filename
+      if (cursorIdx >= startIdx && cursorIdx <= endIdx) {
+        console.log('[Include Navigation] Ctrl+Click detected on:', includedFile);
+        
+        // Get current file path
+        if (!activeTab || activeTab.includes(':preview')) {
+          console.log('[Include Navigation] No valid active tab');
+          return;
         }
-      });
-    };
-    
-    registerIncludeDefinitionProvider('cpp');
-    registerIncludeDefinitionProvider('c');
+        
+        const currentFilePath = activeTab;
+        const currentDir = currentFilePath.substring(0, currentFilePath.lastIndexOf('\\'));
+        
+        // Build target path
+        let targetPath = `${currentDir}\\${includedFile.replace(/\//g, '\\')}`;
+        
+        // Normalize path (resolve .. and .)
+        const parts = targetPath.split('\\').filter(p => p);
+        const normalized = [];
+        for (const part of parts) {
+          if (part === '..') {
+            normalized.pop();
+          } else if (part !== '.') {
+            normalized.push(part);
+          }
+        }
+        targetPath = normalized.join('\\');
+        
+        console.log('[Include Navigation] Opening file:', targetPath);
+        
+        // Dispatch event to open the file
+        window.dispatchEvent(new CustomEvent('kaizer:open-include-file', {
+          detail: { path: targetPath }
+        }));
+        
+        // Prevent default Monaco behavior
+        e.event.preventDefault();
+        e.event.stopPropagation();
+      }
+    });
 
     // Set theme
     monaco.editor.setTheme('kaizer-dark');
