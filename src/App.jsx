@@ -40,6 +40,7 @@ function App() {
   const [filePickerStartPath, setFilePickerStartPath] = useState('');
   const [filePickerMode, setFilePickerMode] = useState('attach'); // 'attach' or 'folder'
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [terminalVisible, setTerminalVisible] = useState(false);
 
   // Utility: Normalize file paths to use consistent separators (Windows backslashes)
   const normalizePath = (path) => {
@@ -308,17 +309,29 @@ function App() {
       }
     };
 
+    const handleCloseTerminal = () => {
+      setTerminalVisible(false);
+    };
+
+    const handleNewTerminal = () => {
+      setTerminalVisible(true);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('kaizer:file-written', handleFileWritten);
     window.addEventListener('kaizer:open-filepicker', handleOpenFilePicker);
     window.addEventListener('kaizer:open-preview', handleOpenPreview);
     window.addEventListener('kaizer:open-include-file', handleOpenIncludeFile);
+    window.addEventListener('kaizer:close-terminal', handleCloseTerminal);
+    window.addEventListener('kaizer:new-terminal', handleNewTerminal);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('kaizer:file-written', handleFileWritten);
       window.removeEventListener('kaizer:open-filepicker', handleOpenFilePicker);
       window.removeEventListener('kaizer:open-preview', handleOpenPreview);
       window.removeEventListener('kaizer:open-include-file', handleOpenIncludeFile);
+      window.removeEventListener('kaizer:close-terminal', handleCloseTerminal);
+      window.removeEventListener('kaizer:new-terminal', handleNewTerminal);
     };
   }, [activeTabPath, tabs, workspacePath]);
 
@@ -453,6 +466,11 @@ function App() {
         setShowHelpModal(true);
         break;
       
+      case 'new-terminal':
+        setTerminalVisible(true);
+        window.dispatchEvent(new CustomEvent('kaizer:new-terminal'));
+        break;
+      
       default:
         console.log('Menu action not implemented:', action);
     }
@@ -490,7 +508,7 @@ function App() {
             onTabClose={handleTabClose}
             onContentChange={handleContentChange}
           />
-          <TerminalPanel workspacePath={workspacePath} />
+          {terminalVisible && <TerminalPanel workspacePath={workspacePath} />}
         </div>
         <div style={{
           width: '340px',

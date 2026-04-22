@@ -15,6 +15,18 @@ function TerminalPanel({ workspacePath }) {
     }
   }, [terminals, activeTerminalId]);
 
+  useEffect(() => {
+    // Listen for new terminal event
+    const handleNewTerminal = () => {
+      createNewTerminal('powershell');
+    };
+
+    window.addEventListener('kaizer:new-terminal', handleNewTerminal);
+    return () => {
+      window.removeEventListener('kaizer:new-terminal', handleNewTerminal);
+    };
+  }, [terminals.length, workspacePath]);
+
   const createNewTerminal = (shell = 'powershell') => {
     const newTerminal = {
       id: Date.now(),
@@ -169,7 +181,7 @@ function TerminalPanel({ workspacePath }) {
             >
               <span className="terminal-tab-icon">💻</span>
               <span>{terminal.name}</span>
-              <button
+              <span
                 className="terminal-tab-close"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -177,7 +189,7 @@ function TerminalPanel({ workspacePath }) {
                 }}
               >
                 ×
-              </button>
+              </span>
             </button>
           ))}
         </div>
