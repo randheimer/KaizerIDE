@@ -40,9 +40,97 @@ function App() {
   const [filePickerMode, setFilePickerMode] = useState('attach'); // 'attach' or 'folder'
   const [showHelpModal, setShowHelpModal] = useState(false);
 
-  // Load workspace path on mount
+  // Helper function to open a file in the editor
+  const handleFileOpen = async (filePath, options = {}) => {
+    const existingTab = tabs.find(tab => tab.path === filePath);
+    
+    if (existingTab) {
+      setActiveTabPath(filePath);
+      
+      // If diff view is requested, update the tab with diff info
+      if (options.showDiff && options.newContent) {
+        setTabs(prev => prev.map(tab => 
+          tab.path === filePath 
+            ? { 
+                ...tab, 
+                showDiff: true, 
+                newContent: options.newContent,
+                changeType: options.changeType,
+                originalContent: tab.content 
+              }
+            : tab
+        ));
+      }
+      return;
+    }
+
+    const result = await window.electron.readFile(filePath);
+    
+    if (result.success) {
+      const fileName = filePath.split(/[\\/]/).pop();
+      const newTab = {
+        path: filePath,
+        name: fileName,
+        content: result.content,
+        dirty: false,
+        showDiff: options.showDiff || false,
+        newContent: options.newContent || null,
+        changeType: options.changeType || null,
+        originalContent: result.content
+      };
+      
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabPath(filePath);
+    }
+  };
+
+  // Helper function to handle paths from context menu
+  const handleOpenPath = async (p) => {
+    if (!p) return;
+    
+    // Check if path is file or folder
+    const info = await window.electron.getFileInfo(p);
+    
+    if (info.isDirectory) {
+      // Open as workspace
+      console.log('[App] Opening folder as workspace:', p);
+      setWorkspacePath(p);
+      await window.electron.saveWorkspacePath(p);
+      
+      const tree = await window.electron.getFileTree(p);
+      if (tree.success) {
+        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
+      }
+    } else {
+      // It's a file — open its parent as workspace, then open the file in editor
+      console.log('[App] Opening file:', p);
+      const parentDir = p.split(/[\\/]/).slice(0, -1).join('\\') || p;
+      setWorkspacePath(parentDir);
+      await window.electron.saveWorkspacePath(parentDir);
+      
+      const tree = await window.electron.getFileTree(parentDir);
+      if (tree.success) {
+        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
+      }
+      
+      // Open the file in a tab
+      await handleFileOpen(p);
+    }
+  };
+
+  // Load workspace path on mount (but skip if we have a context menu path)
   useEffect(() => {
     const loadWorkspace = async () => {
+      // Check if we have a context menu path first
+      if (window.electron) {
+        const contextPath = await window.electron.getOpenPath();
+        if (contextPath) {
+          // Context menu path will be handled by the other useEffect
+          console.log('[App] Skipping workspace load, context menu path detected');
+          return;
+        }
+      }
+      
       console.log('[App] Attempting to load workspace path...');
       const result = await window.electron.loadWorkspacePath();
       console.log('[App] loadWorkspacePath result:', result);
@@ -80,40 +168,7 @@ function App() {
       });
       return cleanup;
     }
-  }, []);
-
-  const handleOpenPath = async (p) => {
-    if (!p) return;
-    
-    // Check if path is file or folder
-    const info = await window.electron.getFileInfo(p);
-    
-    if (info.isDirectory) {
-      // Open as workspace
-      console.log('[App] Opening folder as workspace:', p);
-      setWorkspacePath(p);
-      await window.electron.saveWorkspacePath(p);
-      
-      const tree = await window.electron.getFileTree(p);
-      if (tree.success) {
-        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
-      }
-    } else {
-      // It's a file — open its parent as workspace, then open the file in editor
-      console.log('[App] Opening file:', p);
-      const parentDir = p.split(/[\\/]/).slice(0, -1).join('\\') || p;
-      setWorkspacePath(parentDir);
-      await window.electron.saveWorkspacePath(parentDir);
-      
-      const tree = await window.electron.getFileTree(parentDir);
-      if (tree.success) {
-        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
-      }
-      
-      // Open the file in a tab
-      handleFileOpen(p);
-    }
-  };
+  }, [handleOpenPath]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -219,49 +274,6 @@ function App() {
     setFilePickerStartPath(workspacePath || '');
     setFilePickerMode('folder');
     setFilePickerOpen(true);
-  };
-
-  const handleFileOpen = async (filePath, options = {}) => {
-    const existingTab = tabs.find(tab => tab.path === filePath);
-    
-    if (existingTab) {
-      setActiveTabPath(filePath);
-      
-      // If diff view is requested, update the tab with diff info
-      if (options.showDiff && options.newContent) {
-        setTabs(prev => prev.map(tab => 
-          tab.path === filePath 
-            ? { 
-                ...tab, 
-                showDiff: true, 
-                newContent: options.newContent,
-                changeType: options.changeType,
-                originalContent: tab.content 
-              }
-            : tab
-        ));
-      }
-      return;
-    }
-
-    const result = await window.electron.readFile(filePath);
-    
-    if (result.success) {
-      const fileName = filePath.split(/[\\/]/).pop();
-      const newTab = {
-        path: filePath,
-        name: fileName,
-        content: result.content,
-        dirty: false,
-        showDiff: options.showDiff || false,
-        newContent: options.newContent || null,
-        changeType: options.changeType || null,
-        originalContent: result.content
-      };
-      
-      setTabs(prev => [...prev, newTab]);
-      setActiveTabPath(filePath);
-    }
   };
 
   const handleTabSelect = (path) => {
