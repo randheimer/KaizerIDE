@@ -12,175 +12,168 @@ jobs:
     permissions:
       contents: write
       packages: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: true
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
+      # ----------------------------
+      # VERSIONING (FIXED)
+      # ----------------------------
       - name: Auto-increment version
         id: package_version
         run: |
-          # Read current version
           $package = Get-Content package.json | ConvertFrom-Json
           $version = $package.version
-          
-          # Check if this version already has a release
-          $tag = "v$version"
-          $releaseExists = gh release view $tag 2>$null
-          
-          if ($releaseExists) {
-            # Version already released, increment it
-            $parts = $version -split '\.'
-            $major = [int]$parts[0]
-            $minor = [int]$parts[1]
-            $patch = [int]$parts[2]
-            
-            # Increment patch version
-            $patch++
-            $newVersion = "$major.$minor.$patch"
-            
-            # Update package.json
-            $package.version = $newVersion
-            $package | ConvertTo-Json -Depth 100 | Set-Content package.json
-            
-            echo "Version incremented from $version to $newVersion"
-          } else {
-            # Version not released yet, use current version
-            $newVersion = $version
-            echo "Using current version $newVersion (not yet released)"
-          }
-          
-          # Output version
+
+          $parts = $version -split '\.'
+          $major = [int]$parts[0]
+          $minor = [int]$parts[1]
+          $patch = [int]$parts[2]
+
+          # ALWAYS increment patch version
+          $patch++
+
+          $newVersion = "$major.$minor.$patch"
+
+          $package.version = $newVersion
+          $package | ConvertTo-Json -Depth 100 | Set-Content package.json
+
           echo "version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "tag=v$newVersion" >> $env:GITHUB_OUTPUT
+
+          echo "Version bumped: $version → $newVersion"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
+      # ----------------------------
+      # COMMIT VERSION
+      # ----------------------------
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add package.json
-          git commit -m "chore: bump version to ${{ steps.package_version.outputs.version }} [skip ci]" || echo "No changes to commit"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main || echo "Push failed, continuing anyway"
-      
-      - name: Install dependencies (fast)
+          git commit -m "chore: bump version to ${{ steps.package_version.outputs.version }} [skip ci]" || echo "No changes"
+
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ----------------------------
+      # INSTALL
+      # ----------------------------
+      - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
-      
+
       - name: Install icon deps
         run: npm install sharp png-to-ico
-      
+
+      # ----------------------------
+      # ICON BUILD
+      # ----------------------------
       - name: Convert PNG to ICO
         run: |
-          node -e "const sharp = require('sharp'); const fs = require('fs'); async function convert() { await sharp('docs/images/logo.png').resize(256, 256, { fit: 'contain', background: { r:0,g:0,b:0,alpha:0 } }).png().toFile('docs/images/logo-256.png'); const { default: pngToIco } = await import('png-to-ico'); const buf = await pngToIco(['docs/images/logo-256.png']); fs.writeFileSync('docs/images/logo.ico', buf); console.log('ICO created:', buf.length, 'bytes'); } convert().catch(e => { console.error(e); process.exit(1); });"
+          node -e "const sharp=require('sharp');const fs=require('fs');async function c(){await sharp('docs/images/logo.png').resize(256,256,{fit:'contain',background:{r:0,g:0,b:0,alpha:0}}).png().toFile('docs/images/logo-256.png');const {default:pngToIco}=await import('png-to-ico');const buf=await pngToIco(['docs/images/logo-256.png']);fs.writeFileSync('docs/images/logo.ico',buf);console.log('ICO created');}c().catch(e=>{console.error(e);process.exit(1);});"
         shell: pwsh
-      
-      - name: Build Vite app (production)
+
+      # ----------------------------
+      # BUILD APP
+      # ----------------------------
+      - name: Build Vite app
         run: npm run build
         env:
           NODE_ENV: production
-      
-      - name: Build Electron app (optimized)
+
+      - name: Build Electron app
         run: npm run electron:build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
-      
-      - name: Get commit messages since last release
+
+      # ----------------------------
+      # CHANGELOG (FIXED)
+      # ----------------------------
+      - name: Generate changelog
         id: changelog
         run: |
-          # Get the latest release tag (not the one we're about to create)
           $prevTag = git describe --tags --abbrev=0 2>$null
+
           if (-not $prevTag) {
-            # If no tags exist, get all commits
             $commits = git log --pretty=format:"- %s" --no-merges
           } else {
-            # Get commits since the last release (excluding version bump commits)
-            $commits = git log "$prevTag..HEAD" --pretty=format:"- %s" --no-merges | Where-Object { $_ -notmatch "chore: bump version" -and $_ -notmatch "\[skip ci\]" }
+            $commits = git log "$prevTag..HEAD" --pretty=format:"- %s" --no-merges
           }
-          
-          # Filter out docs-only commits for cleaner changelog
-          $commits = $commits | Where-Object { $_ -notmatch "^- docs:" }
-          
-          # Save to output
+
+          $commits = $commits | Where-Object {
+            $_ -notmatch "chore: bump version" -and
+            $_ -notmatch "\[skip ci\]" -and
+            $_ -notmatch "^- docs:"
+          }
+
           $changelog = $commits -join "`n"
+
           if (-not $changelog) {
             $changelog = "- Minor updates and improvements"
           }
-          
-          # Escape for GitHub Actions
-          $changelog = $changelog -replace '"','\"'
+
           echo "changes<<EOF" >> $env:GITHUB_OUTPUT
           echo "$changelog" >> $env:GITHUB_OUTPUT
           echo "EOF" >> $env:GITHUB_OUTPUT
-          if (-not $changelog) {
-            $changelog = "- Initial release"
-          }
-          
-          # Escape for GitHub Actions
-          $changelog = $changelog -replace '"','\"'
-          echo "changes<<EOF" >> $env:GITHUB_OUTPUT
-          echo "$changelog" >> $env:GITHUB_OUTPUT
-          echo "EOF" >> $env:GITHUB_OUTPUT
-      
+
+      # ----------------------------
+      # ARTIFACTS
+      # ----------------------------
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: KaizerIDE-Windows-x64-v${{ steps.package_version.outputs.version }}
-          path: |
-            release/*.exe
+          path: release/*.exe
           retention-days: 30
-      
-      - name: Delete existing release if exists
-        run: |
-          $tag = "${{ steps.package_version.outputs.tag }}"
-          gh release delete $tag --yes 2>$null || echo "No existing release to delete"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
+      # ----------------------------
+      # CREATE RELEASE (NO DELETE)
+      # ----------------------------
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.package_version.outputs.tag }}
           name: KaizerIDE v${{ steps.package_version.outputs.version }}
-          files: |
-            release/*.exe
+          files: release/*.exe
           draft: false
           prerelease: false
           body: |
             ## 🎉 KaizerIDE v${{ steps.package_version.outputs.version }}
-            
+
             ### 📦 Download
-            **Windows Installer:** `KaizerIDE.Setup.${{ steps.package_version.outputs.version }}.exe`
-            
-            ### 📝 What's Changed
+            Windows installer is attached below.
+
+            ### 📝 Changes
             ${{ steps.changelog.outputs.changes }}
-            
+
             ### 🚀 Features
-            - 🤖 **AI-Powered Coding Assistant** - Context-aware help with tool calling
-            - 🎨 **Monaco Editor** - VS Code's powerful editor
-            - 📁 **File Explorer** - Navigate projects easily
-            - 💻 **Integrated Terminal** - Run commands without leaving the IDE
-            - 🪟 **Windows Context Menu** - Right-click files/folders to open
-            
+            - AI-powered coding assistant
+            - Monaco Editor
+            - File Explorer
+            - Integrated Terminal
+            - Windows context menu integration
+
             ### 📥 Installation
-            1. Download the installer above
-            2. Run `KaizerIDE.Setup.${{ steps.package_version.outputs.version }}.exe`
-            3. Follow the installation wizard
-            4. Launch from Start Menu or Desktop
-            
+            1. Download installer
+            2. Run setup
+            3. Launch KaizerIDE
+
             ### 🔗 Links
-            - [Report a Bug](https://github.com/randheimer/KaizerIDE/issues/new?labels=bug)
-            - [Request a Feature](https://github.com/randheimer/KaizerIDE/issues/new?labels=enhancement)
-            - [Documentation](https://github.com/randheimer/KaizerIDE#readme)
+            - Issues: https://github.com/randheimer/KaizerIDE/issues
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
