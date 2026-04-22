@@ -1,7 +1,7 @@
 # KaizerIDE
 
 <p align="center">
-  <img src="images/Preview1.png" alt="KaizerIDE Logo" width="200"/>
+  <img src="images/Preview1.png" alt="KaizerIDE Preview" width="800"/>
 </p>
 
 <p align="center">A modern desktop IDE built with Electron, React, and Monaco Editor.</p>
