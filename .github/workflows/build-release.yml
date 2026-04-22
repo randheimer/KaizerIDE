@@ -84,20 +84,30 @@ jobs:
       - name: Get commit messages since last release
         id: changelog
         run: |
-          # Get the previous tag
-          $prevTag = git describe --tags --abbrev=0 HEAD^ 2>$null
+          # Get the latest release tag (not the one we're about to create)
+          $prevTag = git describe --tags --abbrev=0 2>$null
           if (-not $prevTag) {
-            $prevTag = git rev-list --max-parents=0 HEAD
+            # If no tags exist, get all commits
+            $commits = git log --pretty=format:"- %s" --no-merges
+          } else {
+            # Get commits since the last release (excluding version bump commits)
+            $commits = git log "$prevTag..HEAD" --pretty=format:"- %s" --no-merges | Where-Object { $_ -notmatch "chore: bump version" -and $_ -notmatch "\[skip ci\]" }
           }
           
-          # Get commit messages between previous tag and now
-          $commits = git log "$prevTag..HEAD" --pretty=format:"- %s" --no-merges
-          
-          # Filter out version bump commits
-          $commits = $commits | Where-Object { $_ -notmatch "chore: bump version" -and $_ -notmatch "\[skip ci\]" }
+          # Filter out docs-only commits for cleaner changelog
+          $commits = $commits | Where-Object { $_ -notmatch "^- docs:" }
           
           # Save to output
           $changelog = $commits -join "`n"
+          if (-not $changelog) {
+            $changelog = "- Minor updates and improvements"
+          }
+          
+          # Escape for GitHub Actions
+          $changelog = $changelog -replace '"','\"'
+          echo "changes<<EOF" >> $env:GITHUB_OUTPUT
+          echo "$changelog" >> $env:GITHUB_OUTPUT
+          echo "EOF" >> $env:GITHUB_OUTPUT
           if (-not $changelog) {
             $changelog = "- Initial release"
           }
