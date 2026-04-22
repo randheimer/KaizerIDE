@@ -4,114 +4,112 @@
   <img src="images/Preview1.png" alt="KaizerIDE Preview" width="800"/>
 </p>
 
-<p align="center">A modern desktop IDE built with Electron, React, and Monaco Editor.</p>
-
 <p align="center">
-  <a href="https://github.com/randheimer/KaizerIDE/releases"><img src="https://img.shields.io/github/v/release/randheimer/KaizerIDE" alt="GitHub release"></a>
-  <a href="https://github.com/randheimer/KaizerIDE/releases"><img src="https://img.shields.io/github/downloads/randheimer/KaizerIDE/total" alt="GitHub downloads"></a>
-  <a href="https://github.com/randheimer/KaizerIDE/stargazers"><img src="https://img.shields.io/github/stars/randheimer/KaizerIDE" alt="GitHub stars"></a>
-  <a href="https://github.com/randheimer/KaizerIDE/issues"><img src="https://img.shields.io/github/issues/randheimer/KaizerIDE" alt="GitHub issues"></a>
-  <a href="https://github.com/randheimer/KaizerIDE/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Custom-blue" alt="License"></a>
-</p>
-
-## Screenshots
-
-<p align="center">
-  <img src="images/Preview1.png" alt="KaizerIDE Main Interface" width="800"/>
-</p>
-
-<!-- Add more screenshots here:
-<p align="center">
-  <img src="images/Preview2.png" alt="AI Chat Assistant" width="800"/>
+  <strong>AI-Powered Desktop IDE</strong><br>
+  A modern code editor with integrated AI assistant, built with Electron and React
 </p>
 
 <p align="center">
-  <img src="images/Preview3.png" alt="Code Editor" width="800"/>
+  <a href="https://github.com/randheimer/KaizerIDE/releases"><img src="https://img.shields.io/github/v/release/randheimer/KaizerIDE?style=flat-square" alt="Release"></a>
+  <a href="https://github.com/randheimer/KaizerIDE/releases"><img src="https://img.shields.io/github/downloads/randheimer/KaizerIDE/total?style=flat-square" alt="Downloads"></a>
+  <a href="https://github.com/randheimer/KaizerIDE/stargazers"><img src="https://img.shields.io/github/stars/randheimer/KaizerIDE?style=flat-square" alt="Stars"></a>
+  <a href="https://github.com/randheimer/KaizerIDE/blob/main/LICENSE"><img src="https://img.shields.io/github/license/randheimer/KaizerIDE?style=flat-square" alt="License"></a>
+  <a href="https://github.com/randheimer/KaizerIDE/actions"><img src="https://img.shields.io/github/actions/workflow/status/randheimer/KaizerIDE/build-release.yml?style=flat-square" alt="Build"></a>
 </p>
--->
 
-## Features
+---
 
-- 🎨 Modern, intuitive user interface
-- 📝 Monaco Editor integration (VS Code's editor)
-- 🤖 AI-powered chat assistant (requires local OpenAI-compatible API endpoint)
-- 📁 File explorer and project management
-- 🔍 Advanced search capabilities
-- 💻 Integrated terminal
-- ⚡ Fast and responsive
+## ✨ What Makes KaizerIDE Different?
 
-## Requirements
+- 🤖 **AI-First Design** - Built-in AI assistant with context awareness and tool calling
+- 🚀 **Lightweight & Fast** - Native desktop app, no browser overhead
+- 🎨 **Modern UI** - Clean, dark-mode interface inspired by Cursor
+- 🔧 **Fully Customizable** - OpenAI-compatible API support (use any model)
+- 📦 **Zero Config** - Download, install, and start coding immediately
+- 🆓 **Open Source** - Free forever, community-driven
 
-### AI Chat Assistant
+## 🎯 Features
 
-The AI chat feature requires a local OpenAI-compatible API endpoint. Supported options:
-- [Ollama](https://ollama.ai/) with OpenAI compatibility
-- [LM Studio](https://lmstudio.ai/)
-- [LocalAI](https://localai.io/)
-- Any other OpenAI-compatible API server
+- 🎨 **Monaco Editor** - VS Code's powerful editor with syntax highlighting
+- 🤖 **AI Chat Assistant** - Context-aware coding help with tool calling
+- 📁 **File Explorer** - Navigate projects with ease
+- 🔍 **Search & Replace** - Fast full-text search across files
+- 💻 **Integrated Terminal** - Run commands without leaving the IDE
+- 🎯 **Multi-file Context** - Attach files/folders to AI conversations
+- 🔄 **Auto-updates** - Stay up to date automatically
+- 🪟 **Windows Context Menu** - Right-click files/folders to open in KaizerIDE
 
-Configure your API endpoint in the settings after installation.
-
-## Download
+## 📥 Download & Installation
 
 Download the latest version from the [Releases](https://github.com/randheimer/KaizerIDE/releases) page.
 
-### Installation
-
-1. Download `KaizerIDE Setup 1.0.0.exe` from the latest release
+**Windows:**
+1. Download `KaizerIDE-Setup-x.x.x.exe`
 2. Run the installer
-3. Follow the installation wizard
-4. Launch KaizerIDE from your Start Menu or Desktop
+3. Launch from Start Menu or Desktop
 
-## Development
+**Supported AI Providers:**
+- [OpenRouter](https://openrouter.ai/) - Access 100+ models
+- [Ollama](https://ollama.ai/) - Run models locally
+- [LM Studio](https://lmstudio.ai/) - Local model hosting
+- OpenAI API or any OpenAI-compatible endpoint
+
+## 🚀 Quick Start
+
+1. **Open a Project** - File → Open Folder or right-click any folder in Windows Explorer
+2. **Configure AI** - Click settings → Add your API endpoint and key
+3. **Start Coding** - Use the AI chat to ask questions, generate code, or debug
+
+## 💻 Development
+
+## 💻 Development
 
 ### Prerequisites
-
-- Node.js 22 or higher
+- Node.js 20+
 - npm
 
 ### Setup
-
 ```bash
-# Clone the repository
 git clone https://github.com/randheimer/KaizerIDE.git
 cd KaizerIDE
-
-# Install dependencies
 npm install
-
-# Run in development mode
 npm run dev
-
-# Build for production
-npm run build
-
-# Build installer
-npm run electron:build
 ```
 
-## Tech Stack
+### Build
+```bash
+npm run build          # Build Vite app
+npm run electron:build # Build Windows installer
+```
 
-- **Electron** - Desktop application framework
-- **React** - UI framework
+## 🛠️ Tech Stack
+
+- **Electron** - Desktop framework
+- **React** - UI library
 - **Vite** - Build tool
-- **Monaco Editor** - Code editor
+- **Monaco Editor** - Code editor (VS Code's editor)
 - **React Markdown** - Markdown rendering
 
-## License
+## 🤝 Contributing
 
-This project is licensed under a Custom License - see the [LICENSE](LICENSE) file for details.
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-**Summary:**
-- ✅ Free to use, modify, and distribute
-- ✅ Must credit "randheimer" in your modified versions
-- ❌ Cannot sell or use commercially without permission
-- ❌ Must include original author attribution
+**Good First Issues:** Look for issues labeled `good first issue` to get started!
 
-## Contributing
+## 📝 License
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Custom License - Free to use and modify with attribution. See [LICENSE](LICENSE) for details.
 
-## Support
+## 🌟 Show Your Support
 
-If you encounter any issues or have questions, please [open an issue](https://github.com/randheimer/KaizerIDE/issues).
+If you like KaizerIDE, give it a ⭐️ on GitHub!
+
+## 📧 Support
+
+- 🐛 [Report a bug](https://github.com/randheimer/KaizerIDE/issues/new?labels=bug)
+- 💡 [Request a feature](https://github.com/randheimer/KaizerIDE/issues/new?labels=enhancement)
+- 💬 [Ask a question](https://github.com/randheimer/KaizerIDE/discussions)
+
+---
+
+<p align="center">Made with ❤️ by <a href="https://github.com/randheimer">Randheimer</a></p>
