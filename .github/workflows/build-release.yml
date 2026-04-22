@@ -81,6 +81,33 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
       
+      - name: Get commit messages since last release
+        id: changelog
+        run: |
+          # Get the previous tag
+          $prevTag = git describe --tags --abbrev=0 HEAD^ 2>$null
+          if (-not $prevTag) {
+            $prevTag = git rev-list --max-parents=0 HEAD
+          }
+          
+          # Get commit messages between previous tag and now
+          $commits = git log "$prevTag..HEAD" --pretty=format:"- %s" --no-merges
+          
+          # Filter out version bump commits
+          $commits = $commits | Where-Object { $_ -notmatch "chore: bump version" -and $_ -notmatch "\[skip ci\]" }
+          
+          # Save to output
+          $changelog = $commits -join "`n"
+          if (-not $changelog) {
+            $changelog = "- Initial release"
+          }
+          
+          # Escape for GitHub Actions
+          $changelog = $changelog -replace '"','\"'
+          echo "changes<<EOF" >> $env:GITHUB_OUTPUT
+          echo "$changelog" >> $env:GITHUB_OUTPUT
+          echo "EOF" >> $env:GITHUB_OUTPUT
+      
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -98,31 +125,14 @@ jobs:
             release/*.exe
           draft: false
           prerelease: false
-          generate_release_notes: true
           body: |
             ## 🎉 KaizerIDE v${{ steps.package_version.outputs.version }}
             
             ### 📦 Download
             **Windows Installer:** `KaizerIDE.Setup.${{ steps.package_version.outputs.version }}.exe`
             
-            ### ✨ What's New in This Release
-            
-            #### 🐛 Bug Fixes
-            - Fixed context menu opening wrong folder when right-clicking
-            - Fixed all-black installer appearance (now uses standard Windows theme)
-            - Fixed file associations not working properly
-            
-            #### 🎨 Improvements
-            - Reduced installer size from 122 MB to ~95 MB (22% smaller!)
-            - Context menu now optional during installation
-            - Better command line argument handling for opening files/folders
-            - Improved folder opening with correct path resolution
-            
-            #### 🔧 Technical Changes
-            - Added proper command line argument parsing in Electron
-            - Simplified NSIS installer configuration
-            - Maximum compression enabled for smaller downloads
-            - Removed unnecessary files from build
+            ### 📝 What's Changed
+            ${{ steps.changelog.outputs.changes }}
             
             ### 🚀 Features
             - 🤖 **AI-Powered Coding Assistant** - Context-aware help with tool calling
@@ -132,7 +142,7 @@ jobs:
             - 🪟 **Windows Context Menu** - Right-click files/folders to open
             - 🔄 **Auto-updates** - Stay up to date automatically
             
-            ### 📝 Installation
+            ### 📥 Installation
             1. Download the installer above
             2. Run `KaizerIDE.Setup.${{ steps.package_version.outputs.version }}.exe`
             3. Follow the installation wizard
@@ -142,9 +152,5 @@ jobs:
             - [Report a Bug](https://github.com/randheimer/KaizerIDE/issues/new?labels=bug)
             - [Request a Feature](https://github.com/randheimer/KaizerIDE/issues/new?labels=enhancement)
             - [Documentation](https://github.com/randheimer/KaizerIDE#readme)
-            
-            ---
-            
-            **Full Changelog:** https://github.com/randheimer/KaizerIDE/compare/v${{ steps.package_version.outputs.version }}...v${{ steps.package_version.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
