@@ -298,26 +298,39 @@ function App() {
       console.log('[App] Path:', path);
       console.log('[App] Original path:', originalPath);
       
-      // Try to resolve the path relative to the current file's directory
+      // Get current directory from original path
       const currentDir = originalPath.substring(0, originalPath.lastIndexOf('\\'));
       console.log('[App] Current directory:', currentDir);
       
       let targetPath = path;
       
-      // If path doesn't start with drive letter, make it relative to current directory
-      if (!path.match(/^[A-Z]:\\/)) {
-        targetPath = `${currentDir}\\${path}`;
+      // If path is relative (starts with . or doesn't have drive letter)
+      if (path.startsWith('.') || !path.match(/^[A-Z]:\\/i)) {
+        // Remove leading backslash if present
+        const cleanPath = path.replace(/^\\+/, '');
+        targetPath = `${currentDir}\\${cleanPath}`;
         console.log('[App] Resolved relative path to:', targetPath);
       }
       
-      console.log('[App] Final target path:', targetPath);
+      // Normalize path (resolve .. and .)
+      const pathParts = targetPath.split('\\').filter(p => p);
+      const normalizedParts = [];
+      for (const part of pathParts) {
+        if (part === '..') {
+          normalizedParts.pop();
+        } else if (part !== '.') {
+          normalizedParts.push(part);
+        }
+      }
+      targetPath = normalizedParts.join('\\');
+      console.log('[App] Normalized target path:', targetPath);
       
       // Check if file exists and open it
       try {
         const info = await window.electron.getFileInfo(targetPath);
         console.log('[App] File info:', info);
         
-        if (info && !info.isDirectory) {
+        if (info && info.success !== false && !info.isDirectory) {
           console.log('[App] Opening file:', targetPath);
           await handleFileOpen(targetPath);
         } else {

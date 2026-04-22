@@ -663,24 +663,30 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
           const includedFile = includeMatch[1];
           console.log('[Include Navigation] Included file:', includedFile);
           
-          const currentFilePath = model.uri.path;
-          console.log('[Include Navigation] Current file path:', currentFilePath);
+          // Get the actual file path from activeTab instead of model.uri
+          const currentFilePath = activeTab;
+          console.log('[Include Navigation] Current file path from activeTab:', currentFilePath);
           
-          const currentDir = currentFilePath.substring(0, currentFilePath.lastIndexOf('/'));
+          if (!currentFilePath || currentFilePath.includes(':preview')) {
+            console.log('[Include Navigation] Invalid or preview file, skipping');
+            return null;
+          }
+          
+          const currentDir = currentFilePath.substring(0, currentFilePath.lastIndexOf('\\'));
           console.log('[Include Navigation] Current directory:', currentDir);
           
-          // Try to resolve the file path
+          // Resolve the target path
           let targetPath;
           
           if (line.includes('"')) {
-            // Local include with quotes - look in same directory
-            targetPath = `${currentDir}/${includedFile}`;
+            // Local include with quotes - resolve relative to current file
+            targetPath = `${currentDir}\\${includedFile}`;
           } else {
-            // System include with <> - try current directory first, then common paths
-            targetPath = `${currentDir}/${includedFile}`;
+            // System include with <> - try current directory first
+            targetPath = `${currentDir}\\${includedFile}`;
           }
           
-          // Convert to Windows path format
+          // Normalize path separators
           targetPath = targetPath.replace(/\//g, '\\');
           console.log('[Include Navigation] Target path:', targetPath);
           
