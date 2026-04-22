@@ -594,10 +594,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     // Initialize streaming message
     streamingMsgRef.current = {
       content: '',
-      thinkingContent: '',
+      thinkingBlocks: [], // Array of thinking sessions
+      currentThinkingIndex: -1,
       isThinking: false,
-      thinkingExpanded: true,
-      thinkingDuration: null
+      thinkingExpanded: true
     };
     setStreamingMsg({ ...streamingMsgRef.current });
 
@@ -622,21 +622,44 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         onThinkingToken: (token) => {
           if (token === '__START__') {
             thinkStartTime.current = Date.now();
-            updateStreaming({ isThinking: true, thinkingExpanded: true });
-            return;
-          }
-          
-          if (token === '__END__') {
-            updateStreaming({
-              isThinking: false,
-              thinkingExpanded: false,
-              thinkingDuration: Date.now() - thinkStartTime.current
+            // Add new thinking block
+            const newBlock = {
+              content: '',
+              isThinking: true,
+              expanded: true,
+              duration: null
+            };
+            streamingMsgRef.current.thinkingBlocks.push(newBlock);
+            streamingMsgRef.current.currentThinkingIndex = streamingMsgRef.current.thinkingBlocks.length - 1;
+            updateStreaming({ 
+              thinkingBlocks: [...streamingMsgRef.current.thinkingBlocks],
+              currentThinkingIndex: streamingMsgRef.current.currentThinkingIndex
             });
             return;
           }
           
-          streamingMsgRef.current.thinkingContent += token;
-          updateStreaming({ thinkingContent: streamingMsgRef.current.thinkingContent });
+          if (token === '__END__') {
+            const duration = Date.now() - thinkStartTime.current;
+            const currentIdx = streamingMsgRef.current.currentThinkingIndex;
+            if (currentIdx >= 0 && currentIdx < streamingMsgRef.current.thinkingBlocks.length) {
+              streamingMsgRef.current.thinkingBlocks[currentIdx].isThinking = false;
+              streamingMsgRef.current.thinkingBlocks[currentIdx].expanded = false;
+              streamingMsgRef.current.thinkingBlocks[currentIdx].duration = duration;
+            }
+            streamingMsgRef.current.currentThinkingIndex = -1;
+            updateStreaming({ 
+              thinkingBlocks: [...streamingMsgRef.current.thinkingBlocks],
+              currentThinkingIndex: -1
+            });
+            return;
+          }
+          
+          // Append to current thinking block
+          const currentIdx = streamingMsgRef.current.currentThinkingIndex;
+          if (currentIdx >= 0 && currentIdx < streamingMsgRef.current.thinkingBlocks.length) {
+            streamingMsgRef.current.thinkingBlocks[currentIdx].content += token;
+            updateStreaming({ thinkingBlocks: [...streamingMsgRef.current.thinkingBlocks] });
+          }
         },
         onToolCall: ({ id, name, args }) => {
           // Add tool to current turn's group
@@ -695,9 +718,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             id: crypto.randomUUID(),
             role: 'assistant',
             content: streamingMsgRef.current.content,
-            thinkingContent: streamingMsgRef.current.thinkingContent,
-            thinkingDuration: streamingMsgRef.current.thinkingDuration,
-            thinkingExpanded: false
+            thinkingBlocks: streamingMsgRef.current.thinkingBlocks || []
           };
           
           setMessages(prev => [...prev, finalMsg]);
@@ -839,9 +860,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           id: crypto.randomUUID(),
           role: 'assistant',
           content: streamingMsgRef.current.content,
-          thinkingContent: streamingMsgRef.current.thinkingContent,
-          thinkingDuration: streamingMsgRef.current.thinkingDuration,
-          thinkingExpanded: false
+          thinkingBlocks: streamingMsgRef.current.thinkingBlocks || []
         };
         setMessages(prev => [...prev, finalMsg]);
       }
@@ -1082,10 +1101,14 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     }
   };
 
-  const toggleThinking = (msgId) => {
+  const toggleThinking = (msgId, blockIndex) => {
     setMessages(prev => prev.map(m => {
       if (m.id !== msgId) return m;
-      return { ...m, thinkingExpanded: !m.thinkingExpanded };
+      const blocks = [...(m.thinkingBlocks || [])];
+      if (blockIndex >= 0 && blockIndex < blocks.length) {
+        blocks[blockIndex].expanded = !blocks[blockIndex].expanded;
+      }
+      return { ...m, thinkingBlocks: blocks };
     }));
   };
 
@@ -1093,36 +1116,41 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     return (
       <div className="message-row assistant-row" key="streaming">
         <div className="message-assistant">
-          {(msg.thinkingContent || msg.isThinking) && (
-            <div className="thinking-block">
+          {msg.thinkingBlocks && msg.thinkingBlocks.map((block, blockIdx) => (
+            <div key={blockIdx} className="thinking-block">
               <div 
                 className="thinking-header"
-                onClick={() => updateStreaming({ thinkingExpanded: !streamingMsgRef.current.thinkingExpanded })}
+                onClick={() => {
+                  const blocks = [...streamingMsgRef.current.thinkingBlocks];
+                  blocks[blockIdx].expanded = !blocks[blockIdx].expanded;
+                  streamingMsgRef.current.thinkingBlocks = blocks;
+                  updateStreaming({ thinkingBlocks: blocks });
+                }}
               >
-                {msg.isThinking ? (
+                {block.isThinking ? (
                   <span className="thinking-spinner"></span>
                 ) : (
                   <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
                 )}
                 <span className="thinking-label">
-                  {msg.isThinking
+                  {block.isThinking
                     ? 'Thinking...'
-                    : `Thought for ${((msg.thinkingDuration || 0) / 1000).toFixed(1)}s`}
+                    : `Thought for ${((block.duration || 0) / 1000).toFixed(1)}s`}
                 </span>
                 <span 
                   className="thinking-chevron"
-                  style={{transform: msg.thinkingExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
+                  style={{transform: block.expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
                 >
                   ▸
                 </span>
               </div>
-              {msg.thinkingExpanded && (
+              {block.expanded && (
                 <div className="thinking-body">
-                  <pre>{msg.thinkingContent}</pre>
+                  <pre>{block.content}</pre>
                 </div>
               )}
             </div>
-          )}
+          ))}
           {msg.content && (
             <div className="assistant-message">
               <ReactMarkdown 
@@ -1233,32 +1261,32 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       return (
         <div key={idx} className="message-row assistant-row">
           <div className="message-assistant">
-            {msg.thinkingContent && (
-              <div className="thinking-block">
+            {msg.thinkingBlocks && msg.thinkingBlocks.map((block, blockIdx) => (
+              <div key={blockIdx} className="thinking-block">
                 <div 
                   className="thinking-header"
-                  onClick={() => toggleThinking(msg.id)}
+                  onClick={() => toggleThinking(msg.id, blockIdx)}
                 >
                   <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
                   <span className="thinking-label">
-                    {msg.thinkingDuration 
-                      ? `Thought for ${(msg.thinkingDuration / 1000).toFixed(1)}s`
+                    {block.duration 
+                      ? `Thought for ${(block.duration / 1000).toFixed(1)}s`
                       : 'Thinking'}
                   </span>
                   <span 
                     className="thinking-chevron"
-                    style={{transform: msg.thinkingExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
+                    style={{transform: block.expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
                   >
                     ▸
                   </span>
                 </div>
-                {msg.thinkingExpanded && (
+                {block.expanded && (
                   <div className="thinking-body">
-                    <pre>{msg.thinkingContent}</pre>
+                    <pre>{block.content}</pre>
                   </div>
                 )}
               </div>
-            )}
+            ))}
             
             {msg.content && (
               <div className="assistant-message">
