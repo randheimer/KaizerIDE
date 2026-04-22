@@ -17,6 +17,9 @@ test
 !CHAT_REFACTOR_SUMMARY.md
 !TEST/README.md
 
+# Wiki (local documentation only)
+docs/WIKI.md
+
 # OS files
 .DS_Store
 
