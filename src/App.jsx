@@ -184,17 +184,18 @@ function App() {
     if (indexer.workspacePath && indexer.workspacePath !== workspacePath) {
       console.log('[App] Workspace changed from', indexer.workspacePath, 'to', workspacePath);
       console.log('[App] Clearing old index and starting fresh...');
-      indexer.index = []; // Clear old index
+      indexer.indexStore.clear(); // Clear old index
     }
     
     console.log('[App] Checking index cache...');
-    const cached = indexer.loadFromStorage(workspacePath);
-    if (!cached) {
-      console.log('[App] No cache found, starting indexing...');
-      indexer.startIndexing(workspacePath);
-    } else {
-      console.log('[App] Loaded index from cache');
-    }
+    indexer.loadFromStorage(workspacePath).then(cached => {
+      if (!cached) {
+        console.log('[App] No cache found, starting indexing...');
+        indexer.startIndexing(workspacePath);
+      } else {
+        console.log('[App] Loaded index from cache');
+      }
+    });
   }, [workspacePath]);
 
   // Handle context menu integration - consolidated single listener
