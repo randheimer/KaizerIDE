@@ -14,6 +14,22 @@
   <a href="https://github.com/randheimer/KaizerIDE/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Custom-blue" alt="License"></a>
 </p>
 
+## Screenshots
+
+<p align="center">
+  <img src="images/Preview1.png" alt="KaizerIDE Main Interface" width="800"/>
+</p>
+
+<!-- Add more screenshots here:
+<p align="center">
+  <img src="images/Preview2.png" alt="AI Chat Assistant" width="800"/>
+</p>
+
+<p align="center">
+  <img src="images/Preview3.png" alt="Code Editor" width="800"/>
+</p>
+-->
+
 ## Features
 
 - 🎨 Modern, intuitive user interface
