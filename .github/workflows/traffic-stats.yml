@@ -1,4 +1,4 @@
-name: Update Traffic Stats
+name: Traffic to Badge
 
 on:
   schedule:
@@ -6,23 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  update-stats:
+  run:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Generate Traffic Stats
-        uses: jgehrcke/github-repo-stats@RELEASE
+      - name: Traffic to Badge
+        uses: yi-Xu-0100/traffic-to-badge@v1
         with:
-          repository: ${{ github.repository }}
-          ghtoken: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Commit and push if changed
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update traffic stats" && git push)
+          my_token: ${{ secrets.GHTOKEN }}
