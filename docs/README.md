@@ -24,7 +24,8 @@
 
 ### 📊 Repository Stats
 
-![Traffic Stats](https://github.com/randheimer/KaizerIDE/blob/traffic-stats/traffic-stats.svg)
+![Clones](graphs/clones.png)
+![Views](graphs/views.png)
 
 ### 🤖 AI-Powered Coding Assistant
 - **Multi-Agent System** - 4 specialized agents (Executor, Planner, Ask, Fixer) with distinct roles
