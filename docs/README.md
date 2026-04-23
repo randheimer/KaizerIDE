@@ -25,7 +25,6 @@
 ### 📊 Repository Stats
 
 ![Clones](graphs/clones.png)
-![Views](graphs/views.png)
 
 ### 🤖 AI-Powered Coding Assistant
 - **Multi-Agent System** - 4 specialized agents (Executor, Planner, Ask, Fixer) with distinct roles
