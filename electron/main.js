@@ -496,8 +496,8 @@ ipcMain.handle('save-workspace-path', async (event, workspacePath) => {
       lastOpened: new Date().toISOString()
     });
     
-    // Keep only last 10
-    recentData.workspaces = recentData.workspaces.slice(0, 10);
+    // Keep only last 5
+    recentData.workspaces = recentData.workspaces.slice(0, 5);
     
     // Save
     fs.writeFileSync(recentPath, JSON.stringify(recentData, null, 2), 'utf8');
@@ -1025,8 +1025,8 @@ ipcMain.handle('add-recent-workspace', async (event, workspacePath) => {
       lastOpened: new Date().toISOString()
     });
     
-    // Keep only last 10
-    recentData.workspaces = recentData.workspaces.slice(0, 10);
+    // Keep only last 5
+    recentData.workspaces = recentData.workspaces.slice(0, 5);
     
     // Save
     fs.writeFileSync(recentPath, JSON.stringify(recentData, null, 2), 'utf8');
@@ -1040,13 +1040,36 @@ ipcMain.handle('add-recent-workspace', async (event, workspacePath) => {
 // Open workspace from welcome screen
 ipcMain.handle('open-workspace-from-welcome', async (event, workspacePath) => {
   try {
-    // Save workspace path
+    // Save workspace path and add to recent workspaces
     const userDataPath = app.getPath('userData');
     const configPath = path.join(userDataPath, 'workspace-config.json');
     fs.writeFileSync(configPath, JSON.stringify({ workspacePath }));
     
     // Add to recent workspaces
-    await ipcMain.emit('add-recent-workspace', event, workspacePath);
+    const recentPath = path.join(userDataPath, 'recent-workspaces.json');
+    let recentData = { workspaces: [] };
+    
+    if (fs.existsSync(recentPath)) {
+      const data = fs.readFileSync(recentPath, 'utf8');
+      recentData = JSON.parse(data);
+    }
+    
+    // Remove if already exists
+    recentData.workspaces = recentData.workspaces.filter(w => w.path !== workspacePath);
+    
+    // Add to front
+    const name = path.basename(workspacePath);
+    recentData.workspaces.unshift({
+      path: workspacePath,
+      name: name,
+      lastOpened: new Date().toISOString()
+    });
+    
+    // Keep only last 5
+    recentData.workspaces = recentData.workspaces.slice(0, 5);
+    
+    // Save
+    fs.writeFileSync(recentPath, JSON.stringify(recentData, null, 2), 'utf8');
     
     // Close welcome window
     if (welcomeWindow && !welcomeWindow.isDestroyed()) {

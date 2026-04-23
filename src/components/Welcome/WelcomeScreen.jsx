@@ -125,7 +125,7 @@ function WelcomeScreen() {
             <div className="recent-section">
               <div className="recent-header">Recent</div>
               <div className="recent-list">
-                {recentWorkspaces.slice(0, 10).map((workspace, index) => (
+                {recentWorkspaces.slice(0, 5).map((workspace, index) => (
                   <div
                     key={index}
                     className="recent-item"
@@ -147,8 +147,13 @@ function WelcomeScreen() {
           ) : (
             <div className="recent-section">
               <div className="recent-header">Recent</div>
-              <div style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '13px', marginTop: '16px' }}>
-                No recent folders
+              <div className="empty-recent">
+                <div className="empty-recent-text">
+                  Looks like you haven't opened anything recently.
+                </div>
+                <div className="empty-recent-subtext">
+                  Maybe it's time to start a new project?
+                </div>
               </div>
             </div>
           )}

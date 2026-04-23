@@ -239,6 +239,26 @@
   text-overflow: ellipsis;
 }
 
+/* Empty recent state */
+.empty-recent {
+  margin-top: 24px;
+  padding: 20px;
+  text-align: center;
+}
+
+.empty-recent-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.empty-recent-subtext {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  line-height: 1.5;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {

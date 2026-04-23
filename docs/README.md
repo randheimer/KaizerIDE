@@ -1,7 +1,7 @@
 # KaizerIDE
 
 <p align="center">
-  <img src="images/Preview1.png" alt="KaizerIDE Preview" width="800"/>
+  <img src="images/Preview8.png" alt="KaizerIDE Preview" width="800"/>
 </p>
 
 <p align="center">
@@ -45,11 +45,13 @@
 
 ### 📁 File Management
 - **File Explorer** - Browse and manage your project files
+- **SSH/SFTP Support** - Connect to remote servers and edit files directly
 - **Search Panel** - Fast file and text search across your workspace
 - **Context Menu Integration** - Right-click files/folders in Windows Explorer to open in KaizerIDE
 - **Drag & Drop** - Easy file operations
 
 ### 🎨 Beautiful UI/UX
+- **Welcome Screen** - Quick access to recent projects and folders
 - **macOS & Windows Themes** - Native-looking window controls for both platforms
 - **Customizable Appearance** - Accent colors, compact mode, status bar toggle
 - **Glassmorphism Design** - Modern frosted glass effects and smooth animations
