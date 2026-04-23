@@ -48,7 +48,7 @@ def plot(history, key, label, color, filename):
     ax.grid(axis="y", color="#21262d", linewidth=0.8)
     plt.tight_layout()
     Path("docs/graphs").mkdir(exist_ok=True, parents=True)
-    plt.savefig(f"docs/graphs/{filename}", ...)
+    plt.savefig(f"docs/graphs/{filename}", dpi=150, bbox_inches="tight")
     plt.close()
 
 history = load_history()
