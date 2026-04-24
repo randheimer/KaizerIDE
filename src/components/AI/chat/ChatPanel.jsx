@@ -11,39 +11,35 @@ import FilesChangedCard from './FilesChangedCard';
 import ChatHeader from './ChatHeader';
 import EmptyState from './EmptyState';
 import MessageList from './MessageList';
+import Composer from './Composer/Composer';
 import ChatHistoryModal from './modals/ChatHistoryModal';
 import AddModelModal from './modals/AddModelModal';
-import {
-  useChatStore,
-  POPUP_CONTEXT,
-  POPUP_MODE,
-  POPUP_MODEL,
-} from '../../../lib/stores/chatStore';
+import { useChatStore } from '../../../lib/stores/chatStore';
 import './ChatPanel.css';
 
 function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onOpenFile }) {
   const [messages, setMessages] = useState([]);
   const [streamingMsg, setStreamingMsg] = useState(null);
-  const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isAgentRunning, setIsAgentRunning] = useState(false);
   const [toolGroups, setToolGroups] = useState({});
   const [currentTurnId, setCurrentTurnId] = useState(null);
-  const [contextPills, setContextPills] = useState([]);
-  // Popup state centralized in chatStore (only one popup open at a time).
-  const openPopup = useChatStore((s) => s.openPopup);
-  const popupAnchor = useChatStore((s) => s.popupAnchor);
-  const openPopupMenu = useChatStore((s) => s.openPopupMenu);
+
+  // Composer-related state lives in chatStore (consumed directly by Composer
+  // and its sub-pickers; mirrored here via selectors so existing handlers work).
+  const input = useChatStore((s) => s.input);
+  const setInput = useChatStore((s) => s.setInput);
+  const contextPills = useChatStore((s) => s.contextPills);
+  const setContextPills = useChatStore((s) => s.setContextPills);
+  const currentMode = useChatStore((s) => s.currentMode);
+  const setCurrentMode = useChatStore((s) => s.setCurrentMode);
   const closePopup = useChatStore((s) => s.closePopup);
-  const showContextMenu = openPopup === POPUP_CONTEXT;
-  const showModeMenu = openPopup === POPUP_MODE;
-  const showModelMenu = openPopup === POPUP_MODEL;
+
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
-  const [currentMode, setCurrentMode] = useState('agent');
   const [commandPermissionRequest, setCommandPermissionRequest] = useState(null);
   const thinkStartTime = useRef(null);
   const [autoApproveCommands, setAutoApproveCommands] = useState(false);
@@ -57,12 +53,6 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const streamingUpdateTimer = useRef(null);
   const abortControllerRef = useRef(null);
   const textareaRef = useRef(null);
-  const contextMenuRef = useRef(null);
-  const modeMenuRef = useRef(null);
-  const modelMenuRef = useRef(null);
-  const contextButtonRef = useRef(null);
-  const modeButtonRef = useRef(null);
-  const modelButtonRef = useRef(null);
 
   // Update streaming message with throttling
   const updateStreaming = useCallback((patch) => {
@@ -131,18 +121,9 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     }
   }, []);
 
-  // Click outside to close menus
+  // Popup dismissal is handled by Floating UI's useDismiss inside Composer.
+  // This effect only wires up the agent/context window events.
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (openPopup === POPUP_CONTEXT && !e.target.closest('.context-popup') && !e.target.closest('.icon-btn-small')) {
-        closePopup();
-      } else if (openPopup === POPUP_MODE && !e.target.closest('.mode-popup') && !e.target.closest('.pill-btn')) {
-        closePopup();
-      } else if (openPopup === POPUP_MODEL && !e.target.closest('.model-popup') && !e.target.closest('.pill-btn')) {
-        closePopup();
-      }
-    };
-
     const handleAttachContext = (e) => {
       const { items } = e.detail;
       setContextPills(prev => [
@@ -276,7 +257,6 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       textareaRef.current?.focus();
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
     window.addEventListener('kaizer:attach-context', handleAttachContext);
     window.addEventListener('kaizer:paste-to-chat', handlePasteToChat);
     window.addEventListener('kaizer:request-command-permission', handleCommandPermission);
@@ -284,7 +264,6 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     window.addEventListener('kaizer:improve-plan', handleImprovePlan);
     window.addEventListener('kaizer:ask-about-plan', handleAskAboutPlan);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('kaizer:attach-context', handleAttachContext);
       window.removeEventListener('kaizer:paste-to-chat', handlePasteToChat);
       window.removeEventListener('kaizer:request-command-permission', handleCommandPermission);
@@ -292,7 +271,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       window.removeEventListener('kaizer:improve-plan', handleImprovePlan);
       window.removeEventListener('kaizer:ask-about-plan', handleAskAboutPlan);
     };
-  }, [openPopup, closePopup, autoApproveCommands]);
+  }, [autoApproveCommands, setInput, setContextPills, setCurrentMode]);
 
   // Auto-resize textarea
   const adjustTextareaHeight = useCallback(() => {
@@ -804,63 +783,26 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   };
 
   const handleAddContext = (type, data) => {
-    setContextPills(prev => [...prev, { type, data, id: Date.now() }]);
+    setContextPills((prev) => [...prev, { type, data, id: Date.now() }]);
     closePopup();
   };
 
-  const handleRemoveContext = (id) => {
-    setContextPills(prev => prev.filter(p => p.id !== id));
-  };
-
   /**
-   * Compute viewport-clamped popup coordinates above (preferred) or below
-   * a trigger element. Returns { x, y } or null if no element.
+   * Context-menu type selection bridge. ContextMenu passes a type id
+   * (files / docs / terminal); we translate into the existing effects.
    */
-  const computeAnchor = (triggerEl, popupWidth, popupHeight) => {
-    if (!triggerEl) return null;
-    const rect = triggerEl.getBoundingClientRect();
-    let x = rect.left;
-    let y = rect.top - popupHeight - 6;
-    x = Math.min(x, window.innerWidth - popupWidth - 8);
-    x = Math.max(x, 8);
-    if (y < 8) y = rect.bottom + 6;
-    return { x, y };
-  };
-
-  const toggleContextMenu = () => {
-    if (openPopup === POPUP_CONTEXT) return closePopup();
-    openPopupMenu(POPUP_CONTEXT, computeAnchor(contextButtonRef.current, 240, 200));
-  };
-
-  const toggleModeMenu = () => {
-    if (openPopup === POPUP_MODE) return closePopup();
-    openPopupMenu(POPUP_MODE, computeAnchor(modeButtonRef.current, 160, 116));
-  };
-
-  const toggleModelMenu = () => {
-    if (openPopup === POPUP_MODEL) return closePopup();
-    const itemCount = settings.models.length + 1; // +1 for "Add Model"
-    const popupHeight = Math.min(itemCount * 36 + 8, 280);
-    openPopupMenu(POPUP_MODEL, computeAnchor(modelButtonRef.current, 180, popupHeight));
-  };
-
-  const getModeIcon = (mode) => {
-    switch (mode) {
-      case 'agent': return 'Infinity';
-      case 'plan': return 'ClipboardList';
-      case 'ask': return 'MessageCircle';
-      case 'fixer': return 'Wrench';
-      default: return 'Infinity';
-    }
-  };
-
-  const getModeName = (mode) => {
-    switch (mode) {
-      case 'agent': return 'Agent';
-      case 'plan': return 'Plan';
-      case 'ask': return 'Ask';
-      case 'fixer': return 'Fixer';
-      default: return 'Agent';
+  const handleAttachContextType = (id) => {
+    if (id === 'files') {
+      window.dispatchEvent(
+        new CustomEvent('kaizer:open-filepicker', {
+          detail: { startPath: workspacePath },
+        })
+      );
+    } else if (id === 'docs') {
+      // eslint-disable-next-line no-alert
+      alert('Coming soon');
+    } else if (id === 'terminal') {
+      handleAddContext('terminal', 'Terminal');
     }
   };
 
@@ -1396,188 +1338,17 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       )}
 
       {/* Input Composer */}
-      <div className="chat-composer-new">
-        <div className={`composer-container-new ${isStreaming ? 'ai-loading' : ''} ${input ? 'has-content' : ''}`}>
-          {contextPills.length > 0 && (
-            <div className="context-pills-row">
-              {contextPills.map(pill => (
-                <div key={pill.id} className="context-pill-new">
-                  <Icon
-                    name={pill.type === 'file' ? 'FileText' : 'Folder'}
-                    size={12}
-                    className="pill-icon"
-                  />
-                  <span className="pill-text">{pill.data.split(/[\\/]/).pop()}</span>
-                  <button
-                    className="pill-remove"
-                    onClick={() => handleRemoveContext(pill.id)}
-                    aria-label="Remove"
-                  >
-                    <Icon name="X" size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <textarea
-            ref={textareaRef}
-            className="composer-textarea"
-            placeholder="Ask anything..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isStreaming}
-            rows={1}
-          />
-
-          <div className="composer-toolbar-new">
-            <div className="toolbar-left">
-              <div className="toolbar-btn-wrapper" ref={contextMenuRef}>
-                <button
-                  className="icon-btn-small"
-                  ref={contextButtonRef}
-                  onClick={toggleContextMenu}
-                  aria-label="Add context"
-                  title="Add context"
-                >
-                  <Icon name="AtSign" size={14} />
-                </button>
-                {showContextMenu && (
-                  <div
-                    className="context-popup"
-                    style={{
-                      position: 'fixed',
-                      left: `${popupAnchor?.x ?? 0}px`,
-                      top: `${popupAnchor?.y ?? 0}px`,
-                      zIndex: 'var(--z-popover, 9500)',
-                    }}
-                  >
-                    <div className="context-search">
-                      <input type="text" placeholder="Add files, folders, docs..." />
-                    </div>
-                    <div className="context-options">
-                      <div className="context-option" onClick={() => {
-                        window.dispatchEvent(new CustomEvent('kaizer:open-filepicker', {
-                          detail: { startPath: workspacePath }
-                        }));
-                        closePopup();
-                      }}>
-                        <span>📁</span>
-                        <span>Files & Folders</span>
-                      </div>
-                      <div className="context-option" onClick={() => alert('Coming soon')}>
-                        <span>📄</span>
-                        <span>Docs</span>
-                      </div>
-                      <div className="context-option" onClick={() => handleAddContext('terminal', 'Terminal')}>
-                        <span>💻</span>
-                        <span>Terminals</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="toolbar-right">
-              <div className="toolbar-btn-wrapper" ref={modeMenuRef}>
-                <button 
-                  className="pill-btn" 
-                  ref={modeButtonRef} 
-                  onClick={toggleModeMenu}
-                >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <Icon name={getModeIcon(currentMode)} size={13} />
-                    {getModeName(currentMode)}
-                  </span>
-                </button>
-                {showModeMenu && (
-                  <div
-                    className="mode-popup"
-                    style={{
-                      position: 'fixed',
-                      left: `${popupAnchor?.x ?? 0}px`,
-                      top: `${popupAnchor?.y ?? 0}px`,
-                      zIndex: 'var(--z-popover, 9500)',
-                    }}
-                  >
-                    {[
-                      { id: 'agent', label: 'Agent', icon: 'Infinity' },
-                      { id: 'plan', label: 'Plan', icon: 'ClipboardList' },
-                      { id: 'ask', label: 'Ask', icon: 'MessageCircle' },
-                      { id: 'fixer', label: 'Fixer', icon: 'Wrench' },
-                    ].map((opt) => (
-                      <div
-                        key={opt.id}
-                        className={`mode-option ${currentMode === opt.id ? 'active' : ''}`}
-                        onClick={() => { setCurrentMode(opt.id); closePopup(); }}
-                      >
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <Icon name={opt.icon} size={13} />
-                          {opt.label}
-                        </span>
-                        {currentMode === opt.id && (
-                          <Icon name="Check" size={13} className="checkmark" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="toolbar-btn-wrapper" ref={modelMenuRef}>
-                <button 
-                  className="pill-btn" 
-                  ref={modelButtonRef} 
-                  onClick={toggleModelMenu}
-                >
-                  <span>{settings.selectedModel.name.slice(0, 16)}{settings.selectedModel.name.length > 16 ? '…' : ''}</span>
-                </button>
-                {showModelMenu && (
-                  <div
-                    className="model-popup"
-                    style={{
-                      position: 'fixed',
-                      left: `${popupAnchor?.x ?? 0}px`,
-                      top: `${popupAnchor?.y ?? 0}px`,
-                      zIndex: 'var(--z-popover, 9500)',
-                    }}
-                  >
-                    {settings.models.map(model => (
-                      <div 
-                        key={model.id} 
-                        className={`model-option ${settings.selectedModel.id === model.id ? 'active' : ''}`}
-                        onClick={() => {
-                          settings.selectedModel = model;
-                          closePopup();
-                        }}
-                      >
-                        <span>{model.name}</span>
-                        {settings.selectedModel.id === model.id && <span className="model-indicator">◉</span>}
-                      </div>
-                    ))}
-                    <div className="model-divider"></div>
-                    <div className="model-option add-model" onClick={() => { closePopup(); setShowSettingsModal(true); }}>
-                      <span>+ Add Model</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <button
-                className="send-btn-new"
-                onClick={isStreaming ? handleStop : handleSend}
-                disabled={!input.trim() && !isStreaming}
-                aria-label={isStreaming ? 'Stop' : 'Send'}
-                title={isStreaming ? 'Stop' : 'Send (Enter)'}
-              >
-                <Icon name={isStreaming ? 'Square' : 'ArrowUp'} size={16} strokeWidth={2} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Composer
+        ref={textareaRef}
+        settings={settings}
+        isStreaming={isStreaming}
+        onSend={handleSend}
+        onStop={handleStop}
+        onKeyDown={handleKeyDown}
+        onChangeInput={(e) => setInput(e.target.value)}
+        onAttachContextType={handleAttachContextType}
+        onOpenSettings={() => setShowSettingsModal(true)}
+      />
 
       {/* Settings Modal */}
       {showSettingsModal && (
