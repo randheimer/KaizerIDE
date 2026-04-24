@@ -30,10 +30,11 @@
 - **Multi-Agent System** - 4 specialized agents (Executor, Planner, Ask, Fixer) with distinct roles
 - **Context-Aware Chat** - AI understands your entire project structure
 - **Tool Calling** - AI can read files, search code, and analyze your workspace
-- **Multi-Model Support** - Works with any OpenAI-compatible API (Claude, GPT, local models)
+- **Multi-Model Support** - Works with any OpenAI-compatible API (Claude, GPT, Qwen, Gemini, local models)
 - **Streaming Responses** - Real-time AI responses with syntax highlighting
 - **Code Context Pills** - Attach files, folders, or selections to your prompts
 - **Planning System** - Create detailed implementation plans with real-time preview
+- **Durable Sessions** — _New in v4.4_ — Chat history survives restarts (disk-backed in `userData/`)
 
 ### 💻 Modern Code Editor
 - **Monaco Editor** - The same powerful editor from VS Code
@@ -43,8 +44,16 @@
 - **Minimap** - Quick navigation for large files
 - **Customizable Themes** - Multiple editor themes including Kaizer Dark and Zero Syntax
 
+### ⚡ Command Palette _(New in v4.4)_
+- **`Ctrl+Shift+P`** opens a fuzzy command launcher (VS Code-style)
+- Instant access to every menu action: new file, save, toggle sidebar, open settings, reindex, SSH connect, and more
+- Keyboard-first navigation with arrow keys + Enter
+- Extensible command list — new features automatically surface here
+
 ### 📁 File Management
 - **File Explorer** - Browse and manage your project files
+- **`.gitignore`-Aware** — _New in v4.4_ — File tree honors your repo's `.gitignore` automatically
+- **Non-Blocking File Tree** — _New in v4.4_ — Async concurrent directory reads; no more freezes on large repos
 - **SSH/SFTP Support** - Connect to remote servers and edit files directly
 - **Search Panel** - Fast file and text search across your workspace
 - **Context Menu Integration** - Right-click files/folders in Windows Explorer to open in KaizerIDE
@@ -56,12 +65,14 @@
 - **Customizable Appearance** - Accent colors, compact mode, status bar toggle
 - **Glassmorphism Design** - Modern frosted glass effects and smooth animations
 - **Dark Mode** - Easy on the eyes for long coding sessions
+- **Lazy-Loaded Modals** — _New in v4.4_ — Smaller initial bundle, faster startup
 
 ### 🔧 Developer Tools
 - **Integrated Terminal** - Run commands without leaving the IDE
 - **Settings Panel** - Customize editor, appearance, and AI models
 - **Keyboard Shortcuts** - Familiar shortcuts for productivity
 - **Auto-Save** - Never lose your work
+- **Workspace Indexer** - Local-first code indexing with real-time file watching
 
 ---
 
@@ -70,14 +81,30 @@
 ### Installation
 
 1. **Download** the latest release from [GitHub Releases](https://github.com/randheimer/KaizerIDE/releases)
-2. **Run** the installer (`KaizerIDE.Setup.x.x.x.exe`)
-3. **Launch** from Start Menu or Desktop shortcut
+2. **(Optional)** Verify the SHA256 checksum — every release ships a `.sha256` file:
+   ```powershell
+   (Get-FileHash .\KaizerIDE-X.Y.Z.exe -Algorithm SHA256).Hash
+   ```
+3. **Run** the installer (`KaizerIDE-X.Y.Z.exe`)
+4. **Launch** from Start Menu or Desktop shortcut
 
 ### First Steps
 
 1. **Open a Folder** - File → Open Folder or `Ctrl+O`
 2. **Configure AI** - Settings → General → Set your API endpoint and key
 3. **Start Coding** - Open files and use the AI assistant for help
+4. **Discover Commands** - Press `Ctrl+Shift+P` for the Command Palette
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+Shift+P` | **Command Palette** (new!) |
+| `Ctrl+S` | Save current file |
+| `Ctrl+B` | Toggle sidebar |
+| `Ctrl+,` | Open settings |
+| `Ctrl+O` | Open folder |
+| `Ctrl+W` | Close tab |
 
 ---
 
@@ -260,12 +287,14 @@ KaizerIDE is built for teams that require **control over convenience trade-offs*
 
 ## 🛠️ Tech Stack
 
-- **Electron** - Cross-platform desktop framework
-- **React** - UI framework
-- **Vite** - Fast build tool
-- **Monaco Editor** - VS Code's editor
-- **Node-PTY** - Terminal emulation
-- **Chokidar** - File watching
+- **Electron 41** — Desktop shell
+- **React 18** — UI framework
+- **Vite 6** — Build tool / dev server
+- **Monaco Editor** — VS Code's editor core
+- **react-markdown + remark-gfm** — Markdown rendering in the AI chat
+- **react-syntax-highlighter (Prism)** — Code block highlighting
+- **ssh2** — Native SSH/SFTP client for remote workspaces
+- **ESLint + Prettier** — Code quality tooling _(New in v4.4)_
 
 ---
 
@@ -286,13 +315,40 @@ cd KaizerIDE
 # Install dependencies
 npm install
 
-# Run in development mode
+# Run in development mode (Vite + Electron hot reload)
 npm run dev
 
-# Build for production
+# Build the Vite bundle only
 npm run build
+
+# Build the Windows installer (.exe)
 npm run electron:build
 ```
+
+### Code Quality (v4.4+)
+
+```bash
+npm run lint            # Run ESLint on src/
+npm run lint:fix        # Auto-fix lint issues
+npm run format          # Format with Prettier
+npm run format:check    # Check formatting without writing
+```
+
+### Release Process
+
+Commits on `main` automatically trigger a build via GitHub Actions. Version
+bumps follow conventional commit prefixes:
+
+| Prefix | Bump | Example |
+| --- | --- | --- |
+| `BREAKING CHANGE:` or `feat!:` | Major | `1.0.0` -> `2.0.0` |
+| `feat:` | Minor | `1.0.0` -> `1.1.0` |
+| `fix:` / `chore:` / `perf:` / `refactor:` | Patch | `1.0.0` -> `1.0.1` |
+| `docs:` / `style:` / `test:` | none (paths-ignored) | no release |
+
+Every release ships a SHA256 checksum alongside the `.exe` for verification.
+The release workflow also generates a changelog grouped by commit type
+(Features / Fixes / Performance / Refactors / Chores).
 
 ---
 

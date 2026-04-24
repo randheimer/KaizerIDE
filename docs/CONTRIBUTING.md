@@ -39,18 +39,29 @@ Thanks for your interest in contributing to KaizerIDE! 🎉
    - Follow the existing code style
    - Add comments for complex logic
    - Test your changes thoroughly
+   - Run `npm run lint` and `npm run format:check` before committing
 
 5. **Commit your changes**
    ```bash
    git commit -m "feat: add amazing feature"
    ```
-   Use conventional commits: `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`
+
+   Use [Conventional Commits](https://www.conventionalcommits.org/). The
+   prefix drives the automatic version bump:
+
+   | Prefix | Semver bump |
+   | --- | --- |
+   | `feat:` | minor |
+   | `fix:` / `chore:` / `perf:` / `refactor:` | patch |
+   | `BREAKING CHANGE:` footer or `feat!:` | major |
+   | `docs:` / `style:` / `test:` | none |
 
 6. **Push and create a PR**
    ```bash
    git push origin feature/your-feature-name
    ```
-   Then open a PR on GitHub with a clear description
+   Then open a PR on GitHub with a clear description. CI will run
+   `lint`, `format:check`, and `build` automatically on every PR.
 
 ### New to Contributing?
 If you're new to open source, start with issues labeled `good first issue`. These are:
@@ -74,25 +85,48 @@ If you're new to open source, start with issues labeled `good first issue`. Thes
 ### Project Structure
 ```
 KaizerIDE/
-├── electron/          # Electron main process
-├── src/              # React frontend
-│   ├── components/   # UI components
-│   ├── lib/          # Utilities and API
-│   └── hooks/        # React hooks
-├── images/           # Assets
-└── .github/          # CI/CD workflows
+├── electron/                  # Electron main & preload
+│   ├── main.js                # IPC, window, SSH, file IO
+│   └── preload.js             # contextBridge surface
+├── src/                       # React renderer
+│   ├── components/
+│   │   ├── AI/chat/           # Chat panel + tool cards
+│   │   ├── Common/            # Palette, file picker, toasts
+│   │   ├── Editor/            # Monaco wrapper + tabs
+│   │   ├── Layout/            # Title + menu bars
+│   │   ├── Modals/            # Settings, remote connection
+│   │   ├── Sidebar/           # File explorer, search panel
+│   │   └── Terminal/          # Terminal panel
+│   ├── hooks/                 # Reusable React hooks
+│   └── lib/
+│       ├── agent/             # Multi-agent system (exec/plan/ask/fix)
+│       └── indexer/           # Local workspace indexer
+├── docs/                      # User-facing docs + screenshots
+└── .github/
+    ├── dependabot.yml         # Weekly dep updates
+    └── workflows/
+        ├── build-release.yml  # Auto-build + release on main
+        ├── ci.yml             # Lint + build on PRs
+        └── traffic-stats.yml  # Daily repo traffic graphs
 ```
 
 ### Tech Stack
-- **Frontend**: React, Vite, Monaco Editor
-- **Backend**: Electron
-- **AI**: OpenAI-compatible API
-- **Styling**: CSS modules
+- **Frontend**: React 18, Vite 6, Monaco Editor
+- **Shell**: Electron 41
+- **AI**: Any OpenAI-compatible endpoint (Claude, GPT, Qwen, Gemini, local)
+- **Remote**: `ssh2` for SFTP workspaces
+- **Tooling**: ESLint + Prettier
 
-### Building
+### Scripts
 ```bash
-npm run build          # Build Vite app
-npm run electron:build # Build installer
+npm run dev             # Vite + Electron dev mode
+npm run build           # Vite production build
+npm run electron:build  # Full Windows installer
+
+npm run lint            # ESLint
+npm run lint:fix        # ESLint auto-fix
+npm run format          # Prettier write
+npm run format:check    # Prettier check
 ```
 
 ## Code of Conduct
