@@ -1,15 +1,14 @@
 import React, { useMemo, useRef, useCallback } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import ToolGroupCard from './ToolGroupCard';
-import TypingIndicator from './TypingIndicator';
 
 /**
- * MessageList - virtualized chat message list.
+ * MessageList - virtualized list of completed messages + tool groups only.
  *
- * Flattens messages + interleaved completed tool groups into a single list
- * of typed items, then renders via `react-virtuoso` for 60fps with huge
- * histories. The streaming message and typing indicator live in the footer
- * so they stay pinned at the bottom without jitter.
+ * IMPORTANT: the live streaming message is rendered by the host OUTSIDE
+ * this component. Putting it inside Virtuoso's Footer caused re-measurement
+ * on every token (~30fps) which restarted the `messageSlideIn` CSS
+ * animation, making streamed text look like it was perpetually fading in.
  *
  * The host still renders an outer wrapper for drag-and-drop listeners;
  * MessageList fills that wrapper.
@@ -17,10 +16,7 @@ import TypingIndicator from './TypingIndicator';
 function MessageList({
   messages,
   toolGroups,
-  streamingMsg,
-  isAgentRunning,
   renderMessage,
-  renderStreamingMessage,
   onToggleGroupExpanded,
   onToggleRowExpanded,
   onAtBottomChange,
@@ -69,19 +65,6 @@ function MessageList({
     return item.msg.id ?? `msg-${item.msg.role}-${item.index}`;
   }, []);
 
-  // Footer holds the live streaming message + typing indicator — always at
-  // the bottom, never re-measured by the virtualizer.
-  const Footer = useCallback(() => {
-    const showTyping =
-      isAgentRunning && !streamingMsg?.content && !streamingMsg?.thinkingContent;
-    return (
-      <>
-        {streamingMsg && renderStreamingMessage(streamingMsg)}
-        {showTyping && <TypingIndicator />}
-      </>
-    );
-  }, [isAgentRunning, streamingMsg, renderStreamingMessage]);
-
   return (
     <Virtuoso
       ref={virtuosoRef}
@@ -94,7 +77,6 @@ function MessageList({
       atBottomThreshold={80}
       atBottomStateChange={onAtBottomChange}
       increaseViewportBy={{ top: 300, bottom: 600 }}
-      components={{ Footer }}
     />
   );
 }

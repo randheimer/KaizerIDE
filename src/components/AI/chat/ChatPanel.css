@@ -84,8 +84,9 @@
 .chat-messages-new {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* Inner scroll is owned by Virtuoso (.chat-virtuoso). The outer wrapper
+     only needs to reserve space and host drag-and-drop decorations. */
+  overflow: hidden;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -94,6 +95,28 @@
   max-width: 100%;
   box-sizing: border-box;
   position: relative;
+}
+
+/* Wraps Virtuoso + the live streaming message so they stack vertically and
+   share the available height. Virtuoso gets the flex-grow; streaming row
+   sits below and is sized by its own content. */
+.chat-messages-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-virtuoso {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Streaming row sits outside Virtuoso - never animated, always pinned
+   directly below the virtualized completed messages. */
+.streaming-row {
+  flex-shrink: 0;
+  animation: none;
 }
 
 .chat-messages-new.drag-over::after {
@@ -208,6 +231,12 @@
   max-width: 100%;
   box-sizing: border-box;
   flex-shrink: 0;
+}
+
+/* Streaming rows update many times per second. Running the entry
+   animation on every update stutters the text; opt them out. */
+.message-row.is-streaming {
+  animation: none;
 }
 
 @keyframes messageSlideIn {

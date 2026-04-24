@@ -11,6 +11,7 @@ import FilesChangedCard from './FilesChangedCard';
 import ChatHeader from './ChatHeader';
 import EmptyState from './EmptyState';
 import MessageList from './MessageList';
+import TypingIndicator from './TypingIndicator';
 import Composer from './Composer/Composer';
 import MessageActions from './MessageActions';
 import ChatHistoryModal from './modals/ChatHistoryModal';
@@ -896,7 +897,9 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
 
   const renderStreamingMessage = (msg) => {
     return (
-      <div className="message-row assistant-row" key="streaming">
+      // `is-streaming` opts this row out of the .message-row entry animation
+      // so rapid token updates don't restart it on every render.
+      <div className="message-row assistant-row is-streaming" key="streaming">
         <div className="message-assistant">
           {/* Interleave content segments and thinking blocks */}
           {msg.contentSegments && msg.contentSegments.map((segment, idx) => (
@@ -1289,24 +1292,34 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         onOpenHistory={() => setShowHistoryModal(true)}
       />
 
-      {/* Messages Area - wrapper keeps drag-and-drop listeners */}
+      {/* Messages Area - wrapper keeps drag-and-drop listeners.
+          The virtualized list renders COMPLETED messages only; the live
+          streaming message + typing indicator are rendered immediately
+          below so they update without forcing Virtuoso to re-measure. */}
       <div className="chat-messages-new" ref={messagesContainerRef}>
         {messages.length === 0 ? (
           <EmptyState onSuggestionClick={handleSuggestionClick} />
         ) : (
-          <MessageList
-            messages={messages}
-            toolGroups={toolGroups}
-            streamingMsg={streamingMsg}
-            isAgentRunning={isAgentRunning}
-            renderMessage={renderMessage}
-            renderStreamingMessage={renderStreamingMessage}
-            onToggleGroupExpanded={handleToggleGroupExpanded}
-            onToggleRowExpanded={handleToggleRowExpanded}
-            onAtBottomChange={(atBottom) => {
-              isUserScrolledUp.current = !atBottom;
-            }}
-          />
+          <div className="chat-messages-scroll">
+            <MessageList
+              messages={messages}
+              toolGroups={toolGroups}
+              renderMessage={renderMessage}
+              onToggleGroupExpanded={handleToggleGroupExpanded}
+              onToggleRowExpanded={handleToggleRowExpanded}
+              onAtBottomChange={(atBottom) => {
+                isUserScrolledUp.current = !atBottom;
+              }}
+            />
+            {streamingMsg && (
+              <div className="streaming-row">
+                {renderStreamingMessage(streamingMsg)}
+              </div>
+            )}
+            {isAgentRunning && !streamingMsg?.content && !streamingMsg?.thinkingContent && (
+              <TypingIndicator />
+            )}
+          </div>
         )}
       </div>
 
