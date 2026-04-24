@@ -9,6 +9,12 @@ import Icon from '../../Common/Icon';
 import StreamingCodeBlock from './StreamingCodeBlock';
 import FilesChangedCard from './FilesChangedCard';
 import ToolGroupCard from './ToolGroupCard';
+import {
+  useChatStore,
+  POPUP_CONTEXT,
+  POPUP_MODE,
+  POPUP_MODEL,
+} from '../../../lib/stores/chatStore';
 import './ChatPanel.css';
 
 function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onOpenFile }) {
@@ -20,18 +26,20 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const [toolGroups, setToolGroups] = useState({});
   const [currentTurnId, setCurrentTurnId] = useState(null);
   const [contextPills, setContextPills] = useState([]);
-  const [showContextMenu, setShowContextMenu] = useState(false);
-  const [showModeMenu, setShowModeMenu] = useState(false);
-  const [showModelMenu, setShowModelMenu] = useState(false);
+  // Popup state centralized in chatStore (only one popup open at a time).
+  const openPopup = useChatStore((s) => s.openPopup);
+  const popupAnchor = useChatStore((s) => s.popupAnchor);
+  const openPopupMenu = useChatStore((s) => s.openPopupMenu);
+  const closePopup = useChatStore((s) => s.closePopup);
+  const showContextMenu = openPopup === POPUP_CONTEXT;
+  const showModeMenu = openPopup === POPUP_MODE;
+  const showModelMenu = openPopup === POPUP_MODEL;
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [currentMode, setCurrentMode] = useState('agent');
-  const [contextPopupPosition, setContextPopupPosition] = useState({ x: 0, y: 0 });
-  const [modePopupPosition, setModePopupPosition] = useState({ x: 0, y: 0 });
-  const [modelPopupPosition, setModelPopupPosition] = useState({ x: 0, y: 0 });
   const [commandPermissionRequest, setCommandPermissionRequest] = useState(null);
   const thinkStartTime = useRef(null);
   const [autoApproveCommands, setAutoApproveCommands] = useState(false);
@@ -144,14 +152,12 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   // Click outside to close menus
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (showContextMenu && !e.target.closest('.context-popup') && !e.target.closest('.icon-btn-small')) {
-        setShowContextMenu(false);
-      }
-      if (showModeMenu && !e.target.closest('.mode-popup') && !e.target.closest('.pill-btn')) {
-        setShowModeMenu(false);
-      }
-      if (showModelMenu && !e.target.closest('.model-popup') && !e.target.closest('.pill-btn')) {
-        setShowModelMenu(false);
+      if (openPopup === POPUP_CONTEXT && !e.target.closest('.context-popup') && !e.target.closest('.icon-btn-small')) {
+        closePopup();
+      } else if (openPopup === POPUP_MODE && !e.target.closest('.mode-popup') && !e.target.closest('.pill-btn')) {
+        closePopup();
+      } else if (openPopup === POPUP_MODEL && !e.target.closest('.model-popup') && !e.target.closest('.pill-btn')) {
+        closePopup();
       }
     };
 
@@ -304,7 +310,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       window.removeEventListener('kaizer:improve-plan', handleImprovePlan);
       window.removeEventListener('kaizer:ask-about-plan', handleAskAboutPlan);
     };
-  }, [showContextMenu, showModeMenu, showModelMenu, autoApproveCommands]);
+  }, [openPopup, closePopup, autoApproveCommands]);
 
   // Auto-resize textarea
   const adjustTextareaHeight = useCallback(() => {
@@ -817,96 +823,43 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
 
   const handleAddContext = (type, data) => {
     setContextPills(prev => [...prev, { type, data, id: Date.now() }]);
-    setShowContextMenu(false);
+    closePopup();
   };
 
   const handleRemoveContext = (id) => {
     setContextPills(prev => prev.filter(p => p.id !== id));
   };
 
+  /**
+   * Compute viewport-clamped popup coordinates above (preferred) or below
+   * a trigger element. Returns { x, y } or null if no element.
+   */
+  const computeAnchor = (triggerEl, popupWidth, popupHeight) => {
+    if (!triggerEl) return null;
+    const rect = triggerEl.getBoundingClientRect();
+    let x = rect.left;
+    let y = rect.top - popupHeight - 6;
+    x = Math.min(x, window.innerWidth - popupWidth - 8);
+    x = Math.max(x, 8);
+    if (y < 8) y = rect.bottom + 6;
+    return { x, y };
+  };
+
   const toggleContextMenu = () => {
-    if (!showContextMenu) {
-      if (contextButtonRef.current) {
-        const rect = contextButtonRef.current.getBoundingClientRect();
-        const popupHeight = 200; // Approximate height
-        const popupWidth = 240;
-        
-        let x = rect.left;
-        let y = rect.top - popupHeight - 6;
-        
-        // Clamp to viewport
-        x = Math.min(x, window.innerWidth - popupWidth - 8);
-        x = Math.max(x, 8);
-        
-        // If would go above viewport, show below
-        if (y < 8) {
-          y = rect.bottom + 6;
-        }
-        
-        setContextPopupPosition({ x, y });
-      }
-    }
-    // Close other popups when opening this one
-    setShowModeMenu(false);
-    setShowModelMenu(false);
-    setShowContextMenu(!showContextMenu);
+    if (openPopup === POPUP_CONTEXT) return closePopup();
+    openPopupMenu(POPUP_CONTEXT, computeAnchor(contextButtonRef.current, 240, 200));
   };
 
   const toggleModeMenu = () => {
-    if (!showModeMenu) {
-      if (modeButtonRef.current) {
-        const rect = modeButtonRef.current.getBoundingClientRect();
-        const popupHeight = 116; // 3 items × 36px + 8px padding
-        const popupWidth = 160;
-        
-        let x = rect.left;
-        let y = rect.top - popupHeight - 6;
-        
-        // Clamp to viewport
-        x = Math.min(x, window.innerWidth - popupWidth - 8);
-        x = Math.max(x, 8);
-        
-        // If would go above viewport, show below
-        if (y < 8) {
-          y = rect.bottom + 6;
-        }
-        
-        setModePopupPosition({ x, y });
-      }
-    }
-    // Close other popups when opening this one
-    setShowContextMenu(false);
-    setShowModelMenu(false);
-    setShowModeMenu(!showModeMenu);
+    if (openPopup === POPUP_MODE) return closePopup();
+    openPopupMenu(POPUP_MODE, computeAnchor(modeButtonRef.current, 160, 116));
   };
 
   const toggleModelMenu = () => {
-    if (!showModelMenu) {
-      if (modelButtonRef.current) {
-        const rect = modelButtonRef.current.getBoundingClientRect();
-        const itemCount = settings.models.length + 1; // +1 for "Add Model"
-        const popupHeight = Math.min(itemCount * 36 + 8, 280);
-        const popupWidth = 180;
-        
-        let x = rect.left;
-        let y = rect.top - popupHeight - 6;
-        
-        // Clamp to viewport
-        x = Math.min(x, window.innerWidth - popupWidth - 8);
-        x = Math.max(x, 8);
-        
-        // If would go above viewport, show below
-        if (y < 8) {
-          y = rect.bottom + 6;
-        }
-        
-        setModelPopupPosition({ x, y });
-      }
-    }
-    // Close other popups when opening this one
-    setShowContextMenu(false);
-    setShowModeMenu(false);
-    setShowModelMenu(!showModelMenu);
+    if (openPopup === POPUP_MODEL) return closePopup();
+    const itemCount = settings.models.length + 1; // +1 for "Add Model"
+    const popupHeight = Math.min(itemCount * 36 + 8, 280);
+    openPopupMenu(POPUP_MODEL, computeAnchor(modelButtonRef.current, 180, popupHeight));
   };
 
   const getModeIcon = (mode) => {
@@ -1569,13 +1522,13 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                   <Icon name="AtSign" size={14} />
                 </button>
                 {showContextMenu && (
-                  <div 
-                    className="context-popup" 
-                    style={{ 
+                  <div
+                    className="context-popup"
+                    style={{
                       position: 'fixed',
-                      left: `${contextPopupPosition.x}px`,
-                      top: `${contextPopupPosition.y}px`,
-                      zIndex: 9999
+                      left: `${popupAnchor?.x ?? 0}px`,
+                      top: `${popupAnchor?.y ?? 0}px`,
+                      zIndex: 'var(--z-popover, 9500)',
                     }}
                   >
                     <div className="context-search">
@@ -1583,10 +1536,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                     </div>
                     <div className="context-options">
                       <div className="context-option" onClick={() => {
-                        window.dispatchEvent(new CustomEvent('kaizer:open-filepicker', { 
-                          detail: { startPath: workspacePath } 
+                        window.dispatchEvent(new CustomEvent('kaizer:open-filepicker', {
+                          detail: { startPath: workspacePath }
                         }));
-                        setShowContextMenu(false);
+                        closePopup();
                       }}>
                         <span>📁</span>
                         <span>Files & Folders</span>
@@ -1618,13 +1571,13 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                   </span>
                 </button>
                 {showModeMenu && (
-                  <div 
-                    className="mode-popup" 
-                    style={{ 
+                  <div
+                    className="mode-popup"
+                    style={{
                       position: 'fixed',
-                      left: `${modePopupPosition.x}px`,
-                      top: `${modePopupPosition.y}px`,
-                      zIndex: 9999
+                      left: `${popupAnchor?.x ?? 0}px`,
+                      top: `${popupAnchor?.y ?? 0}px`,
+                      zIndex: 'var(--z-popover, 9500)',
                     }}
                   >
                     {[
@@ -1636,7 +1589,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                       <div
                         key={opt.id}
                         className={`mode-option ${currentMode === opt.id ? 'active' : ''}`}
-                        onClick={() => { setCurrentMode(opt.id); setShowModeMenu(false); }}
+                        onClick={() => { setCurrentMode(opt.id); closePopup(); }}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                           <Icon name={opt.icon} size={13} />
@@ -1660,13 +1613,13 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                   <span>{settings.selectedModel.name.slice(0, 16)}{settings.selectedModel.name.length > 16 ? '…' : ''}</span>
                 </button>
                 {showModelMenu && (
-                  <div 
-                    className="model-popup" 
-                    style={{ 
+                  <div
+                    className="model-popup"
+                    style={{
                       position: 'fixed',
-                      left: `${modelPopupPosition.x}px`,
-                      top: `${modelPopupPosition.y}px`,
-                      zIndex: 9999
+                      left: `${popupAnchor?.x ?? 0}px`,
+                      top: `${popupAnchor?.y ?? 0}px`,
+                      zIndex: 'var(--z-popover, 9500)',
                     }}
                   >
                     {settings.models.map(model => (
@@ -1675,7 +1628,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                         className={`model-option ${settings.selectedModel.id === model.id ? 'active' : ''}`}
                         onClick={() => {
                           settings.selectedModel = model;
-                          setShowModelMenu(false);
+                          closePopup();
                         }}
                       >
                         <span>{model.name}</span>
@@ -1683,7 +1636,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                       </div>
                     ))}
                     <div className="model-divider"></div>
-                    <div className="model-option add-model" onClick={() => { setShowModelMenu(false); setShowSettingsModal(true); }}>
+                    <div className="model-option add-model" onClick={() => { closePopup(); setShowSettingsModal(true); }}>
                       <span>+ Add Model</span>
                     </div>
                   </div>
