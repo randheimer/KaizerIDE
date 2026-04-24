@@ -8,10 +8,9 @@ import FilePicker from '../../Common/FilePicker';
 import Icon from '../../Common/Icon';
 import StreamingCodeBlock from './StreamingCodeBlock';
 import FilesChangedCard from './FilesChangedCard';
-import ToolGroupCard from './ToolGroupCard';
 import ChatHeader from './ChatHeader';
 import EmptyState from './EmptyState';
-import TypingIndicator from './TypingIndicator';
+import MessageList from './MessageList';
 import ChatHistoryModal from './modals/ChatHistoryModal';
 import AddModelModal from './modals/AddModelModal';
 import {
@@ -50,10 +49,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const [autoApproveCommands, setAutoApproveCommands] = useState(false);
   const [filesChangedCard, setFilesChangedCard] = useState(null);
   
-  const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  // Tracks whether the user has manually scrolled away from the bottom.
+  // Updated by Virtuoso's atBottomStateChange via onAtBottomChange.
   const isUserScrolledUp = useRef(false);
-  const lastScrollTop = useRef(0);
   const streamingMsgRef = useRef(null);
   const streamingUpdateTimer = useRef(null);
   const abortControllerRef = useRef(null);
@@ -77,30 +76,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     }
   }, []);
 
-  // Scroll to bottom helper
-  const scrollToBottom = useCallback((force = false) => {
-    if (force || !isUserScrolledUp.current) {
-      requestAnimationFrame(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-      });
-    }
-  }, []);
-
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  // Detect user scrolling up manually
-  const handleScroll = useCallback(() => {
-    const el = messagesContainerRef.current;
-    if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    isUserScrolledUp.current = !atBottom;
-    lastScrollTop.current = el.scrollTop;
-  }, []);
+  // Auto-scroll is handled by Virtuoso (`followOutput="smooth"`).
+  // User-scroll detection is reported via MessageList's onAtBottomChange.
 
   // Handle drag and drop from file explorer
   useEffect(() => {
@@ -1301,51 +1278,25 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         onOpenHistory={() => setShowHistoryModal(true)}
       />
 
-      {/* Messages Area */}
-      <div className="chat-messages-new" ref={messagesContainerRef} onScroll={handleScroll}>
+      {/* Messages Area - wrapper keeps drag-and-drop listeners */}
+      <div className="chat-messages-new" ref={messagesContainerRef}>
         {messages.length === 0 ? (
           <EmptyState onSuggestionClick={handleSuggestionClick} />
         ) : (
-          <>
-            {messages.map((msg, idx) => {
-              // Render message
-              const messageElement = renderMessage(msg, idx);
-              
-              // After user message, check if there's a tool group for this turn
-              if (msg.role === 'user') {
-                // Find tool groups and match by index position
-                // Each user message can have one tool group after it
-                const allGroups = Object.values(toolGroups).sort((a, b) => a.turnId - b.turnId);
-                
-                // Count how many user messages we've seen so far
-                const userMessagesSoFar = messages.slice(0, idx + 1).filter(m => m.role === 'user').length;
-                
-                // Get the corresponding tool group (0-indexed)
-                const relevantGroup = allGroups[userMessagesSoFar - 1];
-                
-                if (relevantGroup && relevantGroup.tools.length > 0 && relevantGroup.status === 'done') {
-                  return (
-                    <React.Fragment key={idx}>
-                      {messageElement}
-                      <ToolGroupCard
-                        group={relevantGroup}
-                        onToggleExpanded={handleToggleGroupExpanded}
-                        onToggleRowExpanded={handleToggleRowExpanded}
-                      />
-                    </React.Fragment>
-                  );
-                }
-              }
-              
-              return messageElement;
-            })}
-            {streamingMsg && renderStreamingMessage(streamingMsg)}
-          </>
+          <MessageList
+            messages={messages}
+            toolGroups={toolGroups}
+            streamingMsg={streamingMsg}
+            isAgentRunning={isAgentRunning}
+            renderMessage={renderMessage}
+            renderStreamingMessage={renderStreamingMessage}
+            onToggleGroupExpanded={handleToggleGroupExpanded}
+            onToggleRowExpanded={handleToggleRowExpanded}
+            onAtBottomChange={(atBottom) => {
+              isUserScrolledUp.current = !atBottom;
+            }}
+          />
         )}
-        {isAgentRunning && !streamingMsg?.content && !streamingMsg?.thinkingContent && (
-          <TypingIndicator />
-        )}
-        <div ref={messagesEndRef} style={{ height: 1 }} />
       </div>
 
       {/* Files Changed Card - Outside messages, above composer */}
