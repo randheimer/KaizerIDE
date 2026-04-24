@@ -4,18 +4,54 @@ on:
   push:
     branches:
       - main
+    # Avoid triggering builds on doc/meta-only changes
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.gitignore'
+      - '.prettier*'
+      - '.eslintrc.json'
+      - 'traffic_history.json'
+      - 'LICENSE'
   workflow_dispatch:
     inputs:
       force_version:
         description: "Optional manual version (e.g. 2.0.0)"
         required: false
 
+# Cancel any in-progress run on the same ref (prevents racing version bumps)
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
 jobs:
+  # Skip if the head commit is the bot's own version-bump commit.
+  # (GITHUB_TOKEN pushes don't re-trigger workflows, but this is belt-and-braces.)
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Check commit author
+        id: check
+        run: |
+          MSG="${{ github.event.head_commit.message }}"
+          AUTHOR="${{ github.event.head_commit.author.name }}"
+          if [[ "$AUTHOR" == "github-actions[bot]" && "$MSG" == "chore: bump version"* ]]; then
+            echo "Skipping: bot version-bump commit"
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   version:
-    runs-on: windows-latest
+    needs: guard
+    if: needs.guard.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.semver.outputs.version }}
       tag: ${{ steps.semver.outputs.tag }}
@@ -37,7 +73,7 @@ jobs:
           $major = [int]$parts[0]
           $minor = [int]$parts[1]
           $patch = [int]$parts[2]
-          
+
           if ($forced) {
             $newVersion = $forced
           }
@@ -48,17 +84,17 @@ jobs:
             } else {
               $commits = git log --pretty=format:"%s"
             }
-            
+
             $bumpMajor = $false
             $bumpMinor = $false
             $bumpPatch = $false
-            
+
             foreach ($c in $commits) {
-              if ($c -match "BREAKING CHANGE") { $bumpMajor = $true }
-              elseif ($c -match "^feat:") { $bumpMinor = $true }
-              elseif ($c -match "^fix:" -or $c -match "^chore:") { $bumpPatch = $true }
+              if ($c -match "BREAKING CHANGE" -or $c -match "^[a-z]+!:") { $bumpMajor = $true }
+              elseif ($c -match "^feat(\(.+\))?:") { $bumpMinor = $true }
+              elseif ($c -match "^(fix|chore|perf|refactor)(\(.+\))?:") { $bumpPatch = $true }
             }
-            
+
             if ($bumpMajor) {
               $major++; $minor=0; $patch=0
             }
@@ -68,16 +104,27 @@ jobs:
             elseif ($bumpPatch) {
               $patch++
             }
-            
+
             $newVersion = "$major.$minor.$patch"
           }
-          
+
+          # Abort if nothing to bump and no forced version
+          if (-not $forced -and -not $bumpMajor -and -not $bumpMinor -and -not $bumpPatch) {
+            Write-Host "No conventional commits since last tag; skipping version bump."
+            echo "version=$version" >> $env:GITHUB_OUTPUT
+            echo "tag=v$version" >> $env:GITHUB_OUTPUT
+            echo "skip_bump=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
           $package.version = $newVersion
           $package | ConvertTo-Json -Depth 100 | Set-Content package.json
           echo "version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "tag=v$newVersion" >> $env:GITHUB_OUTPUT
+          echo "skip_bump=false" >> $env:GITHUB_OUTPUT
 
       - name: Commit version bump
+        if: steps.semver.outputs.skip_bump != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -99,6 +146,18 @@ jobs:
           node-version: 20
           cache: npm
 
+      # Cache electron-builder downloads (Electron binary, Squirrel, etc.)
+      # Typically saves 1–3 minutes per run.
+      - name: Cache electron-builder
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: ${{ runner.os }}-eb-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-eb-
+
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
 
@@ -110,23 +169,32 @@ jobs:
           CSC_LINK: ""
           CSC_KEY_PASSWORD: ""
 
-      - name: Prepare single installer
+      - name: Prepare single installer + checksum
         shell: pwsh
         run: |
           $version = "${{ needs.version.outputs.version }}"
-          mkdir release-final
-          Get-ChildItem release/*.exe | ForEach-Object {
-            Copy-Item $_.FullName "release-final/KaizerIDE-$version.exe"
-            break
-          }
+          New-Item -ItemType Directory -Force -Path release-final | Out-Null
+          $exe = Get-ChildItem release/*.exe | Select-Object -First 1
+          if (-not $exe) { throw "No .exe found in release/" }
+          $dest = "release-final/KaizerIDE-$version.exe"
+          Copy-Item $exe.FullName $dest
+
+          # SHA256 checksum for verification
+          $hash = (Get-FileHash $dest -Algorithm SHA256).Hash.ToLower()
+          $fileName = Split-Path $dest -Leaf
+          "$hash  $fileName" | Set-Content "release-final/KaizerIDE-$version.exe.sha256"
+          Write-Host "Built: $dest"
+          Write-Host "SHA256: $hash"
 
       - uses: actions/upload-artifact@v4
         with:
           name: electron-build
-          path: release-final/*.exe
+          path: |
+            release-final/*.exe
+            release-final/*.sha256
 
   release:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs: [version, build-electron]
 
     steps:
@@ -139,41 +207,79 @@ jobs:
         with:
           path: artifacts
 
-      # ---------------- CHANGELOG ----------------
+      # ---------------- CHANGELOG (grouped by type) ----------------
       - name: Generate changelog
         id: changelog
-        shell: pwsh
+        shell: bash
         run: |
-          $lastTag = git describe --tags --abbrev=0 2>$null
-          if ($lastTag) {
-            $commits = git log "$lastTag..HEAD" --pretty=format:"%s"
-          } else {
-            $commits = git log --pretty=format:"%s"
-          }
-          
-          $body = $commits | Where-Object {
-            $_ -notmatch "merge" -and $_ -notmatch "wip"
-          } | ForEach-Object { "- $_" } | Out-String
-          
-          if (-not $body) {
-            $body = "Minor updates and improvements"
-          }
-          
-          echo "changes<<EOF" >> $env:GITHUB_OUTPUT
-          echo "$body" >> $env:GITHUB_OUTPUT
-          echo "EOF" >> $env:GITHUB_OUTPUT
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log "$LAST_TAG..HEAD" --pretty=format:"%s|%h")
+          else
+            COMMITS=$(git log --pretty=format:"%s|%h")
+          fi
+
+          feats=""
+          fixes=""
+          perf=""
+          refactors=""
+          chores=""
+          others=""
+
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            msg="${line%|*}"
+            sha="${line##*|}"
+            case "$msg" in
+              feat:*|feat\(*)      feats+=$'\n'"- ${msg} (${sha})" ;;
+              fix:*|fix\(*)        fixes+=$'\n'"- ${msg} (${sha})" ;;
+              perf:*|perf\(*)      perf+=$'\n'"- ${msg} (${sha})" ;;
+              refactor:*|refactor\(*) refactors+=$'\n'"- ${msg} (${sha})" ;;
+              chore:*|chore\(*)    chores+=$'\n'"- ${msg} (${sha})" ;;
+              *merge*|*Merge*|*wip*|*WIP*) ;;
+              *) others+=$'\n'"- ${msg} (${sha})" ;;
+            esac
+          done <<< "$COMMITS"
+
+          body=""
+          [ -n "$feats" ]     && body+=$'\n### ✨ Features'"$feats"$'\n'
+          [ -n "$fixes" ]     && body+=$'\n### 🐛 Fixes'"$fixes"$'\n'
+          [ -n "$perf" ]      && body+=$'\n### ⚡ Performance'"$perf"$'\n'
+          [ -n "$refactors" ] && body+=$'\n### ♻️ Refactors'"$refactors"$'\n'
+          [ -n "$chores" ]    && body+=$'\n### 🔧 Chores'"$chores"$'\n'
+          [ -n "$others" ]    && body+=$'\n### 📦 Other'"$others"$'\n'
+          [ -z "$body" ]      && body="Minor updates and improvements."
+
+          {
+            echo "changes<<EOF"
+            echo "$body"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       # ---------------- RELEASE ----------------
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.version.outputs.tag }}
-          name: KaizerIDE v${{ needs.version.outputs.version }}
-          files: artifacts/electron-build/*.exe
+          name: KaizerIDE ${{ needs.version.outputs.tag }}
+          files: |
+            artifacts/electron-build/*.exe
+            artifacts/electron-build/*.sha256
+          fail_on_unmatched_files: true
+          generate_release_notes: false
           body: |
-            ## 🚀 KaizerIDE v${{ needs.version.outputs.version }}
+            ## 🚀 KaizerIDE ${{ needs.version.outputs.tag }}
+
             ${{ steps.changelog.outputs.changes }}
+
+            ### 🔐 Verification
+            A `.sha256` checksum file is attached alongside the installer. Verify with:
+
+            ```powershell
+            (Get-FileHash .\KaizerIDE-${{ needs.version.outputs.version }}.exe -Algorithm SHA256).Hash
+            ```
+
             ---
-            ⚡ Auto build system
+            ⚡ Auto-built by GitHub Actions
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
