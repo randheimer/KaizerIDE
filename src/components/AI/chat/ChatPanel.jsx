@@ -15,6 +15,7 @@ import TypingIndicator from './TypingIndicator';
 import Composer from './Composer/Composer';
 import MessageActions from './MessageActions';
 import FileLink from './FileLink';
+import { FilesChangedProvider } from './FilesChangedContext';
 import ChatHistoryModal from './modals/ChatHistoryModal';
 import AddModelModal from './modals/AddModelModal';
 import { useChatStore } from '../../../lib/stores/chatStore';
@@ -22,10 +23,12 @@ import { toast } from '../../../lib/stores/toastStore';
 import remarkFileLinks from '../../../lib/markdown/remarkFileLinks';
 import './ChatPanel.css';
 
-// Shared ReactMarkdown plugin list + link renderer. We inject these
-// into every place the chat renders assistant markdown so the remark
-// pass runs once per parse and file links get consistent hover previews.
+// Shared ReactMarkdown plugin list + component renderers. We inject
+// these into every place the chat renders assistant markdown so the
+// remark pass runs once per parse and file links get consistent hover
+// previews.
 const CHAT_REMARK_PLUGINS = [remarkGfm, remarkFileLinks];
+
 const MARKDOWN_LINK_RENDERER = ({ node, href, children, ...props }) => {
   if (href && href.startsWith('file://')) {
     const path = href.replace('file://', '');
@@ -42,6 +45,109 @@ const MARKDOWN_LINK_RENDERER = ({ node, href, children, ...props }) => {
       {children}
     </a>
   );
+};
+
+/**
+ * react-markdown v9 no longer passes `inline` to the `code` component,
+ * so every backtick-wrapped reference was rendering as a full-width
+ * code block. We detect inline vs block ourselves:
+ *   - Block if the code has a `language-xxx` class (fenced with lang).
+ *   - Block if the code contains a newline (fenced multi-line, no lang).
+ *   - Inline otherwise.
+ */
+function isBlockCode(className, children) {
+  const raw = Array.isArray(children) ? children.join('') : String(children ?? '');
+  const langMatch = /language-(\w+)/.exec(className || '');
+  return {
+    isBlock: !!langMatch || raw.includes('\n'),
+    language: langMatch ? langMatch[1] : '',
+    raw: raw.replace(/\n$/, ''),
+  };
+}
+
+// Streaming-variant: used inside the currently streaming assistant
+// message. Uses StreamingCodeBlock (chunked update + caret) for block
+// code so the UI stays smooth as content arrives.
+const MARKDOWN_CODE_RENDERER_STREAMING = ({ node, className, children, ...props }) => {
+  const { isBlock, language, raw } = isBlockCode(className, children);
+  if (!isBlock) {
+    return (
+      <code className="assistant-inline-code" {...props}>
+        {children}
+      </code>
+    );
+  }
+  return (
+    <div className="code-block-wrapper">
+      {language && (
+        <div className="code-block-header">
+          <span className="code-language">{language}</span>
+        </div>
+      )}
+      <StreamingCodeBlock code={raw} language={language} />
+    </div>
+  );
+};
+
+// Static-variant: used for completed assistant messages. Full Prism
+// highlighting + copy-to-clipboard button in the header.
+function StaticCodeBlock({ language, code, ...props }) {
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success('Copied');
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+  return (
+    <div className="code-block-wrapper">
+      <div className="code-block-header">
+        {language ? <span className="code-block-lang">{language}</span> : <span />}
+        <button
+          className="code-copy-btn"
+          onClick={handleCopy}
+          title="Copy"
+          aria-label="Copy code"
+          type="button"
+        >
+          <Icon name="Copy" size={12} />
+        </button>
+      </div>
+      <SyntaxHighlighter
+        style={vscDarkPlus}
+        language={language || 'text'}
+        PreTag="div"
+        customStyle={{
+          margin: 0,
+          borderRadius: '0 0 8px 8px',
+          fontSize: '12.5px',
+          background: 'var(--bg-2)',
+        }}
+        codeTagProps={{
+          style: {
+            fontFamily: 'var(--font-mono)',
+            lineHeight: '1.5',
+          },
+        }}
+        {...props}
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  );
+}
+
+const MARKDOWN_CODE_RENDERER_STATIC = ({ node, className, children, ...props }) => {
+  const { isBlock, language, raw } = isBlockCode(className, children);
+  if (!isBlock) {
+    return (
+      <code className="assistant-inline-code" {...props}>
+        {children}
+      </code>
+    );
+  }
+  return <StaticCodeBlock language={language} code={raw} {...props} />;
 };
 
 function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onOpenFile }) {
@@ -984,26 +1090,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                     unwrapDisallowed={true}
                     components={{
                       a: MARKDOWN_LINK_RENDERER,
-                      code: ({ node, inline, className, children, ...props }) => {
-                        const match = /language-(\w+)/.exec(className || '');
-                        const language = match ? match[1] : '';
-                        
-                        if (!inline) {
-                          const codeContent = String(children).replace(/\n$/, '');
-                          
-                          return (
-                            <div className="code-block-wrapper">
-                              {language && (
-                                <div className="code-block-header">
-                                  <span className="code-language">{language}</span>
-                                </div>
-                              )}
-                              <StreamingCodeBlock code={codeContent} language={language} />
-                            </div>
-                          );
-                        }
-                        return <code className={className} {...props}>{children}</code>;
-                      }
+                      code: MARKDOWN_CODE_RENDERER_STREAMING,
                     }}
                   >
                     {segment}
@@ -1108,66 +1195,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                         unwrapDisallowed={true}
                         components={{
                           a: MARKDOWN_LINK_RENDERER,
-                          code: ({ node, inline, className, children, ...props }) => {
-                            const match = /language-(\w+)/.exec(className || '');
-                            const language = match ? match[1] : '';
-                            
-                            if (!inline) {
-                              const codeContent = String(children).replace(/\n$/, '');
-                              
-                              return (
-                                <div className="code-block-wrapper">
-                                  {language && (
-                                    <div className="code-block-header">
-                                      <span className="code-block-lang">{language}</span>
-                                      <button
-                                        className="code-copy-btn"
-                                        onClick={async () => {
-                                          try {
-                                            await navigator.clipboard.writeText(codeContent);
-                                            toast.success('Copied');
-                                          } catch {
-                                            toast.error('Copy failed');
-                                          }
-                                        }}
-                                        title="Copy"
-                                        aria-label="Copy code"
-                                        type="button"
-                                      >
-                                        <Icon name="Copy" size={12} />
-                                      </button>
-                                    </div>
-                                  )}
-                                  <SyntaxHighlighter
-                                    style={vscDarkPlus}
-                                    language={language || 'text'}
-                                    PreTag="div"
-                                    customStyle={{
-                                      margin: 0,
-                                      borderRadius: language ? '0 0 8px 8px' : '8px',
-                                      fontSize: '12.5px',
-                                      background: 'var(--bg-2)',
-                                    }}
-                                    codeTagProps={{
-                                      style: {
-                                        fontFamily: 'var(--font-mono)',
-                                        lineHeight: '1.5'
-                                      }
-                                    }}
-                                    {...props}
-                                  >
-                                    {codeContent}
-                                  </SyntaxHighlighter>
-                                </div>
-                              );
-                            }
-                            
-                            return (
-                              <code className="inline-code" {...props}>
-                                {children}
-                              </code>
-                            );
-                          },
+                          code: MARKDOWN_CODE_RENDERER_STATIC,
                           p: ({ children }) => <div className="assistant-paragraph">{children}</div>,
                           strong: ({ children }) => <strong className="assistant-bold">{children}</strong>,
                           em: ({ children }) => <em className="assistant-italic">{children}</em>,
@@ -1281,66 +1309,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                   unwrapDisallowed={true}
                   components={{
                     a: MARKDOWN_LINK_RENDERER,
-                    code: ({ node, inline, className, children, ...props }) => {
-                      const match = /language-(\w+)/.exec(className || '');
-                      const language = match ? match[1] : '';
-                      
-                      if (!inline) {
-                        const codeContent = String(children).replace(/\n$/, '');
-                        
-                        return (
-                          <div className="code-block-wrapper">
-                            {language && (
-                              <div className="code-block-header">
-                                <span className="code-block-lang">{language}</span>
-                                <button
-                                  className="code-copy-btn"
-                                  onClick={async () => {
-                                    try {
-                                      await navigator.clipboard.writeText(codeContent);
-                                      toast.success('Copied');
-                                    } catch {
-                                      toast.error('Copy failed');
-                                    }
-                                  }}
-                                  title="Copy"
-                                  aria-label="Copy code"
-                                  type="button"
-                                >
-                                  <Icon name="Copy" size={12} />
-                                </button>
-                              </div>
-                            )}
-                            <SyntaxHighlighter
-                              style={vscDarkPlus}
-                              language={language || 'text'}
-                              PreTag="div"
-                              customStyle={{
-                                margin: 0,
-                                borderRadius: language ? '0 0 8px 8px' : '8px',
-                                fontSize: '12.5px',
-                                background: 'var(--bg-2)',
-                              }}
-                              codeTagProps={{
-                                style: {
-                                  fontFamily: 'var(--font-mono)',
-                                  lineHeight: '1.5'
-                                }
-                              }}
-                              {...props}
-                            >
-                              {codeContent}
-                            </SyntaxHighlighter>
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <code className="inline-code" {...props}>
-                          {children}
-                        </code>
-                      );
-                    },
+                    code: MARKDOWN_CODE_RENDERER_STATIC,
                     p: ({ children }) => <div className="assistant-paragraph">{children}</div>,
                     strong: ({ children }) => <strong className="assistant-bold">{children}</strong>,
                     em: ({ children }) => <em className="assistant-italic">{children}</em>,
@@ -1401,34 +1370,36 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           interleaved tool groups come from MessageList; the live
           streaming message and typing indicator are rendered directly
           below so token updates don't force a list re-measure. */}
-      <div
-        className="chat-messages-new"
-        ref={messagesContainerRef}
-        onScroll={handleMessagesScroll}
-      >
-        {messages.length === 0 ? (
-          <EmptyState onSuggestionClick={handleSuggestionClick} />
-        ) : (
-          <>
-            <MessageList
-              messages={messages}
-              toolGroups={toolGroups}
-              renderMessage={renderMessage}
-              onToggleGroupExpanded={handleToggleGroupExpanded}
-              onToggleRowExpanded={handleToggleRowExpanded}
-            />
-            {streamingMsg && (
-              <div className="streaming-row">
-                {renderStreamingMessage(streamingMsg)}
-              </div>
-            )}
-            {isAgentRunning && !streamingMsg?.content && !streamingMsg?.thinkingContent && (
-              <TypingIndicator />
-            )}
-            <div ref={messagesEndRef} style={{ height: 1 }} />
-          </>
-        )}
-      </div>
+      <FilesChangedProvider card={filesChangedCard} onOpenFile={onOpenFile}>
+        <div
+          className="chat-messages-new"
+          ref={messagesContainerRef}
+          onScroll={handleMessagesScroll}
+        >
+          {messages.length === 0 ? (
+            <EmptyState onSuggestionClick={handleSuggestionClick} />
+          ) : (
+            <>
+              <MessageList
+                messages={messages}
+                toolGroups={toolGroups}
+                renderMessage={renderMessage}
+                onToggleGroupExpanded={handleToggleGroupExpanded}
+                onToggleRowExpanded={handleToggleRowExpanded}
+              />
+              {streamingMsg && (
+                <div className="streaming-row">
+                  {renderStreamingMessage(streamingMsg)}
+                </div>
+              )}
+              {isAgentRunning && !streamingMsg?.content && !streamingMsg?.thinkingContent && (
+                <TypingIndicator />
+              )}
+              <div ref={messagesEndRef} style={{ height: 1 }} />
+            </>
+          )}
+        </div>
+      </FilesChangedProvider>
 
       {/* Files Changed Card - Outside messages, above composer */}
       {filesChangedCard && (

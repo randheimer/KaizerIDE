@@ -471,14 +471,20 @@
   border-bottom-color: var(--accent);
 }
 
-.inline-code {
+.inline-code,
+.assistant-inline-code {
+  display: inline;
   background: var(--bg-3);
   border: 1px solid var(--border-2, var(--border));
   border-radius: 4px;
-  padding: 2px 6px;
+  padding: 1px 5px;
+  margin: 0 1px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 0.9em;
   color: var(--text-0);
+  line-height: inherit;
+  vertical-align: baseline;
+  white-space: nowrap;
 }
 
 .code-block-wrapper {
@@ -533,34 +539,147 @@
 
 /* Inline file reference rendered by <FileLink>. Used everywhere the AI
    mentions a path — remark-file-links linkifies them into file:// URLs
-   at parse time and FileLink resolves to this chrome at render time. */
+   at parse time and FileLink resolves to this chrome at render time.
+   Rendered as a <button> (no href) so Electron never tries to open the
+   file:// URL in a second IDE window. */
 .file-link {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 0 3px;
+  gap: 4px;
+  padding: 1px 6px 1px 4px;
   margin: 0 1px;
-  border-radius: 3px;
+  border-radius: 4px;
   color: var(--accent, #a855f7);
   background: rgba(168, 85, 247, 0.08);
-  text-decoration: none;
+  border: 1px solid transparent;
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: 0.9em;
-  line-height: inherit;
+  line-height: 1.4;
   vertical-align: baseline;
-  transition: background var(--dur-fast, 120ms) ease;
+  transition:
+    background var(--dur-fast, 120ms) ease,
+    border-color var(--dur-fast, 120ms) ease;
 }
 .file-link:hover,
 .file-link:focus-visible {
   background: rgba(168, 85, 247, 0.18);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  border-color: rgba(168, 85, 247, 0.4);
   outline: none;
+}
+.file-link.is-open {
+  background: rgba(168, 85, 247, 0.22);
+  border-color: var(--accent, #a855f7);
 }
 .file-link-icon {
   flex-shrink: 0;
   opacity: 0.8;
+}
+.file-link-label {
+  font-family: var(--font-mono);
+}
+
+/* Tracked-file variant: shows +/- badges next to the filename so the
+   user can tell at a glance what happened, without opening the card. */
+.file-link-tracked {
+  border-color: rgba(168, 85, 247, 0.28);
+  background: rgba(168, 85, 247, 0.12);
+}
+.file-link-stats {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 4px;
+  font-size: 0.85em;
+  font-weight: 700;
+}
+.file-link-stat.stat-add {
+  color: #22c55e;
+}
+.file-link-stat.stat-remove {
+  color: #ef4444;
+}
+
+/* Inline diff popover anchored to a tracked file chip. Re-uses the
+   Cursor-style diff visuals from .write-file-diff-*. */
+.file-link-diff {
+  z-index: 10000;
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  max-height: 420px;
+  background: var(--bg-1, #111);
+  border: 1px solid var(--border-2, var(--border));
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.file-link-diff-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.file-link-diff-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border-2, var(--border));
+  font-size: 11px;
+  color: var(--text-2);
+}
+.file-link-diff-path {
+  flex: 1;
+  font-family: var(--font-mono);
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.file-link-diff-stats {
+  display: inline-flex;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+.file-link-diff-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast, 120ms) ease,
+    color var(--dur-fast, 120ms) ease,
+    border-color var(--dur-fast, 120ms) ease;
+}
+.file-link-diff-btn:hover {
+  background: var(--bg-3);
+  color: var(--text-0);
+  border-color: var(--border-2, var(--border));
+}
+.file-link-diff-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 4px 0;
+  background: var(--bg-0, #0a0a0a);
+  min-height: 0;
+}
+.file-link-diff-empty {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--text-3);
+  font-style: italic;
+  text-align: center;
 }
 
 /* Floating preview popover shown on hover over a file link. */
