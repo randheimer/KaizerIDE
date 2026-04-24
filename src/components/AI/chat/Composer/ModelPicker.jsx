@@ -32,7 +32,7 @@ function ModelPicker({ open, onOpenChange, settings, onAddModel }) {
         ref={refs.setReference}
         className="pill-btn"
         aria-label={`Model: ${name}`}
-        onClick={() => onOpenChange(!open)}
+        type="button"
         {...getReferenceProps()}
       >
         <span>{label}</span>
@@ -43,7 +43,6 @@ function ModelPicker({ open, onOpenChange, settings, onAddModel }) {
             ref={refs.setFloating}
             className="model-popup"
             style={{ ...floatingStyles, zIndex: 9500 }}
-            role="listbox"
             {...getFloatingProps()}
           >
             {settings.models.map((model, idx) => {
@@ -52,15 +51,15 @@ function ModelPicker({ open, onOpenChange, settings, onAddModel }) {
                 <div
                   key={model.id}
                   ref={(el) => (listRef.current[idx] = el)}
-                  role="option"
-                  aria-selected={selected}
-                  tabIndex={idx === 0 ? 0 : -1}
+                  role="menuitemradio"
+                  aria-checked={selected}
+                  tabIndex={-1}
                   className={`model-option ${selected ? 'active' : ''}`}
-                  onClick={() => {
-                    settings.selectedModel = model;
-                    onOpenChange(false);
-                  }}
                   {...getItemProps({
+                    onClick: () => {
+                      settings.selectedModel = model;
+                      onOpenChange(false);
+                    },
                     onKeyDown: (e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
@@ -78,14 +77,14 @@ function ModelPicker({ open, onOpenChange, settings, onAddModel }) {
             <div className="model-divider" />
             <div
               ref={(el) => (listRef.current[settings.models.length] = el)}
-              role="option"
+              role="menuitem"
               tabIndex={-1}
               className="model-option add-model"
-              onClick={() => {
-                onOpenChange(false);
-                onAddModel();
-              }}
               {...getItemProps({
+                onClick: () => {
+                  onOpenChange(false);
+                  onAddModel();
+                },
                 onKeyDown: (e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();

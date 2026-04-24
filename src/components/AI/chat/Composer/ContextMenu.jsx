@@ -36,7 +36,7 @@ function ContextMenu({ open, onOpenChange, onSelect }) {
         className="icon-btn-small"
         aria-label="Add context"
         title="Add context"
-        onClick={() => onOpenChange(!open)}
+        type="button"
         {...getReferenceProps()}
       >
         <Icon name="AtSign" size={14} />
@@ -52,19 +52,19 @@ function ContextMenu({ open, onOpenChange, onSelect }) {
             <div className="context-search">
               <input type="text" placeholder="Add files, folders, docs..." />
             </div>
-            <div className="context-options" role="listbox">
+            <div className="context-options">
               {MENU_ITEMS.map((item, idx) => (
                 <div
                   key={item.id}
                   ref={(el) => (listRef.current[idx] = el)}
-                  role="option"
-                  tabIndex={idx === 0 ? 0 : -1}
+                  role="menuitem"
+                  tabIndex={-1}
                   className="context-option"
-                  onClick={() => {
-                    onSelect(item.id);
-                    onOpenChange(false);
-                  }}
                   {...getItemProps({
+                    onClick: () => {
+                      onSelect(item.id);
+                      onOpenChange(false);
+                    },
                     onKeyDown: (e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();

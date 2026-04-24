@@ -39,7 +39,7 @@ function ModePicker({ open, onOpenChange, value, onChange }) {
         ref={refs.setReference}
         className="pill-btn"
         aria-label={`Mode: ${current.label}`}
-        onClick={() => onOpenChange(!open)}
+        type="button"
         {...getReferenceProps()}
       >
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -53,22 +53,21 @@ function ModePicker({ open, onOpenChange, value, onChange }) {
             ref={refs.setFloating}
             className="mode-popup"
             style={{ ...floatingStyles, zIndex: 9500 }}
-            role="listbox"
             {...getFloatingProps()}
           >
             {MODES.map((opt, idx) => (
               <div
                 key={opt.id}
                 ref={(el) => (listRef.current[idx] = el)}
-                role="option"
-                aria-selected={value === opt.id}
-                tabIndex={idx === 0 ? 0 : -1}
+                role="menuitemradio"
+                aria-checked={value === opt.id}
+                tabIndex={-1}
                 className={`mode-option ${value === opt.id ? 'active' : ''}`}
-                onClick={() => {
-                  onChange(opt.id);
-                  onOpenChange(false);
-                }}
                 {...getItemProps({
+                  onClick: () => {
+                    onChange(opt.id);
+                    onOpenChange(false);
+                  },
                   onKeyDown: (e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();

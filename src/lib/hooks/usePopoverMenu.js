@@ -1,7 +1,8 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   useFloating,
   useInteractions,
+  useClick,
   useDismiss,
   useRole,
   useListNavigation,
@@ -19,8 +20,9 @@ import {
  * ARIA roles, and viewport clamping. Callers provide controlled `open`
  * state and an `onOpenChange` callback (typically wired to chatStore).
  *
- * Returns getter props that must be spread onto the trigger and floating
- * elements, plus the `refs`, `floatingStyles`, and nav state.
+ * The returned getters MUST be spread onto the trigger and floating
+ * elements — don't add your own `onClick` on the trigger (Floating UI's
+ * `useClick` wires that for you via `getReferenceProps`).
  *
  * Usage:
  *   const {
@@ -33,16 +35,18 @@ export function usePopoverMenu({
   open,
   onOpenChange,
   placement = 'top-start',
-  itemCount = 0,
-  onSelect,
 }) {
   const listRef = useRef([]);
-  const activeIndexRef = useRef(null);
+  // Use real state so Floating UI's list navigation re-renders correctly.
+  const [activeIndex, setActiveIndex] = useState(null);
 
   const { refs, floatingStyles, context } = useFloating({
     open,
     onOpenChange,
     placement,
+    // `fixed` strategy positions the menu in viewport coordinates, which
+    // plays nicely with FloatingPortal (no offsetParent surprises).
+    strategy: 'fixed',
     whileElementsMounted: autoUpdate,
     middleware: [
       offset(6),
@@ -59,19 +63,20 @@ export function usePopoverMenu({
     ],
   });
 
+  // useClick wires onClick on the reference to toggle `open` via onOpenChange.
+  const click = useClick(context);
   const dismiss = useDismiss(context, { outsidePressEvent: 'mousedown' });
-  const role = useRole(context, { role: 'listbox' });
+  // 'menu' is the correct ARIA role for a button-triggered popover.
+  const role = useRole(context, { role: 'menu' });
   const listNav = useListNavigation(context, {
     listRef,
-    activeIndex: activeIndexRef.current,
-    onNavigate: (idx) => {
-      activeIndexRef.current = idx;
-    },
-    virtual: true,
+    activeIndex,
+    onNavigate: setActiveIndex,
     loop: true,
   });
 
   const { getReferenceProps, getFloatingProps, getItemProps } = useInteractions([
+    click,
     dismiss,
     role,
     listNav,
@@ -82,9 +87,7 @@ export function usePopoverMenu({
     floatingStyles,
     context,
     listRef,
-    activeIndex: activeIndexRef.current,
-    itemCount,
-    onSelect,
+    activeIndex,
     getReferenceProps,
     getFloatingProps,
     getItemProps,
