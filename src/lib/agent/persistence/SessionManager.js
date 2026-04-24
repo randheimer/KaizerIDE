@@ -1,12 +1,85 @@
 /**
- * SessionManager - Save and resume agent sessions
- * Provides session persistence and recovery
+ * SessionManager - Save and resume agent sessions.
+ *
+ * Storage strategy (hybrid):
+ *   - localStorage is the synchronous cache + source of truth for reads.
+ *   - When running inside Electron, writes are also mirrored to disk
+ *     (userData/KaizerIDE/agent-sessions.json) via IPC for durability.
+ *   - On construction, we kick off an async rehydrate-from-disk that seeds
+ *     localStorage if disk has data that localStorage doesn't.
  */
 export class SessionManager {
   constructor(config = {}) {
     this.logger = config.logger;
     this.storageKey = config.storageKey || 'kaizer-agent-sessions';
     this.maxSessions = config.maxSessions || 50;
+    this._diskHydrated = false;
+
+    // Best-effort async rehydrate from disk on startup
+    this._hydrateFromDisk().catch((err) => {
+      this.logger?.warn?.('SessionManager: disk hydration failed', err);
+    });
+  }
+
+  /**
+   * Returns true if the Electron bridge for session persistence is available.
+   */
+  _hasDiskStorage() {
+    return (
+      typeof globalThis.window !== 'undefined' &&
+      globalThis.window.electron &&
+      typeof globalThis.window.electron.saveAgentSessions === 'function' &&
+      typeof globalThis.window.electron.loadAgentSessions === 'function'
+    );
+  }
+
+  /**
+   * Load sessions from disk once; if disk has more recent data than localStorage,
+   * seed localStorage from it so downstream sync reads see everything.
+   */
+  async _hydrateFromDisk() {
+    if (this._diskHydrated) return;
+    this._diskHydrated = true;
+    if (!this._hasDiskStorage()) return;
+
+    try {
+      const res = await globalThis.window.electron.loadAgentSessions();
+      if (!res || !res.success || !Array.isArray(res.data)) return;
+
+      const fromDisk = res.data;
+      const local = this.getAllSessions();
+
+      // Merge by id, preferring the newer timestamp
+      const byId = new Map();
+      for (const s of local) byId.set(s.id, s);
+      for (const s of fromDisk) {
+        const existing = byId.get(s.id);
+        if (!existing || (s.timestamp || 0) > (existing.timestamp || 0)) {
+          byId.set(s.id, s);
+        }
+      }
+
+      const merged = Array.from(byId.values())
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, this.maxSessions);
+
+      localStorage.setItem(this.storageKey, JSON.stringify(merged));
+      this.logger?.info?.(`SessionManager: hydrated ${merged.length} sessions from disk`);
+    } catch (error) {
+      this.logger?.warn?.('SessionManager: disk hydration error', error);
+    }
+  }
+
+  /**
+   * Async write-through to disk. Fire-and-forget: localStorage remains the
+   * synchronous source of truth for getters.
+   */
+  _persistToDisk(sessions) {
+    if (!this._hasDiskStorage()) return;
+    // Fire-and-forget; failures are logged but do not throw to callers.
+    Promise.resolve()
+      .then(() => globalThis.window.electron.saveAgentSessions(sessions))
+      .catch((err) => this.logger?.warn?.('SessionManager: disk save failed', err));
   }
 
   /**
@@ -55,8 +128,9 @@ export class SessionManager {
         sessions.splice(this.maxSessions);
       }
 
-      // Save to storage
+      // Save to storage (sync) + mirror to disk (async, best-effort)
       localStorage.setItem(this.storageKey, JSON.stringify(sessions));
+      this._persistToDisk(sessions);
       
       this.logger?.info(`Session saved: ${sessionId}`);
       return sessionId;
@@ -118,6 +192,7 @@ export class SessionManager {
       const filtered = sessions.filter(s => s.id !== sessionId);
       
       localStorage.setItem(this.storageKey, JSON.stringify(filtered));
+      this._persistToDisk(filtered);
       
       this.logger?.info(`Session deleted: ${sessionId}`);
       return true;
@@ -134,6 +209,7 @@ export class SessionManager {
   async clearAllSessions() {
     try {
       localStorage.removeItem(this.storageKey);
+      this._persistToDisk([]);
       this.logger?.info('All sessions cleared');
       return true;
     } catch (error) {

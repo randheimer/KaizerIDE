@@ -1,17 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import TitleBar from './components/Layout/TitleBar';
 import FileExplorer from './components/Sidebar/FileExplorer';
 import EditorArea from './components/Editor/EditorArea';
 import ChatPanel from './components/AI/chat/ChatPanel';
 import TerminalPanel from './components/Terminal/TerminalPanel';
 import StatusBar from './components/Common/StatusBar';
-import SettingsModal from './components/Modals/SettingsModal';
 import ErrorToast from './components/Common/ErrorToast';
-import FilePicker from './components/Common/FilePicker';
-import HelpModal from './components/UI/HelpModal';
-import RemoteConnectionModal from './components/Modals/RemoteConnectionModal';
 import { indexer } from './lib/indexer';
 import './App.css';
+
+// Lazy-load modals to keep initial bundle small.
+// These are only mounted when their boolean flag is true.
+const SettingsModal = lazy(() => import('./components/Modals/SettingsModal'));
+const FilePicker = lazy(() => import('./components/Common/FilePicker'));
+const HelpModal = lazy(() => import('./components/UI/HelpModal'));
+const RemoteConnectionModal = lazy(() => import('./components/Modals/RemoteConnectionModal'));
+const CommandPalette = lazy(() => import('./components/Common/CommandPalette'));
 
 const DEFAULT_SETTINGS = {
   endpoint: "http://localhost:20128/v1",
@@ -45,6 +49,7 @@ function App() {
   const [terminalVisible, setTerminalVisible] = useState(false);
   const [showSSHModal, setShowSSHModal] = useState(false);
   const [sshConnection, setSSHConnection] = useState(null);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   // Utility: Normalize file paths to use consistent separators (Windows backslashes)
   const normalizePath = (path) => {
@@ -306,6 +311,10 @@ function App() {
       } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault();
         setShowSettings(true);
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+        // Ctrl+Shift+P → Command Palette
+        e.preventDefault();
+        setShowCommandPalette((prev) => !prev);
       }
     };
 
@@ -725,54 +734,92 @@ function App() {
         modelName={settings.selectedModel.name}
         endpoint={settings.endpoint}
       />
-      {showSettings && (
-        <SettingsModal
-          settings={settings}
-          onSave={handleSettingsSave}
-          onClose={() => setShowSettings(false)}
-          initialTab={typeof showSettings === 'string' ? showSettings : undefined}
-        />
-      )}
       {errorMessage && (
         <ErrorToast
           message={errorMessage}
           onClose={() => setErrorMessage(null)}
         />
       )}
-      {filePickerOpen && (
-        <FilePicker
-          startPath={filePickerStartPath}
-          workspacePath={workspacePath}
-          mode={filePickerMode}
-          onAttach={(items) => {
-            if (filePickerMode === 'folder' && items.length > 0) {
-              // Folder selection mode - set as workspace
-              const folderPath = items[0].path;
-              console.log('[App] Selected folder:', folderPath);
-              setWorkspacePath(folderPath);
-              window.electron.saveWorkspacePath(folderPath);
-              setFilePickerOpen(false);
-            } else {
-              // File attachment mode - dispatch event
-              window.dispatchEvent(new CustomEvent('kaizer:attach-context', { detail: { items } }));
-              setFilePickerOpen(false);
-            }
-          }}
-          onClose={() => setFilePickerOpen(false)}
-        />
-      )}
-      {showHelpModal && (
-        <HelpModal onClose={() => setShowHelpModal(false)} />
-      )}
-      {showSSHModal && (
-        <RemoteConnectionModal
-          onClose={() => setShowSSHModal(false)}
-          onConnect={(connection) => {
-            setSSHConnection(connection);
-            console.log('[App] SSH connected:', connection);
-          }}
-        />
-      )}
+      <Suspense fallback={null}>
+        {showSettings && (
+          <SettingsModal
+            settings={settings}
+            onSave={handleSettingsSave}
+            onClose={() => setShowSettings(false)}
+            initialTab={typeof showSettings === 'string' ? showSettings : undefined}
+          />
+        )}
+        {filePickerOpen && (
+          <FilePicker
+            startPath={filePickerStartPath}
+            workspacePath={workspacePath}
+            mode={filePickerMode}
+            onAttach={(items) => {
+              if (filePickerMode === 'folder' && items.length > 0) {
+                // Folder selection mode - set as workspace
+                const folderPath = items[0].path;
+                console.log('[App] Selected folder:', folderPath);
+                setWorkspacePath(folderPath);
+                window.electron.saveWorkspacePath(folderPath);
+                setFilePickerOpen(false);
+              } else {
+                // File attachment mode - dispatch event
+                window.dispatchEvent(new CustomEvent('kaizer:attach-context', { detail: { items } }));
+                setFilePickerOpen(false);
+              }
+            }}
+            onClose={() => setFilePickerOpen(false)}
+          />
+        )}
+        {showHelpModal && (
+          <HelpModal onClose={() => setShowHelpModal(false)} />
+        )}
+        {showSSHModal && (
+          <RemoteConnectionModal
+            onClose={() => setShowSSHModal(false)}
+            onConnect={(connection) => {
+              setSSHConnection(connection);
+              console.log('[App] SSH connected:', connection);
+            }}
+          />
+        )}
+        {showCommandPalette && (
+          <CommandPalette
+            open={showCommandPalette}
+            onClose={() => setShowCommandPalette(false)}
+            commands={[
+              { id: 'file.new', group: 'File', title: 'New File',
+                shortcut: 'Ctrl+N', run: () => handleMenuAction('new-file') },
+              { id: 'file.openFolder', group: 'File', title: 'Open Folder…',
+                shortcut: 'Ctrl+K Ctrl+O', run: () => handleMenuAction('open-folder') },
+              { id: 'file.save', group: 'File', title: 'Save',
+                shortcut: 'Ctrl+S', run: () => handleMenuAction('save-file') },
+              { id: 'file.saveAll', group: 'File', title: 'Save All',
+                shortcut: 'Ctrl+K S', run: () => handleMenuAction('save-all') },
+              { id: 'file.closeTab', group: 'File', title: 'Close Tab',
+                shortcut: 'Ctrl+W', run: () => handleMenuAction('close-tab') },
+              { id: 'file.closeFolder', group: 'File', title: 'Close Folder',
+                run: () => handleMenuAction('close-folder') },
+              { id: 'view.toggleSidebar', group: 'View', title: 'Toggle Sidebar',
+                shortcut: 'Ctrl+B', run: () => handleMenuAction('toggle-sidebar') },
+              { id: 'view.toggleTerminal', group: 'View', title: 'New Terminal',
+                run: () => handleMenuAction('new-terminal') },
+              { id: 'view.toggleTerminalHide', group: 'View', title: 'Toggle Terminal Panel',
+                run: () => setTerminalVisible((v) => !v) },
+              { id: 'app.settings', group: 'Preferences', title: 'Open Settings',
+                shortcut: 'Ctrl+,', run: () => handleMenuAction('open-settings') },
+              { id: 'app.help', group: 'Help', title: 'Show Docs / Help',
+                run: () => handleMenuAction('show-docs') },
+              { id: 'remote.ssh', group: 'Remote', title: 'Connect via SSH…',
+                run: () => setShowSSHModal(true) },
+              { id: 'workspace.reindex', group: 'Workspace', title: 'Reindex Workspace',
+                run: () => {
+                  if (workspacePath) indexer.reindex(workspacePath);
+                } },
+            ]}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

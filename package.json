@@ -1,6 +1,6 @@
 {
   "name": "kaizer-ide",
-  "version": "4.3.0",
+  "version": "4.4.0",
   "description": "KaizerIDE - Modern AI-Powered Desktop IDE",
   "author": "Randheimer",
   "main": "electron/main.js",
@@ -12,7 +12,11 @@
     "build:win": "npm run build && electron-builder --win --x64",
     "build:win32": "npm run build && electron-builder --win --ia32",
     "build:all": "npm run build && electron-builder --win --x64 --ia32",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.{js,jsx}\"",
+    "lint:fix": "eslint \"src/**/*.{js,jsx}\" --fix",
+    "format": "prettier --write \"src/**/*.{js,jsx,css,json}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,css,json}\""
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
@@ -29,6 +33,11 @@
     "cross-env": "^7.0.3",
     "electron": "^41.2.2",
     "electron-builder": "^26.8.1",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "prettier": "^3.2.5",
     "vite": "^6.0.0",
     "wait-on": "^7.2.0"
   },

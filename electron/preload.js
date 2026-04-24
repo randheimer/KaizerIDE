@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('electron', {
   getAppDataPath: () => ipcRenderer.invoke('get-app-data-path'),
   saveChatHistory: (chatHistory, workspacePath) => ipcRenderer.invoke('save-chat-history', chatHistory, workspacePath),
   loadChatHistory: (workspacePath) => ipcRenderer.invoke('load-chat-history', workspacePath),
+  saveAgentSessions: (sessions) => ipcRenderer.invoke('save-agent-sessions', sessions),
+  loadAgentSessions: () => ipcRenderer.invoke('load-agent-sessions'),
   createFolder: (folderPath) => ipcRenderer.invoke('create-folder', folderPath),
   renameFile: (oldPath, newPath) => ipcRenderer.invoke('rename-file', oldPath, newPath),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),

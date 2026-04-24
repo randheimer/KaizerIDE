@@ -22,6 +22,32 @@ let isRemoteMode = false;
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'release', '__pycache__', '.vscode', '.idea']);
 
+/**
+ * Parse a .gitignore file into a Set of simple name patterns.
+ * Only supports plain names and `name/` style patterns — not full glob.
+ * Wildcard/glob lines are skipped; they're handled lazily elsewhere.
+ */
+function parseGitignore(workspaceRoot) {
+  const ignored = new Set();
+  try {
+    const gitignorePath = path.join(workspaceRoot, '.gitignore');
+    if (!fs.existsSync(gitignorePath)) return ignored;
+    const content = fs.readFileSync(gitignorePath, 'utf-8');
+    for (const raw of content.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#') || line.startsWith('!')) continue;
+      // Skip complex glob patterns — stick with plain names/dirs
+      if (/[*?\[\]]/.test(line)) continue;
+      // Strip leading slash and trailing slash for name matching
+      const name = line.replace(/^\/+/, '').replace(/\/+$/, '');
+      if (name && !name.includes('/')) ignored.add(name);
+    }
+  } catch {
+    // Non-fatal: no gitignore or unreadable
+  }
+  return ignored;
+}
+
 function getOpenPath() {
   // In production: argv = [execPath, '--', path] or [execPath, path]
   // In dev: argv = [electron, main.js, path]
@@ -48,39 +74,76 @@ function getOpenPath() {
   return null;
 }
 
-function buildFileTree(dirPath, depth = 0, maxDepth = 7) {
+/**
+ * Async, non-blocking file tree builder using fs.promises + withFileTypes.
+ * Avoids stat-per-entry (single readdir yields both name and type).
+ * Reads siblings concurrently at each level for better throughput.
+ * Honors .gitignore simple name patterns at the workspace root.
+ */
+async function buildFileTree(dirPath, depth = 0, maxDepth = 7, ignoredSet = null) {
   if (depth > maxDepth) return null;
-  
+
+  // Initialize merged ignore set at root
+  if (depth === 0 && ignoredSet === null) {
+    const fromGitignore = parseGitignore(dirPath);
+    ignoredSet = new Set([...IGNORED_DIRS, ...fromGitignore]);
+  } else if (ignoredSet === null) {
+    ignoredSet = IGNORED_DIRS;
+  }
+
   try {
-    const stats = fs.statSync(dirPath);
     const name = path.basename(dirPath);
-    
+
+    // Stat once to discover type
+    const stats = await fs.promises.stat(dirPath);
+
     if (stats.isDirectory()) {
-      if (IGNORED_DIRS.has(name)) return null;
-      
-      const children = fs.readdirSync(dirPath)
-        .map(child => buildFileTree(path.join(dirPath, child), depth + 1, maxDepth))
-        .filter(node => node !== null)
+      if (ignoredSet.has(name)) return null;
+
+      let entries;
+      try {
+        entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+      } catch {
+        return null;
+      }
+
+      const childResults = await Promise.all(
+        entries.map(async (entry) => {
+          if (ignoredSet.has(entry.name)) return null;
+          const childPath = path.join(dirPath, entry.name);
+          if (entry.isDirectory()) {
+            return buildFileTree(childPath, depth + 1, maxDepth, ignoredSet);
+          }
+          if (entry.isFile()) {
+            return { name: entry.name, path: childPath, type: 'file' };
+          }
+          // Symlinks / other: resolve lazily via recursive call
+          return buildFileTree(childPath, depth + 1, maxDepth, ignoredSet);
+        })
+      );
+
+      const children = childResults
+        .filter((node) => node !== null)
         .sort((a, b) => {
           if (a.type === b.type) return a.name.localeCompare(b.name);
           return a.type === 'dir' ? -1 : 1;
         });
-      
+
       return {
         name,
         path: dirPath,
         type: 'dir',
         children,
-        expanded: depth === 0
-      };
-    } else {
-      return {
-        name,
-        path: dirPath,
-        type: 'file'
+        expanded: depth === 0,
       };
     }
-  } catch (err) {
+
+    return {
+      name,
+      path: dirPath,
+      type: 'file',
+    };
+  } catch {
     return null;
   }
 }
@@ -292,11 +355,11 @@ ipcMain.handle('open-folder', async () => {
 
 ipcMain.handle('get-file-tree', async (event, dirPath) => {
   try {
-    const tree = buildFileTree(dirPath);
-    
+    const tree = await buildFileTree(dirPath);
+
     // Start watching this directory
     startWatching(dirPath);
-    
+
     return { success: true, tree };
   } catch (error) {
     return { success: false, error: error.message };
@@ -576,6 +639,41 @@ ipcMain.handle('load-chat-history', async (event, workspacePath) => {
   }
 });
 
+// Agent session persistence (disk-backed durable storage)
+ipcMain.handle('save-agent-sessions', async (event, sessions) => {
+  try {
+    const userDataPath = app.getPath('userData');
+    const kaiserDataPath = path.join(userDataPath, 'KaizerIDE');
+    const sessionsPath = path.join(kaiserDataPath, 'agent-sessions.json');
+
+    if (!fs.existsSync(kaiserDataPath)) {
+      fs.mkdirSync(kaiserDataPath, { recursive: true });
+    }
+
+    await fs.promises.writeFile(sessionsPath, JSON.stringify(sessions, null, 2), 'utf-8');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('load-agent-sessions', async () => {
+  try {
+    const userDataPath = app.getPath('userData');
+    const kaiserDataPath = path.join(userDataPath, 'KaizerIDE');
+    const sessionsPath = path.join(kaiserDataPath, 'agent-sessions.json');
+
+    if (!fs.existsSync(sessionsPath)) {
+      return { success: true, data: [] };
+    }
+
+    const data = await fs.promises.readFile(sessionsPath, 'utf-8');
+    return { success: true, data: JSON.parse(data) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // Menu action handlers
 ipcMain.handle('create-file', async (event, dirPath, fileName) => {
   try {
@@ -664,12 +762,12 @@ function startWatching(dirPath) {
         clearTimeout(refreshTimeout);
       }
       
-      refreshTimeout = setTimeout(() => {
+      refreshTimeout = setTimeout(async () => {
         // Send refresh event to renderer
         if (mainWindow && !mainWindow.isDestroyed()) {
           // Build fresh tree and send it
           try {
-            const tree = buildFileTree(dirPath);
+            const tree = await buildFileTree(dirPath);
             mainWindow.webContents.send('file-system-changed', { tree, path: dirPath });
             console.log('[FileWatcher] Tree refreshed after file change:', filename);
           } catch (err) {
