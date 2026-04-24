@@ -16,8 +16,11 @@ export class AgentRegistry {
       throw new Error('Agent must have a name property');
     }
 
+    // Allow re-registration during hot reload
     if (this.agents.has(agent.name)) {
-      throw new Error(`Agent '${agent.name}' is already registered`);
+      console.log(`[AgentRegistry] Re-registering agent: ${agent.name} (hot reload)`);
+      this.agents.set(agent.name, agent);
+      return;
     }
 
     this.agents.set(agent.name, agent);

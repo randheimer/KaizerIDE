@@ -22,6 +22,7 @@ export class SymbolExtractor {
     // line number without scanning the string for every symbol.
     const newlineOffsets = buildNewlineOffsets(content);
 
+    // Extract symbols from code patterns
     for (const pattern of patterns) {
       pattern.lastIndex = 0;
       let match;
@@ -40,12 +41,60 @@ export class SymbolExtractor {
           pattern.lastIndex++;
         }
 
-        if (symbols.length > 100) break;
+        if (symbols.length > 200) break;
       }
     }
 
+    // Extract symbols from structured comments (@export, @function, @symbols tags)
+    const commentSymbols = this.extractFromComments(content, newlineOffsets);
+    symbols.push(...commentSymbols);
+
     const valid = this.deduplicator.filter(symbols);
     return this.deduplicator.deduplicate(valid);
+  }
+
+  /**
+   * Extract symbols from structured documentation comments
+   * Supports: @export, @function, @symbols, @brief tags
+   */
+  extractFromComments(content, newlineOffsets) {
+    const symbols = [];
+    
+    // Match @export tags: @export HvVmxInitialize
+    const exportPattern = /@export\s+([a-zA-Z_][a-zA-Z0-9_]*)/g;
+    let match;
+    
+    while ((match = exportPattern.exec(content)) !== null) {
+      symbols.push({
+        name: match[1],
+        line: offsetToLine(newlineOffsets, match.index),
+      });
+    }
+    
+    // Match @function tags: @function vmx_setup_vmcs
+    const functionPattern = /@function\s+([a-zA-Z_][a-zA-Z0-9_]*)/g;
+    while ((match = functionPattern.exec(content)) !== null) {
+      symbols.push({
+        name: match[1],
+        line: offsetToLine(newlineOffsets, match.index),
+      });
+    }
+    
+    // Match @symbols tags: @symbols: func1, func2, func3
+    const symbolsPattern = /@symbols[:\s]+([a-zA-Z_][a-zA-Z0-9_,\s]*)/g;
+    while ((match = symbolsPattern.exec(content)) !== null) {
+      const symbolList = match[1].split(',').map(s => s.trim()).filter(s => s.length > 0);
+      for (const name of symbolList) {
+        if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+          symbols.push({
+            name,
+            line: offsetToLine(newlineOffsets, match.index),
+          });
+        }
+      }
+    }
+    
+    return symbols;
   }
 }
 

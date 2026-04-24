@@ -10,6 +10,11 @@ import Toaster from './components/Common/Toaster';
 import { indexer } from './lib/indexer';
 import './App.css';
 
+// Expose indexer globally for debugging
+if (typeof window !== 'undefined') {
+  window.indexer = indexer;
+}
+
 // Lazy-load modals to keep initial bundle small.
 // These are only mounted when their boolean flag is true.
 const SettingsModal = lazy(() => import('./components/Modals/SettingsModal'));
@@ -51,6 +56,8 @@ function App() {
   const [showSSHModal, setShowSSHModal] = useState(false);
   const [sshConnection, setSSHConnection] = useState(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  // Track AI file changes globally so diff highlighting works when opening files
+  const [aiFileChanges, setAiFileChanges] = useState({});
 
   // Utility: Normalize file paths to use consistent separators (Windows backslashes)
   const normalizePath = (path) => {
@@ -94,15 +101,19 @@ function App() {
     
     if (result.success) {
       const fileName = normalizedPath.split(/[\\/]/).pop();
+      
+      // Check if this file has pending AI changes
+      const aiChange = aiFileChanges[normalizedPath];
+      
       const newTab = {
         path: normalizedPath,
         name: fileName,
         content: result.content,
         dirty: false,
-        showDiff: options.showDiff || false,
-        newContent: options.newContent || null,
-        changeType: options.changeType || null,
-        originalContent: result.content,
+        showDiff: aiChange ? true : (options.showDiff || false),
+        newContent: aiChange ? aiChange.newContent : (options.newContent || null),
+        changeType: aiChange ? aiChange.changeType : (options.changeType || null),
+        originalContent: aiChange ? aiChange.oldContent : result.content,
         isRemote: !!sshConnection
       };
       
@@ -328,7 +339,18 @@ function App() {
     };
 
     const handleFileWritten = (event) => {
-      const { path, type, content, originalContent } = event.detail;
+      const { path, type, content, originalContent, oldContent, newContent } = event.detail;
+      
+      // Store AI file changes globally for diff highlighting when file is opened later
+      const normalizedPath = normalizePath(path);
+      setAiFileChanges(prev => ({
+        ...prev,
+        [normalizedPath]: {
+          oldContent: oldContent || originalContent || '',
+          newContent: newContent || content || '',
+          changeType: type
+        }
+      }));
       
       // Refresh file tree
       if (workspacePath) {
@@ -340,33 +362,36 @@ function App() {
       }
       
       // Check if file is currently open in a tab (including preview tabs)
-      const tab = tabs.find(t => t.path === path);
-      const previewTab = tabs.find(t => t.path === `${path}:preview`);
+      const tab = tabs.find(t => t.path === normalizedPath);
+      const previewTab = tabs.find(t => t.path === `${normalizedPath}:preview`);
       
       if (tab) {
         // Update regular tab with diff view
+        // Use the tab's existing originalContent if it already has a diff, otherwise use current content
+        const tabOriginalContent = tab.showDiff ? tab.originalContent : tab.content;
+        
         setTabs(prev => prev.map(t => 
-          t.path === path ? { 
+          t.path === normalizedPath ? { 
             ...t, 
-            content: originalContent || t.content, // Keep original content for diff
-            newContent: content, // New content from AI
+            content: tabOriginalContent, // Keep original content for diff
+            newContent: newContent || content, // New content from AI
             dirty: false,
             showDiff: true,
             changeType: type,
-            originalContent: originalContent || t.content
+            originalContent: tabOriginalContent
           } : t
         ));
         
         // Make sure this tab is active so user sees the diff
-        setActiveTabPath(path);
+        setActiveTabPath(normalizedPath);
       }
       
       // Update preview tab in real-time (for plan files)
       if (previewTab) {
         setTabs(prev => prev.map(t => 
-          t.path === `${path}:preview` ? { 
+          t.path === `${normalizedPath}:preview` ? { 
             ...t, 
-            content: content // Update preview with new content in real-time
+            content: newContent || content // Update preview with new content in real-time
           } : t
         ));
       }
@@ -448,6 +473,11 @@ function App() {
     const handleNewTerminal = () => {
       setTerminalVisible(true);
     };
+    
+    const handleClearDiff = () => {
+      // Clear all AI file changes when user accepts or reverts
+      setAiFileChanges({});
+    };
 
     const handleOpenSettings = (event) => {
       const { tab } = event.detail || {};
@@ -526,6 +556,7 @@ function App() {
     window.addEventListener('kaizer:open-include-file', handleOpenIncludeFile);
     window.addEventListener('kaizer:close-terminal', handleCloseTerminal);
     window.addEventListener('kaizer:new-terminal', handleNewTerminal);
+    window.addEventListener('kaizer:clear-diff', handleClearDiff);
     window.addEventListener('kaizer:open-settings', handleOpenSettings);
     window.addEventListener('kaizer:open-ssh-modal', handleOpenSSHModal);
     return () => {
@@ -537,6 +568,7 @@ function App() {
       window.removeEventListener('kaizer:open-include-file', handleOpenIncludeFile);
       window.removeEventListener('kaizer:close-terminal', handleCloseTerminal);
       window.removeEventListener('kaizer:new-terminal', handleNewTerminal);
+      window.removeEventListener('kaizer:clear-diff', handleClearDiff);
       window.removeEventListener('kaizer:open-settings', handleOpenSettings);
       window.removeEventListener('kaizer:open-ssh-modal', handleOpenSSHModal);
     };
