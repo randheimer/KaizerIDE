@@ -6,6 +6,8 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import SearchPanel from '../Sidebar/SearchPanel';
+import { computeLineDiff } from '../../lib/diff/lineDiff';
+import { highlightLine } from '../../lib/diff/prismHighlight';
 import './EditorArea.css';
 
 const getLanguageFromPath = (filePath) => {
@@ -68,6 +70,12 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const decorationsRef = useRef([]);
+  // Monaco view-zones we own. Each entry is a zone id returned by
+  // `editor.changeViewZones(accessor => accessor.addZone(...))`. We use
+  // zones to render actual deleted content as red blocks between the
+  // surviving lines — Cursor-style — since Monaco can't fake phantom
+  // lines via decorations alone.
+  const viewZonesRef = useRef([]);
   const pendingDiffs = useRef({});
   const [editorContextMenu, setEditorContextMenu] = useState(null);
   const [tabContextMenu, setTabContextMenu] = useState(null);
@@ -80,60 +88,179 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
   // Check if current tab is a plan.md preview (not the regular .md tab)
   const isPlanPreview = isPreviewTab && activeTab.toLowerCase().includes('plan-') && activeTab.includes('.md:preview');
 
-  // Diff lines algorithm
-  const diffLines = (oldContent, newContent) => {
-    const oldLines = (oldContent || '').split('\n');
-    const newLines = (newContent || '').split('\n');
-    
-    const added = [];
-    const oldSet = new Set(oldLines);
-    
-    newLines.forEach((line, i) => {
-      if (!oldSet.has(line)) {
-        added.push(i + 1); // Monaco lines are 1-indexed
+  // Turn a unified line-diff (from computeLineDiff) into two lists the
+  // editor needs:
+  //   addedLines:    [lineNumberInNew, ...]  — whole-line green tint
+  //   removedBlocks: [{ afterLineNumber, lines: [string,...] }, ...]
+  //                  — consecutive deletions grouped so we can render
+  //                  them as a single red view-zone beneath the last
+  //                  surviving line in the new file.
+  const computeEditorDiff = (oldContent, newContent) => {
+    const isNewFile = !oldContent || oldContent.length === 0;
+    if (isNewFile) {
+      const newLines = (newContent || '').split('\n');
+      return {
+        addedLines: newLines.map((_, i) => i + 1),
+        removedBlocks: [],
+      };
+    }
+
+    const hunks = computeLineDiff(oldContent, newContent);
+    const addedLines = [];
+    const removedBlocks = [];
+    // Cursor tracking where "deletion goes" in the new file. 0 means
+    // "above the first line"; Monaco accepts afterLineNumber: 0 for
+    // view-zones rendered above line 1.
+    let lastNewLine = 0;
+    let pendingRemove = null;
+
+    const flushRemove = () => {
+      if (pendingRemove) {
+        removedBlocks.push(pendingRemove);
+        pendingRemove = null;
       }
-    });
-    
-    return { added };
+    };
+
+    for (const h of hunks) {
+      if (h.kind === 'equal') {
+        flushRemove();
+        lastNewLine = h.newNum;
+      } else if (h.kind === 'add') {
+        flushRemove();
+        addedLines.push(h.newNum);
+        lastNewLine = h.newNum;
+      } else if (h.kind === 'remove') {
+        if (!pendingRemove) {
+          pendingRemove = { afterLineNumber: lastNewLine, lines: [] };
+        }
+        pendingRemove.lines.push(h.line ?? '');
+      }
+    }
+    flushRemove();
+
+    return { addedLines, removedBlocks };
   };
 
-  // Apply diff decorations
+  // Build the DOM node Monaco will embed as a view-zone for a single
+  // run of deleted lines. Each row = one deleted line, styled red, with
+  // a `-` sign and Prism-highlighted content so it reads like source.
+  const buildRemovedZoneNode = (lines, lang) => {
+    const host = document.createElement('div');
+    host.className = 'kaizer-diff-removed-zone';
+    for (const rawLine of lines) {
+      const row = document.createElement('div');
+      row.className = 'kaizer-diff-removed-line';
+
+      const sign = document.createElement('span');
+      sign.className = 'kaizer-diff-removed-sign';
+      sign.textContent = '-';
+
+      const code = document.createElement('span');
+      code.className = 'kaizer-diff-removed-code';
+      code.innerHTML = highlightLine(rawLine, lang);
+
+      row.appendChild(sign);
+      row.appendChild(code);
+      host.appendChild(row);
+    }
+    return host;
+  };
+
+  // Wipe any previously added view-zones. Safe to call even if the
+  // editor/monaco refs are null (e.g. during unmount).
+  const removeAllViewZones = () => {
+    const editor = editorRef.current;
+    if (!editor || viewZonesRef.current.length === 0) return;
+    editor.changeViewZones((accessor) => {
+      for (const id of viewZonesRef.current) {
+        try { accessor.removeZone(id); } catch { /* zone gone — ignore */ }
+      }
+    });
+    viewZonesRef.current = [];
+  };
+
+  // Apply diff decorations + view-zones. Green for added lines (whole
+  // line tint + bright gutter bar + minimap + ruler), and an inline
+  // red block showing the literal deleted content where it used to be.
   const applyDiffDecorations = (oldContent, newContent) => {
     const editor = editorRef.current;
     const monaco = monacoRef.current;
     if (!editor || !monaco) return;
 
-    const { added } = diffLines(oldContent, newContent);
+    const { addedLines, removedBlocks } = computeEditorDiff(oldContent, newContent);
 
-    // Clear previous decorations
+    // Reset previous state — both decorations and zones.
     decorationsRef.current = editor.deltaDecorations(decorationsRef.current, []);
+    removeAllViewZones();
 
     const decorations = [];
+    const model = editor.getModel();
+    const lineCount = model?.getLineCount() || 1;
 
-    // Green for added/changed lines
-    added.forEach(lineNumber => {
+    // Green whole-line highlight for each inserted line.
+    for (const lineNumber of addedLines) {
+      if (lineNumber < 1 || lineNumber > lineCount) continue;
       decorations.push({
         range: new monaco.Range(lineNumber, 1, lineNumber, 1),
         options: {
           isWholeLine: true,
-          className: 'diff-added-line',
-          linesDecorationsClassName: 'diff-added-gutter',
+          className: 'kaizer-diff-line-added',
+          linesDecorationsClassName: 'kaizer-diff-gutter-added',
+          minimap: { color: '#22c55e', position: monaco.editor.MinimapPosition.Inline },
           overviewRuler: {
             color: '#22c55e',
-            position: monaco.editor.OverviewRulerLane.Left
-          }
-        }
+            position: monaco.editor.OverviewRulerLane.Left,
+          },
+        },
       });
-    });
+    }
+
+    // Mark the line that sits just above each removed block on the
+    // overview ruler so users can jump straight to a deletion.
+    for (const block of removedBlocks) {
+      const rulerLine = Math.min(Math.max(block.afterLineNumber, 1), lineCount);
+      decorations.push({
+        range: new monaco.Range(rulerLine, 1, rulerLine, 1),
+        options: {
+          isWholeLine: true,
+          linesDecorationsClassName: 'kaizer-diff-gutter-removed',
+          overviewRuler: {
+            color: '#ef4444',
+            position: monaco.editor.OverviewRulerLane.Left,
+          },
+          minimap: { color: '#ef4444', position: monaco.editor.MinimapPosition.Inline },
+        },
+      });
+    }
 
     decorationsRef.current = editor.deltaDecorations([], decorations);
+
+    // Now render the removed lines themselves as view-zones. We do this
+    // in one batched call so Monaco only relays out once.
+    if (removedBlocks.length > 0) {
+      const lang = activeTabData ? getLanguageFromPath(activeTabData.path) : '';
+      editor.changeViewZones((accessor) => {
+        for (const block of removedBlocks) {
+          const domNode = buildRemovedZoneNode(block.lines, lang);
+          const zoneId = accessor.addZone({
+            afterLineNumber: Math.min(Math.max(block.afterLineNumber, 0), lineCount),
+            heightInLines: block.lines.length,
+            domNode,
+            suppressMouseDown: true,
+          });
+          viewZonesRef.current.push(zoneId);
+        }
+      });
+    }
   };
 
-  // Clear decorations
+  // Clear decorations + view-zones. Also forgets the pending diff for
+  // the active tab so switching away & back doesn't re-apply it.
   const clearDecorations = () => {
     if (editorRef.current && decorationsRef.current.length > 0) {
       decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, []);
     }
+    removeAllViewZones();
     if (activeTab) {
       delete pendingDiffs.current[activeTab];
     }
@@ -219,78 +346,45 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     }
   }, [activeTab]);
 
+  // Re-apply diff decorations whenever the active tab's diff data
+  // changes. App.jsx sets { showDiff, originalContent, newContent,
+  // changeType } on the tab when the agent writes a file. Because React
+  // updates the <Editor value={...}> prop on the same render, Monaco's
+  // internal setValue() wipes any earlier decorations — so we must
+  // re-apply here, AFTER the model has been updated. The LCS-based
+  // applyDiffDecorations handles both new files and modifications.
   useEffect(() => {
-    if (editorRef.current && monacoRef.current && activeTabData?.showDiff) {
-      const editor = editorRef.current;
-      const monaco = monacoRef.current;
-      
-      // Get the content to display (show new content in editor)
-      const displayContent = activeTabData.newContent || activeTabData.content;
-      
-      // Update editor value to show new content
-      if (editor.getValue() !== displayContent) {
-        editor.setValue(displayContent);
-      }
-      
-      // Calculate diff and apply decorations
-      const oldLines = (activeTabData.originalContent || activeTabData.content || '').split('\n');
-      const newLines = (activeTabData.newContent || '').split('\n');
-      
-      const decorations = [];
-      
-      if (activeTabData.changeType === 'added') {
-        // All lines are new (green)
-        for (let i = 0; i < newLines.length; i++) {
-          decorations.push({
-            range: new monaco.Range(i + 1, 1, i + 1, 1),
-            options: {
-              isWholeLine: true,
-              className: 'diff-line-added'
-            }
-          });
-        }
-      } else if (activeTabData.changeType === 'modified') {
-        // Simple line-by-line comparison
-        const maxLines = Math.max(oldLines.length, newLines.length);
-        for (let i = 0; i < maxLines; i++) {
-          if (i >= oldLines.length) {
-            // Added line
-            decorations.push({
-              range: new monaco.Range(i + 1, 1, i + 1, 1),
-              options: {
-                isWholeLine: true,
-                className: 'diff-line-added'
-              }
-            });
-          } else if (i >= newLines.length) {
-            // Deleted line (shouldn't happen in new content view)
-            decorations.push({
-              range: new monaco.Range(i + 1, 1, i + 1, 1),
-              options: {
-                isWholeLine: true,
-                className: 'diff-line-deleted'
-              }
-            });
-          } else if (oldLines[i] !== newLines[i]) {
-            // Modified line
-            decorations.push({
-              range: new monaco.Range(i + 1, 1, i + 1, 1),
-              options: {
-                isWholeLine: true,
-                className: 'diff-line-modified'
-              }
-            });
-          }
-        }
-      }
-      
-      editor.deltaDecorations([], decorations);
-    }
-  }, [activeTabData]);
+    if (!editorRef.current || !monacoRef.current) return;
+    if (!activeTabData?.showDiff) return;
+    const oldContent = activeTabData.originalContent ?? '';
+    const newContent = activeTabData.newContent ?? '';
+    // Defer so Monaco's internal setValue (from the value prop change)
+    // completes before we try to re-add decorations.
+    queueMicrotask(() => applyDiffDecorations(oldContent, newContent));
+  }, [
+    activeTabData?.showDiff,
+    activeTabData?.newContent,
+    activeTabData?.originalContent,
+    activeTabData?.path,
+  ]);
 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    // Editor just (re-)mounted: any zone/decoration IDs we were holding
+    // from a previous instance are now meaningless. Start from scratch.
+    decorationsRef.current = [];
+    viewZonesRef.current = [];
+
+    // If the AI wrote this file while Monaco was still mounting, the
+    // file-written handler couldn't apply its decorations yet. Replay
+    // the pending diff now that we actually have an editor instance.
+    if (activeTab && pendingDiffs.current[activeTab]) {
+      const { oldContent, newContent } = pendingDiffs.current[activeTab];
+      // Defer one microtask so the editor's model is definitely populated
+      // with the new content before we calculate decorations against it.
+      queueMicrotask(() => applyDiffDecorations(oldContent, newContent));
+    }
 
     // Register custom theme
     monaco.editor.defineTheme('kaizer-dark', {
@@ -812,8 +906,15 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     // Set theme from settings
     monaco.editor.setTheme(settings.theme);
 
-    // Clear decorations when user edits
-    editor.onDidChangeModelContent(() => {
+    // Clear decorations when the USER edits. Monaco also fires this
+    // event for programmatic setValue() calls (which happen every time
+    // React updates the Editor's value prop — e.g. when the AI writes
+    // a file and the tab's content changes). The `isFlush` flag
+    // distinguishes those: true for setValue, false for user typing.
+    // We only want to clear on actual user edits, so we keep diff
+    // decorations alive through setValue.
+    editor.onDidChangeModelContent((e) => {
+      if (e && e.isFlush) return;
       if (decorationsRef.current.length > 0) {
         clearDecorations();
       }

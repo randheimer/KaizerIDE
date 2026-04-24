@@ -226,7 +226,8 @@
   color: var(--text-0);
 }
 
-/* Monaco Editor Diff Decorations */
+/* Monaco Editor Diff Decorations (legacy — kept so any remaining code
+   path that uses them still works). */
 .diff-line-added {
   background: rgba(34, 197, 94, 0.15) !important;
 }
@@ -248,6 +249,128 @@
   background: rgb(239, 68, 68) !important;
   width: 3px !important;
 }
+
+/* Agent-write diff decorations — what you see in the editor when the
+   AI modifies a file. Added lines get a clear green whole-line tint +
+   bright gutter bar; deleted lines are rendered as an inline red block
+   (see .kaizer-diff-removed-zone below) so you can actually read what
+   was taken out. Matches Cursor's feel. */
+
+.kaizer-diff-line-added {
+  background: rgba(34, 197, 94, 0.18) !important;
+  box-shadow: inset 2px 0 0 0 rgba(34, 197, 94, 0.9);
+}
+
+.kaizer-diff-gutter-added {
+  background: #22c55e !important;
+  width: 3px !important;
+  margin-left: 2px;
+}
+
+.kaizer-diff-gutter-removed {
+  background: #ef4444 !important;
+  width: 3px !important;
+  margin-left: 2px;
+}
+
+/* Inline red block rendered via Monaco view-zones for runs of deleted
+   lines. Must match the editor's font metrics exactly or lines will
+   look misaligned. Font settings mirror the Editor component's options
+   (fontSize 13.5px, lineHeight 22px, same stack). */
+.kaizer-diff-removed-zone {
+  background: rgba(239, 68, 68, 0.14);
+  border-left: 3px solid #ef4444;
+  font-family: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13.5px;
+  line-height: 22px;
+  letter-spacing: 0.3px;
+  color: #f4a8a8;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Align inline with the editor text column — lineDecorationsWidth:8
+     + gutter offsets add up to roughly this much of left padding. */
+  padding-left: 62px;
+}
+
+.kaizer-diff-removed-zone::-webkit-scrollbar {
+  height: 6px;
+}
+.kaizer-diff-removed-zone::-webkit-scrollbar-thumb {
+  background: rgba(239, 68, 68, 0.35);
+  border-radius: 3px;
+}
+
+.kaizer-diff-removed-line {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  min-width: max-content;
+}
+
+.kaizer-diff-removed-sign {
+  display: inline-block;
+  width: 14px;
+  flex-shrink: 0;
+  color: #ef4444;
+  font-weight: 700;
+  text-align: center;
+  user-select: none;
+}
+
+.kaizer-diff-removed-code {
+  flex: 1;
+  white-space: pre;
+  /* Text itself is red-tinted; Prism tokens override specific parts
+     below so keywords/strings are still recognisable. */
+}
+
+/* Prism token palette scoped to the red removed block. Uses slightly
+   de-saturated versions of the editor's own theme colors so the
+   tokens read as "this was code" without fighting the red wash. */
+.kaizer-diff-removed-zone .token.comment,
+.kaizer-diff-removed-zone .token.prolog,
+.kaizer-diff-removed-zone .token.doctype,
+.kaizer-diff-removed-zone .token.cdata {
+  color: #8a6a6a;
+  font-style: italic;
+}
+.kaizer-diff-removed-zone .token.punctuation,
+.kaizer-diff-removed-zone .token.operator {
+  color: #d4a0a0;
+}
+.kaizer-diff-removed-zone .token.keyword,
+.kaizer-diff-removed-zone .token.atrule,
+.kaizer-diff-removed-zone .token.attr-value {
+  color: #e6a8e6;
+  font-weight: 600;
+}
+.kaizer-diff-removed-zone .token.string,
+.kaizer-diff-removed-zone .token.char,
+.kaizer-diff-removed-zone .token.attr-name,
+.kaizer-diff-removed-zone .token.builtin,
+.kaizer-diff-removed-zone .token.inserted {
+  color: #d0c490;
+}
+.kaizer-diff-removed-zone .token.number,
+.kaizer-diff-removed-zone .token.boolean,
+.kaizer-diff-removed-zone .token.constant,
+.kaizer-diff-removed-zone .token.symbol,
+.kaizer-diff-removed-zone .token.property,
+.kaizer-diff-removed-zone .token.tag {
+  color: #f0a080;
+}
+.kaizer-diff-removed-zone .token.function,
+.kaizer-diff-removed-zone .token.class-name {
+  color: #e0c88a;
+}
+.kaizer-diff-removed-zone .token.variable,
+.kaizer-diff-removed-zone .token.regex,
+.kaizer-diff-removed-zone .token.important {
+  color: #f4a8a8;
+}
+.kaizer-diff-removed-zone .token.bold { font-weight: 700; }
+.kaizer-diff-removed-zone .token.italic { font-style: italic; }
 
 .diff-glyph-modified {
   background: rgb(59, 130, 246) !important;
