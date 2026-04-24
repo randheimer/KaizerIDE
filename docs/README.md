@@ -27,7 +27,7 @@
 ![Clones](graphs/clones.png)
 
 ### 🤖 AI-Powered Coding Assistant
-- **Multi-Agent System** - 4 specialized agents (Executor, Planner, Ask, Fixer) with distinct roles
+- **Multi-Agent System** - 4 specialized agents (Agent, Planner, Ask, Fixer) with distinct roles
 - **Context-Aware Chat** - AI understands your entire project structure
 - **Tool Calling** - AI can read files, search code, and analyze your workspace
 - **Multi-Model Support** - Works with any OpenAI-compatible API (Claude, GPT, Qwen, Gemini, local models)

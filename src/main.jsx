@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import WelcomeApp from './WelcomeApp';
+import './styles/tokens.css';
 import './index.css';
 
 // Check if we're in welcome mode via hash

@@ -5,6 +5,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { runAgentTurn } from '../../../lib/agent';
 import FilePicker from '../../Common/FilePicker';
+import Icon from '../../Common/Icon';
 import StreamingCodeBlock from './StreamingCodeBlock';
 import FilesChangedCard from './FilesChangedCard';
 import ToolGroupCard from './ToolGroupCard';
@@ -910,11 +911,11 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
 
   const getModeIcon = (mode) => {
     switch (mode) {
-      case 'agent': return '∞';
-      case 'plan': return '📋';
-      case 'ask': return '💬';
-      case 'fixer': return '🔧';
-      default: return '∞';
+      case 'agent': return 'Infinity';
+      case 'plan': return 'ClipboardList';
+      case 'ask': return 'MessageCircle';
+      case 'fixer': return 'Wrench';
+      default: return 'Infinity';
     }
   };
 
@@ -1339,17 +1340,20 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       {/* Header */}
       <div className="chat-header-new">
         <div className="chat-header-left">
-          <span className="chat-icon">💬</span>
+          <Icon name="MessageSquare" size={16} className="chat-icon" />
           <span className="chat-title">Chat</span>
         </div>
         <div className="chat-header-right">
-          <button className="icon-btn" onClick={handleNewChat} title="New chat">
-            +
+          <button className="icon-btn" onClick={handleNewChat} title="New chat" aria-label="New chat">
+            <Icon name="Plus" size={16} />
           </button>
-          <button className="icon-btn" onClick={() => {
-            setShowHistoryModal(true);
-          }} title="History">
-            🕐
+          <button
+            className="icon-btn"
+            onClick={() => setShowHistoryModal(true)}
+            title="History"
+            aria-label="Chat history"
+          >
+            <Icon name="Clock" size={16} />
           </button>
         </div>
       </div>
@@ -1523,9 +1527,19 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             <div className="context-pills-row">
               {contextPills.map(pill => (
                 <div key={pill.id} className="context-pill-new">
-                  <span className="pill-icon">{pill.type === 'file' ? '📄' : '📁'}</span>
+                  <Icon
+                    name={pill.type === 'file' ? 'FileText' : 'Folder'}
+                    size={12}
+                    className="pill-icon"
+                  />
                   <span className="pill-text">{pill.data.split(/[\\/]/).pop()}</span>
-                  <button className="pill-remove" onClick={() => handleRemoveContext(pill.id)}>×</button>
+                  <button
+                    className="pill-remove"
+                    onClick={() => handleRemoveContext(pill.id)}
+                    aria-label="Remove"
+                  >
+                    <Icon name="X" size={12} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -1545,8 +1559,14 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           <div className="composer-toolbar-new">
             <div className="toolbar-left">
               <div className="toolbar-btn-wrapper" ref={contextMenuRef}>
-                <button className="icon-btn-small" ref={contextButtonRef} onClick={toggleContextMenu}>
-                  @
+                <button
+                  className="icon-btn-small"
+                  ref={contextButtonRef}
+                  onClick={toggleContextMenu}
+                  aria-label="Add context"
+                  title="Add context"
+                >
+                  <Icon name="AtSign" size={14} />
                 </button>
                 {showContextMenu && (
                   <div 
@@ -1592,7 +1612,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                   ref={modeButtonRef} 
                   onClick={toggleModeMenu}
                 >
-                  <span>{getModeIcon(currentMode)} {getModeName(currentMode)}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Icon name={getModeIcon(currentMode)} size={13} />
+                    {getModeName(currentMode)}
+                  </span>
                 </button>
                 {showModeMenu && (
                   <div 
@@ -1604,22 +1627,26 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                       zIndex: 9999
                     }}
                   >
-                    <div className={`mode-option ${currentMode === 'agent' ? 'active' : ''}`} onClick={() => { setCurrentMode('agent'); setShowModeMenu(false); }}>
-                      <span>∞ Agent</span>
-                      {currentMode === 'agent' && <span className="checkmark">✓</span>}
-                    </div>
-                    <div className={`mode-option ${currentMode === 'plan' ? 'active' : ''}`} onClick={() => { setCurrentMode('plan'); setShowModeMenu(false); }}>
-                      <span>📋 Plan</span>
-                      {currentMode === 'plan' && <span className="checkmark">✓</span>}
-                    </div>
-                    <div className={`mode-option ${currentMode === 'ask' ? 'active' : ''}`} onClick={() => { setCurrentMode('ask'); setShowModeMenu(false); }}>
-                      <span>💬 Ask</span>
-                      {currentMode === 'ask' && <span className="checkmark">✓</span>}
-                    </div>
-                    <div className={`mode-option ${currentMode === 'fixer' ? 'active' : ''}`} onClick={() => { setCurrentMode('fixer'); setShowModeMenu(false); }}>
-                      <span>🔧 Fixer</span>
-                      {currentMode === 'fixer' && <span className="checkmark">✓</span>}
-                    </div>
+                    {[
+                      { id: 'agent', label: 'Agent', icon: 'Infinity' },
+                      { id: 'plan', label: 'Plan', icon: 'ClipboardList' },
+                      { id: 'ask', label: 'Ask', icon: 'MessageCircle' },
+                      { id: 'fixer', label: 'Fixer', icon: 'Wrench' },
+                    ].map((opt) => (
+                      <div
+                        key={opt.id}
+                        className={`mode-option ${currentMode === opt.id ? 'active' : ''}`}
+                        onClick={() => { setCurrentMode(opt.id); setShowModeMenu(false); }}
+                      >
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                          <Icon name={opt.icon} size={13} />
+                          {opt.label}
+                        </span>
+                        {currentMode === opt.id && (
+                          <Icon name="Check" size={13} className="checkmark" />
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1663,12 +1690,14 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                 )}
               </div>
 
-              <button 
-                className="send-btn-new" 
+              <button
+                className="send-btn-new"
                 onClick={isStreaming ? handleStop : handleSend}
                 disabled={!input.trim() && !isStreaming}
+                aria-label={isStreaming ? 'Stop' : 'Send'}
+                title={isStreaming ? 'Stop' : 'Send (Enter)'}
               >
-                {isStreaming ? '■' : '➤'}
+                <Icon name={isStreaming ? 'Square' : 'ArrowUp'} size={16} strokeWidth={2} />
               </button>
             </div>
           </div>
@@ -1681,7 +1710,13 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
             <div className="settings-modal-header">
               <h2>Add Model</h2>
-              <button className="settings-close-btn" onClick={() => setShowSettingsModal(false)}>×</button>
+              <button
+                className="settings-close-btn"
+                onClick={() => setShowSettingsModal(false)}
+                aria-label="Close"
+              >
+                <Icon name="X" size={16} />
+              </button>
             </div>
             <div className="settings-modal-body">
               <div className="settings-section">
@@ -1748,13 +1783,19 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
             <div className="settings-modal-header">
               <h2>Chat History</h2>
-              <button className="settings-close-btn" onClick={() => setShowHistoryModal(false)}>×</button>
+              <button
+                className="settings-close-btn"
+                onClick={() => setShowHistoryModal(false)}
+                aria-label="Close"
+              >
+                <Icon name="X" size={16} />
+              </button>
             </div>
             <div className="settings-modal-body">
               <div className="history-list">
                 {chatHistory.length === 0 ? (
                   <div className="history-empty">
-                    <span className="history-empty-icon">💬</span>
+                    <Icon name="MessageSquare" size={32} className="history-empty-icon" />
                     <p>No chat history yet</p>
                     <span className="history-empty-hint">Your conversations will appear here</span>
                   </div>
@@ -1770,12 +1811,13 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                         </div>
                       </div>
                       <div className="history-item-actions">
-                        <button 
-                          className="history-action-btn delete" 
+                        <button
+                          className="history-action-btn delete"
                           onClick={(e) => { e.stopPropagation(); handleDeleteChat(chat.id); }}
                           title="Delete chat"
+                          aria-label="Delete chat"
                         >
-                          🗑
+                          <Icon name="Trash2" size={14} />
                         </button>
                       </div>
                     </div>

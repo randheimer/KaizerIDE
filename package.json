@@ -19,13 +19,18 @@
     "format:check": "prettier --check \"src/**/*.{js,jsx,css,json}\""
   },
   "dependencies": {
+    "@floating-ui/react": "^0.27.19",
     "@monaco-editor/react": "^4.6.0",
+    "cmdk": "^1.1.1",
+    "lucide-react": "^1.11.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^9.0.1",
     "react-syntax-highlighter": "^16.1.1",
+    "react-virtuoso": "^4.18.6",
     "remark-gfm": "^4.0.0",
-    "ssh2": "^1.15.0"
+    "ssh2": "^1.15.0",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
