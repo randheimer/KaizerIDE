@@ -259,12 +259,21 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       textareaRef.current?.focus();
     };
 
+    const handleFocusChat = () => {
+      textareaRef.current?.focus();
+    };
+    const handleNewChatShortcut = () => {
+      handleNewChat();
+    };
+
     window.addEventListener('kaizer:attach-context', handleAttachContext);
     window.addEventListener('kaizer:paste-to-chat', handlePasteToChat);
     window.addEventListener('kaizer:request-command-permission', handleCommandPermission);
     window.addEventListener('kaizer:file-written', handleFileWritten);
     window.addEventListener('kaizer:improve-plan', handleImprovePlan);
     window.addEventListener('kaizer:ask-about-plan', handleAskAboutPlan);
+    window.addEventListener('kaizer:focus-chat', handleFocusChat);
+    window.addEventListener('kaizer:new-chat', handleNewChatShortcut);
     return () => {
       window.removeEventListener('kaizer:attach-context', handleAttachContext);
       window.removeEventListener('kaizer:paste-to-chat', handlePasteToChat);
@@ -272,6 +281,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       window.removeEventListener('kaizer:file-written', handleFileWritten);
       window.removeEventListener('kaizer:improve-plan', handleImprovePlan);
       window.removeEventListener('kaizer:ask-about-plan', handleAskAboutPlan);
+      window.removeEventListener('kaizer:focus-chat', handleFocusChat);
+      window.removeEventListener('kaizer:new-chat', handleNewChatShortcut);
     };
   }, [autoApproveCommands, setInput, setContextPills, setCurrentMode]);
 

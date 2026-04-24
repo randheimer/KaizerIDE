@@ -316,6 +316,14 @@ function App() {
         // Ctrl+Shift+P → Command Palette
         e.preventDefault();
         setShowCommandPalette((prev) => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'l' || e.key === 'L')) {
+        // Ctrl+L → focus chat composer
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('kaizer:focus-chat'));
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'L' || e.key === 'l')) {
+        // Ctrl+Shift+L → new chat
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('kaizer:new-chat'));
       }
     };
 

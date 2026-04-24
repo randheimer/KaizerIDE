@@ -1,0 +1,82 @@
+.inline-autocomplete {
+  width: min(360px, 90vw);
+  max-height: 280px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2, #161616);
+  border: 1px solid var(--border-default, #2a2a2a);
+  border-radius: var(--radius-md, 6px);
+  box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.45));
+  overflow: hidden;
+  font-size: var(--font-size-base, 12px);
+}
+
+.inline-autocomplete__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3, 6px);
+  padding: var(--space-3, 6px) var(--space-5, 12px);
+  background: var(--surface-3, #1a1a1a);
+  border-bottom: 1px solid var(--border-subtle, #1e1e1e);
+  color: var(--text-tertiary, #888);
+  font-size: var(--font-size-xs, 10px);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.inline-autocomplete__kind {
+  color: var(--accent, #a855f7);
+  font-weight: var(--font-weight-semibold, 600);
+}
+.inline-autocomplete__query {
+  color: var(--text-secondary, #ccc);
+  font-family: var(--font-mono, monospace);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.inline-autocomplete__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2, 4px);
+}
+
+.inline-autocomplete__empty {
+  padding: var(--space-5, 12px);
+  text-align: center;
+  color: var(--text-tertiary, #888);
+}
+
+.inline-autocomplete__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 6px);
+  padding: var(--space-3, 6px) var(--space-4, 8px);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text-secondary, #ccc);
+  cursor: pointer;
+  transition: background var(--dur-fast, 120ms) ease;
+}
+.inline-autocomplete__item:hover,
+.inline-autocomplete__item[data-selected='true'] {
+  background: var(--surface-4, #222);
+  color: var(--text-primary, #f0f0f0);
+}
+
+.inline-autocomplete__icon {
+  flex-shrink: 0;
+  color: var(--text-tertiary, #888);
+}
+
+.inline-autocomplete__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inline-autocomplete__hint {
+  color: var(--text-tertiary, #888);
+  font-size: var(--font-size-xs, 10px);
+  flex-shrink: 0;
+}
