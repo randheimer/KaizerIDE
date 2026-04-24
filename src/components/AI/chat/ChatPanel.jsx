@@ -14,11 +14,29 @@ import MessageList from './MessageList';
 import TypingIndicator from './TypingIndicator';
 import Composer from './Composer/Composer';
 import MessageActions from './MessageActions';
+import FileLink from './FileLink';
 import ChatHistoryModal from './modals/ChatHistoryModal';
 import AddModelModal from './modals/AddModelModal';
 import { useChatStore } from '../../../lib/stores/chatStore';
 import { toast } from '../../../lib/stores/toastStore';
+import remarkFileLinks from '../../../lib/markdown/remarkFileLinks';
 import './ChatPanel.css';
+
+// Shared ReactMarkdown plugin list + link renderer. We inject these
+// into every place the chat renders assistant markdown so the remark
+// pass runs once per parse and file links get consistent hover previews.
+const CHAT_REMARK_PLUGINS = [remarkGfm, remarkFileLinks];
+const MARKDOWN_LINK_RENDERER = ({ node, href, children, ...props }) => {
+  if (href && href.startsWith('file://')) {
+    const path = href.replace('file://', '');
+    return <FileLink path={path}>{children}</FileLink>;
+  }
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+      {children}
+    </a>
+  );
+};
 
 function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onOpenFile }) {
   const [messages, setMessages] = useState([]);
@@ -198,7 +216,35 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         console.warn('[ChatPanel] Invalid path in file-written event:', path);
         return;
       }
-      
+
+      // Annotate the matching write_file tool row(s) with the captured
+      // originalContent so the ToolGroupCard can render a real inline diff
+      // when that row is expanded. We match by absolute path.
+      setToolGroups(prev => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [turnId, group] of Object.entries(prev)) {
+          const updatedTools = group.tools.map((tool) => {
+            if (tool.name !== 'write_file' && tool.name !== 'write-file') return tool;
+            if (tool.originalContent !== undefined) return tool;
+            let parsed = {};
+            try {
+              parsed = typeof tool.args === 'string' ? JSON.parse(tool.args) : tool.args || {};
+            } catch {
+              parsed = {};
+            }
+            const toolPath = parsed.path || parsed.filePath;
+            if (!toolPath || !path.endsWith(toolPath.replace(/^[\\/]+/, ''))) return tool;
+            changed = true;
+            return { ...tool, originalContent: originalContent ?? '' };
+          });
+          if (updatedTools !== group.tools) {
+            next[turnId] = { ...group, tools: updatedTools };
+          }
+        }
+        return changed ? next : prev;
+      });
+
       // Add or update file in filesChangedCard
       setFilesChangedCard(prev => {
         const newLines = content ? content.split('\n') : [];
@@ -928,9 +974,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               {segment && (
                 <div className="assistant-message">
                   <ReactMarkdown 
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={CHAT_REMARK_PLUGINS}
                     unwrapDisallowed={true}
                     components={{
+                      a: MARKDOWN_LINK_RENDERER,
                       code: ({ node, inline, className, children, ...props }) => {
                         const match = /language-(\w+)/.exec(className || '');
                         const language = match ? match[1] : '';
@@ -1051,9 +1098,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                   {segment && (
                     <div className="assistant-message">
                       <ReactMarkdown 
-                        remarkPlugins={[remarkGfm]}
+                        remarkPlugins={CHAT_REMARK_PLUGINS}
                         unwrapDisallowed={true}
                         components={{
+                          a: MARKDOWN_LINK_RENDERER,
                           code: ({ node, inline, className, children, ...props }) => {
                             const match = /language-(\w+)/.exec(className || '');
                             const language = match ? match[1] : '';
@@ -1224,9 +1272,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             {msg.content && (
               <div className="assistant-message">
                 <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]}
+                  remarkPlugins={CHAT_REMARK_PLUGINS}
                   unwrapDisallowed={true}
                   components={{
+                    a: MARKDOWN_LINK_RENDERER,
                     code: ({ node, inline, className, children, ...props }) => {
                       const match = /language-(\w+)/.exec(className || '');
                       const language = match ? match[1] : '';

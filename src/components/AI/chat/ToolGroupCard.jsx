@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Icon from '../../Common/Icon';
 import { toast } from '../../../lib/stores/toastStore';
+import { computeLineDiff, summarizeDiff } from '../../../lib/diff/lineDiff';
 import {
   basename,
   codeBlockStyle,
@@ -186,6 +187,8 @@ const ToolRow = React.memo(function ToolRow({ tool, index, onToggleExpanded }) {
   const absolutePath = parsedArgs.path || parsedArgs.filePath || '';
 
   const isWriteTool = tool.name === 'write_file' || tool.name === 'write-file';
+  const hasOriginalContent =
+    isWriteTool && typeof tool.originalContent === 'string' && typeof parsedArgs.content === 'string';
   const resultIsString = typeof tool.result === 'string';
   // For write_file, the tool result is just a success string; show the
   // NEW file content instead so the user can inspect what was written.
@@ -289,7 +292,13 @@ const ToolRow = React.memo(function ToolRow({ tool, index, onToggleExpanded }) {
         )}
         {badge && <span className={`tool-row-badge ${badgeClass}`}>{badge}</span>}
       </div>
-      {tool.expanded && fullResult && (
+      {tool.expanded && hasOriginalContent && (
+        <WriteFileDiff
+          originalContent={tool.originalContent}
+          newContent={parsedArgs.content}
+        />
+      )}
+      {tool.expanded && !hasOriginalContent && fullResult && (
         <div className="tool-row-result">
           <div className="tool-row-result-header">
             <span className="tool-row-result-meta">
@@ -339,6 +348,63 @@ const ToolRow = React.memo(function ToolRow({ tool, index, onToggleExpanded }) {
           <div className="tool-row-result-empty">No result available</div>
         </div>
       )}
+    </div>
+  );
+});
+
+/**
+ * Compact unified-diff preview shown under an expanded write_file row.
+ * Shares the visual language with FilesChangedCard's inline diff so the
+ * user sees the same thing whether they expand a tool row or a changed
+ * file row.
+ */
+const WriteFileDiff = React.memo(function WriteFileDiff({ originalContent, newContent }) {
+  const hunks = useMemo(() => {
+    if (!originalContent) {
+      return (newContent || '').split('\n').map((line, i) => ({
+        kind: 'add',
+        line,
+        newNum: i + 1,
+      }));
+    }
+    const full = computeLineDiff(originalContent, newContent || '');
+    return summarizeDiff(full, { context: 1, maxLines: 16 });
+  }, [originalContent, newContent]);
+
+  const added = hunks.filter((h) => h.kind === 'add').length;
+  const removed = hunks.filter((h) => h.kind === 'remove').length;
+
+  if (hunks.length === 0) {
+    return (
+      <div className="inline-diff inline-diff-empty">
+        No textual changes
+      </div>
+    );
+  }
+
+  return (
+    <div className="inline-diff write-file-diff" role="region" aria-label="Write diff preview">
+      <div className="tool-row-result-header">
+        <span className="tool-row-result-meta">
+          {`diff \u00b7 +${added} / -${removed}`}
+        </span>
+      </div>
+      {hunks.map((h, i) => {
+        if (h.kind === 'sep') {
+          return (
+            <div key={i} className="inline-diff-sep">
+              <span>...</span>
+            </div>
+          );
+        }
+        const sign = h.kind === 'add' ? '+' : h.kind === 'remove' ? '-' : ' ';
+        return (
+          <div key={i} className={`inline-diff-line inline-diff-${h.kind}`}>
+            <span className="inline-diff-sign">{sign}</span>
+            <span className="inline-diff-text">{h.line}</span>
+          </div>
+        );
+      })}
     </div>
   );
 });

@@ -531,6 +531,94 @@
   border-color: var(--accent);
 }
 
+/* Inline file reference rendered by <FileLink>. Used everywhere the AI
+   mentions a path — remark-file-links linkifies them into file:// URLs
+   at parse time and FileLink resolves to this chrome at render time. */
+.file-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 3px;
+  margin: 0 1px;
+  border-radius: 3px;
+  color: var(--accent, #a855f7);
+  background: rgba(168, 85, 247, 0.08);
+  text-decoration: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  line-height: inherit;
+  vertical-align: baseline;
+  transition: background var(--dur-fast, 120ms) ease;
+}
+.file-link:hover,
+.file-link:focus-visible {
+  background: rgba(168, 85, 247, 0.18);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  outline: none;
+}
+.file-link-icon {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+/* Floating preview popover shown on hover over a file link. */
+.file-link-preview {
+  z-index: 10000;
+  max-width: 420px;
+  min-width: 240px;
+  background: var(--bg-1, #111);
+  color: var(--text-1);
+  border: 1px solid var(--border-2, var(--border));
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  pointer-events: auto;
+}
+.file-link-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-2, #1a1a1a);
+  border-bottom: 1px solid var(--border-2, var(--border));
+  font-size: 11px;
+  color: var(--text-2);
+}
+.file-link-preview-path {
+  flex: 1;
+  font-family: var(--font-mono);
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.file-link-preview-meta {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  color: var(--text-3);
+}
+.file-link-preview-body {
+  margin: 0;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-1);
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 240px;
+  background: var(--bg-0, #0a0a0a);
+}
+.file-link-preview-empty {
+  padding: 10px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+}
+
 /* Streaming code block caret — CSS-animated fade for a gentle pulse
    instead of a setInterval-driven blink that can jitter on re-renders. */
 .streaming-caret {
