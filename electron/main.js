@@ -834,6 +834,43 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'impl', name: match[1], line, level: 0 });
       }
+    } else if (['.c', '.h', '.cpp', '.hpp', '.cc', '.cxx'].includes(ext)) {
+      // C/C++: functions, structs, typedefs, defines
+      // Match function definitions (return_type function_name(...))
+      const functionRegex = /^(?:static\s+|inline\s+|extern\s+)?(?:[\w\s\*]+)\s+(\w+)\s*\([^)]*\)\s*(?:{|;)/gm;
+      const structRegex = /^(?:typedef\s+)?struct\s+(\w+)/gm;
+      const typedefRegex = /^typedef\s+(?:struct\s+)?[\w\s\*]+\s+(\w+)\s*;/gm;
+      const defineRegex = /^#define\s+(\w+)/gm;
+      
+      let match;
+      
+      // Find functions (filter out common keywords)
+      const keywords = ['if', 'for', 'while', 'switch', 'return', 'sizeof', 'typedef', 'struct', 'union', 'enum'];
+      while ((match = functionRegex.exec(content)) !== null) {
+        const name = match[1];
+        if (!keywords.includes(name)) {
+          const line = content.substring(0, match.index).split('\n').length;
+          outline.push({ kind: 'function', name, line, level: 0 });
+        }
+      }
+      
+      // Find structs
+      while ((match = structRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'struct', name: match[1], line, level: 0 });
+      }
+      
+      // Find typedefs
+      while ((match = typedefRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'typedef', name: match[1], line, level: 0 });
+      }
+      
+      // Find #defines
+      while ((match = defineRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'define', name: match[1], line, level: 0 });
+      }
     }
     
     // Sort by line number
