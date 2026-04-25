@@ -1,11 +1,6 @@
 /**
- * Stream chat completion from OpenAI-compatible API
- * @param {Object} params
- * @param {Array} params.messages - Chat messages
- * @param {Object} params.settings - Settings object with endpoint, apiKey, selectedModel
- * @param {Function} params.onToken - Called with each token
- * @param {Function} params.onDone - Called when stream completes
- * @param {AbortSignal} params.signal - Abort signal
+ * OpenAI-compatible API provider
+ * Works with OpenAI, OpenRouter, local LLMs, and other OpenAI-compatible endpoints
  */
 export async function streamChat({ messages, settings, onToken, onDone, signal }) {
   const { endpoint, apiKey, selectedModel } = settings;

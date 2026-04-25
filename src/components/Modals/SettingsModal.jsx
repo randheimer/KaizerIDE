@@ -6,6 +6,7 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'general');
   const [localSettings, setLocalSettings] = useState(settings);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showAddProvider, setShowAddProvider] = useState(false);
   
   // Indexer status state
   const [indexStatus, setIndexStatus] = useState(() => ({
@@ -148,15 +149,36 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
           {activeTab === 'general' && (
             <div className="settings-panel">
               <div className="setting-group">
+                <label>AI Provider</label>
+                <select
+                  value={localSettings.provider || 'openai-compatible'}
+                  onChange={(e) => setLocalSettings(prev => ({ ...prev, provider: e.target.value }))}
+                  className="model-select"
+                >
+                  <option value="openai-compatible">OpenAI Compatible</option>
+                  <option value="anthropic">Anthropic (Claude)</option>
+                </select>
+                <span className="setting-description">Choose your AI provider</span>
+              </div>
+
+              <div className="setting-group">
                 <label>Endpoint URL</label>
                 <input
                   type="text"
                   className="endpoint-input"
                   value={localSettings.endpoint}
                   onChange={(e) => setLocalSettings(prev => ({ ...prev, endpoint: e.target.value }))}
-                  placeholder="http://localhost:20128/v1"
+                  placeholder={
+                    localSettings.provider === 'anthropic' 
+                      ? 'https://api.anthropic.com/v1' 
+                      : 'http://localhost:20128/v1'
+                  }
                 />
-                <span className="setting-description">API endpoint for AI chat functionality</span>
+                <span className="setting-description">
+                  {localSettings.provider === 'anthropic' 
+                    ? 'Anthropic API endpoint (leave empty for default)' 
+                    : 'API endpoint for AI chat functionality'}
+                </span>
               </div>
 
               <div className="setting-group">
@@ -167,7 +189,7 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                     className="api-key-input"
                     value={localSettings.apiKey}
                     onChange={(e) => setLocalSettings(prev => ({ ...prev, apiKey: e.target.value }))}
-                    placeholder="Optional"
+                    placeholder={localSettings.provider === 'anthropic' ? 'Required for Anthropic' : 'Optional'}
                   />
                   <button
                     className="toggle-visibility"
@@ -176,7 +198,11 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                     {showApiKey ? '👁️' : '👁️‍🗨️'}
                   </button>
                 </div>
-                <span className="setting-description">Optional API key for authentication</span>
+                <span className="setting-description">
+                  {localSettings.provider === 'anthropic' 
+                    ? 'Your Anthropic API key (required)' 
+                    : 'Optional API key for authentication'}
+                </span>
               </div>
 
               <button className="save-btn" onClick={handleSaveGeneral}>

@@ -24,6 +24,7 @@ const RemoteConnectionModal = lazy(() => import('./components/Modals/RemoteConne
 const CommandPalette = lazy(() => import('./components/Common/CommandPalette'));
 
 const DEFAULT_SETTINGS = {
+  provider: "openai-compatible",
   endpoint: "http://localhost:20128/v1",
   apiKey: "",
   selectedModel: { id: "kr/claude-sonnet-4.5", name: "Claude Sonnet 4.5", maxOutputTokens: 16000 },
