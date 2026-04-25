@@ -1,10 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import './MenuBar.css';
 
 function MenuBar({ onMenuAction, showOnlyHelp = false }) {
   const [activeMenu, setActiveMenu] = useState(null);
   const [isMacOS, setIsMacOS] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
+  const [isClosing, setIsClosing] = useState(false);
   const menuBarRef = useRef(null);
+  const menuButtonRefs = useRef({});
 
   useEffect(() => {
     // Load appearance settings
@@ -121,13 +125,27 @@ function MenuBar({ onMenuAction, showOnlyHelp = false }) {
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuBarRef.current && !menuBarRef.current.contains(e.target)) {
-        setActiveMenu(null);
+        // Close with animation when clicking outside
+        if (activeMenu) {
+          setIsClosing(true);
+          setTimeout(() => {
+            setActiveMenu(null);
+            setIsClosing(false);
+          }, 120);
+        }
       }
     };
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        setActiveMenu(null);
+        // Close with animation on Escape
+        if (activeMenu) {
+          setIsClosing(true);
+          setTimeout(() => {
+            setActiveMenu(null);
+            setIsClosing(false);
+          }, 120);
+        }
       }
     };
 
@@ -143,14 +161,88 @@ function MenuBar({ onMenuAction, showOnlyHelp = false }) {
   }, [activeMenu]);
 
   const handleMenuClick = (menuKey) => {
-    setActiveMenu(activeMenu === menuKey ? null : menuKey);
+    if (activeMenu === menuKey) {
+      // Close with animation
+      setIsClosing(true);
+      setTimeout(() => {
+        setActiveMenu(null);
+        setIsClosing(false);
+      }, 120); // Match animation duration
+    } else if (activeMenu && activeMenu !== menuKey) {
+      // Switching between menus - close current, then open new
+      setIsClosing(true);
+      setTimeout(() => {
+        setIsClosing(false);
+        setActiveMenu(menuKey);
+        // Calculate dropdown position for new menu
+        const buttonElement = menuButtonRefs.current[menuKey];
+        if (buttonElement) {
+          const rect = buttonElement.getBoundingClientRect();
+          let x = rect.left;
+          let y = rect.bottom + 6;
+          
+          // Prevent dropdown from going off-screen
+          const dropdownWidth = 220;
+          const dropdownHeight = 400;
+          
+          if (x + dropdownWidth > window.innerWidth) {
+            x = window.innerWidth - dropdownWidth - 8;
+          }
+          
+          if (y + dropdownHeight > window.innerHeight) {
+            y = window.innerHeight - dropdownHeight - 8;
+          }
+          
+          x = Math.max(8, x);
+          y = Math.max(8, y);
+          
+          setDropdownPosition({ x, y });
+        }
+      }, 120);
+    } else {
+      // Opening first menu
+      setIsClosing(false);
+      setActiveMenu(menuKey);
+      // Calculate dropdown position
+      const buttonElement = menuButtonRefs.current[menuKey];
+      if (buttonElement) {
+        const rect = buttonElement.getBoundingClientRect();
+        let x = rect.left;
+        let y = rect.bottom + 6;
+        
+        // Prevent dropdown from going off-screen
+        const dropdownWidth = 220; // min-width from CSS
+        const dropdownHeight = 400; // estimated max height
+        
+        // Check right edge
+        if (x + dropdownWidth > window.innerWidth) {
+          x = window.innerWidth - dropdownWidth - 8;
+        }
+        
+        // Check bottom edge
+        if (y + dropdownHeight > window.innerHeight) {
+          y = window.innerHeight - dropdownHeight - 8;
+        }
+        
+        // Ensure minimum distance from edges
+        x = Math.max(8, x);
+        y = Math.max(8, y);
+        
+        setDropdownPosition({ x, y });
+      }
+    }
   };
 
   const handleMenuItemClick = (action) => {
-    setActiveMenu(null);
-    if (onMenuAction) {
-      onMenuAction(action);
-    }
+    // Close with animation
+    setIsClosing(true);
+    setTimeout(() => {
+      setActiveMenu(null);
+      setIsClosing(false);
+      if (onMenuAction) {
+        onMenuAction(action);
+      }
+    }, 120); // Match animation duration
   };
 
   const menuEntries = Object.entries(menus);
@@ -166,34 +258,43 @@ function MenuBar({ onMenuAction, showOnlyHelp = false }) {
       {displayMenus.map(([key, menu]) => (
         <div key={key} className="menu-item">
           <button
+            ref={(el) => (menuButtonRefs.current[key] = el)}
             className={`menu-button ${activeMenu === key ? 'active' : ''}`}
             onClick={() => handleMenuClick(key)}
           >
             {menu.label}
           </button>
-          {activeMenu === key && (
-            <div className="menu-dropdown">
-              {menu.items.map((item, index) => {
-                if (item.type === 'separator') {
-                  return <div key={index} className="menu-separator" />;
-                }
-                return (
-                  <button
-                    key={index}
-                    className="menu-dropdown-item"
-                    onClick={() => handleMenuItemClick(item.action)}
-                  >
-                    <span className="menu-item-label">{item.label}</span>
-                    {item.shortcut && (
-                      <span className="menu-item-shortcut">{item.shortcut}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
       ))}
+      
+      {activeMenu && ReactDOM.createPortal(
+        <div 
+          className={`menu-dropdown ${isClosing ? 'closing' : ''}`}
+          style={{
+            left: `${dropdownPosition.x}px`,
+            top: `${dropdownPosition.y}px`
+          }}
+        >
+          {menus[activeMenu].items.map((item, index) => {
+            if (item.type === 'separator') {
+              return <div key={index} className="menu-separator" />;
+            }
+            return (
+              <button
+                key={index}
+                className="menu-dropdown-item"
+                onClick={() => handleMenuItemClick(item.action)}
+              >
+                <span className="menu-item-label">{item.label}</span>
+                {item.shortcut && (
+                  <span className="menu-item-shortcut">{item.shortcut}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

@@ -39,10 +39,13 @@
 }
 
 .menu-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
+  position: fixed;
   min-width: 220px;
+  max-width: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  isolation: isolate;
   background: rgba(13, 13, 13, 0.75);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -51,11 +54,33 @@
   box-shadow: 
     0 8px 32px rgba(0, 0, 0, 0.6),
     0 0 0 0.5px rgba(255, 255, 255, 0.05) inset;
-  padding: 6px;
-  z-index: 20000;
-  margin-top: 6px;
-  animation: menuDropdownIn 120ms ease forwards;
-  overflow: hidden;
+  padding: 4px;
+  z-index: 999999;
+  animation: menuDropdownIn 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: auto;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+.menu-dropdown.closing {
+  animation: menuDropdownOut 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.menu-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.menu-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.menu-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.3);
+  border-radius: 3px;
+}
+
+.menu-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.5);
 }
 
 .menu-bar-macos .menu-dropdown {
@@ -66,11 +91,22 @@
 @keyframes menuDropdownIn {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(-4px);
+    transform: scale(0.94) translateY(-8px);
   }
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes menuDropdownOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.94) translateY(-8px);
   }
 }
 
@@ -135,38 +171,15 @@
   color: var(--text-0);
 }
 
-.menu-dropdown {
-  position: relative;
-  isolation: isolate;
-  background: linear-gradient(180deg, rgba(12, 12, 14, 0.95), rgba(8, 8, 10, 0.92));
-  backdrop-filter: blur(calc(var(--ui-glass-blur) + 2px)) saturate(145%);
-  -webkit-backdrop-filter: blur(calc(var(--ui-glass-blur) + 2px)) saturate(145%);
-  border: 1px solid rgba(168, 85, 247, 0.24);
-  box-shadow:
-    0 24px 56px rgba(0, 0, 0, 0.58),
-    0 8px 22px rgba(0, 0, 0, 0.36),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-}
-
-.menu-dropdown::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
-  pointer-events: none;
-}
-
 .menu-dropdown-item {
-  border-radius: 7px;
+  border-radius: 6px;
   transition:
     background var(--dur-fast, 120ms) var(--ease-out, ease),
     color var(--dur-fast, 120ms) var(--ease-out, ease);
 }
 
 .menu-dropdown-item:hover {
-  background: rgba(168, 85, 247, 0.17);
+  background: rgba(168, 85, 247, 0.12);
 }
 
 .menu-item-shortcut {
