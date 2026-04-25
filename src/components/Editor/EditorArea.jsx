@@ -930,6 +930,92 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       setShowSearch(true);
     });
 
+    // Enable syntax validation and error markers
+    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false
+    });
+
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false
+    });
+
+    // Configure compiler options for better error detection
+    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.Latest,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      module: monaco.languages.typescript.ModuleKind.CommonJS,
+      noEmit: true,
+      esModuleInterop: true,
+      jsx: monaco.languages.typescript.JsxEmit.React,
+      reactNamespace: 'React',
+      allowJs: true,
+      checkJs: false
+    });
+
+    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.Latest,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      module: monaco.languages.typescript.ModuleKind.CommonJS,
+      noEmit: true,
+      esModuleInterop: true,
+      jsx: monaco.languages.typescript.JsxEmit.React,
+      reactNamespace: 'React',
+      allowJs: true,
+      typeRoots: ['node_modules/@types']
+    });
+
+    // Enable JSON validation
+    monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+      validate: true,
+      allowComments: false,
+      schemas: [],
+      enableSchemaRequest: true
+    });
+
+    // Listen for model changes to validate syntax for other languages
+    const model = editor.getModel();
+    if (model) {
+      const validateSyntax = () => {
+        const language = model.getLanguageId();
+        const content = model.getValue();
+        
+        // Custom validation for languages without built-in support
+        if (language === 'json') {
+          try {
+            JSON.parse(content);
+            monaco.editor.setModelMarkers(model, 'json', []);
+          } catch (e) {
+            const match = e.message.match(/position (\d+)/);
+            const position = match ? parseInt(match[1]) : 0;
+            const pos = model.getPositionAt(position);
+            
+            monaco.editor.setModelMarkers(model, 'json', [{
+              severity: monaco.MarkerSeverity.Error,
+              startLineNumber: pos.lineNumber,
+              startColumn: pos.column,
+              endLineNumber: pos.lineNumber,
+              endColumn: pos.column + 1,
+              message: e.message
+            }]);
+          }
+        }
+      };
+
+      // Validate on content change with debounce
+      let validationTimeout;
+      model.onDidChangeContent(() => {
+        clearTimeout(validationTimeout);
+        validationTimeout = setTimeout(validateSyntax, 500);
+      });
+      
+      // Initial validation
+      validateSyntax();
+    }
+
     // Auto-focus
     editor.focus();
   };
