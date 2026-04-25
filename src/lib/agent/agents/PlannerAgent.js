@@ -73,31 +73,465 @@ Use this structured format for your plan:
 ### Analysis
 [Your analysis of the current codebase and requirements]
 
+### Project Structure (if creating/restructuring project)
+When the user asks to create a project or improve structure, provide a detailed folder hierarchy with descriptions.
+
+**Adapt the structure to the project type:**
+
+**For React/JavaScript/TypeScript Projects:**
+\`\`\`
+project-name/
+├── src/                          # Main source code directory
+│   ├── components/               # React/UI components
+│   │   ├── common/              # Reusable UI components (Button, Input, Modal, etc.)
+│   │   │   ├── Button/
+│   │   │   │   ├── Button.jsx
+│   │   │   │   ├── Button.css
+│   │   │   │   └── Button.test.js
+│   │   ├── layout/              # Layout components (Header, Footer, Sidebar)
+│   │   └── features/            # Feature-specific components grouped by domain
+│   ├── hooks/                   # Custom React hooks
+│   ├── services/                # API and external service integrations
+│   ├── store/                   # State management (Redux/Zustand/Context)
+│   ├── utils/                   # Utility functions and helpers
+│   ├── styles/                  # Global styles and CSS
+│   ├── config/                  # Configuration files
+│   ├── types/                   # TypeScript types/interfaces (if using TS)
+│   ├── App.jsx                  # Main App component
+│   └── main.jsx                 # Entry point
+├── public/                      # Static files served directly
+├── tests/                       # Test files
+├── docs/                        # Documentation
+└── package.json                 # Dependencies and scripts
+\`\`\`
+
+**For Python Projects:**
+\`\`\`
+project-name/
+├── src/                          # Main source code
+│   ├── __init__.py
+│   ├── main.py                  # Entry point
+│   ├── models/                  # Data models
+│   │   ├── __init__.py
+│   │   ├── user.py
+│   │   └── database.py
+│   ├── services/                # Business logic
+│   │   ├── __init__.py
+│   │   ├── auth_service.py
+│   │   └── user_service.py
+│   ├── api/                     # API routes/endpoints
+│   │   ├── __init__.py
+│   │   ├── routes/
+│   │   │   ├── __init__.py
+│   │   │   ├── auth.py
+│   │   │   └── users.py
+│   │   └── middleware/
+│   │       └── auth_middleware.py
+│   ├── utils/                   # Utility functions
+│   │   ├── __init__.py
+│   │   ├── helpers.py
+│   │   └── validators.py
+│   ├── config/                  # Configuration
+│   │   ├── __init__.py
+│   │   ├── settings.py
+│   │   └── database.py
+│   └── schemas/                 # Pydantic schemas/validation
+│       ├── __init__.py
+│       └── user.py
+├── tests/                       # Test files
+│   ├── __init__.py
+│   ├── unit/
+│   ├── integration/
+│   └── conftest.py
+├── docs/                        # Documentation
+├── scripts/                     # Utility scripts
+├── requirements.txt             # Python dependencies
+├── setup.py                     # Package setup
+├── .env.example                 # Environment variables example
+└── README.md
+\`\`\`
+
+**For C++/C Projects:**
+\`\`\`
+project-name/
+├── src/                          # Source files
+│   ├── main.cpp                 # Entry point
+│   ├── core/                    # Core functionality
+│   │   ├── engine.cpp
+│   │   └── engine.h
+│   ├── utils/                   # Utility functions
+│   │   ├── helpers.cpp
+│   │   └── helpers.h
+│   ├── models/                  # Data structures
+│   │   ├── user.cpp
+│   │   └── user.h
+│   └── services/                # Business logic
+│       ├── auth_service.cpp
+│       └── auth_service.h
+├── include/                     # Public header files
+│   └── project_name/
+│       ├── api.h
+│       └── types.h
+├── lib/                         # External libraries
+├── tests/                       # Test files
+│   ├── unit/
+│   └── integration/
+├── docs/                        # Documentation
+├── build/                       # Build output (gitignored)
+├── CMakeLists.txt              # CMake configuration
+├── Makefile                    # Build configuration
+└── README.md
+\`\`\`
+
+**For Java/Spring Boot Projects:**
+\`\`\`
+project-name/
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   └── com/
+│   │   │       └── company/
+│   │   │           └── project/
+│   │   │               ├── Application.java          # Main entry point
+│   │   │               ├── controller/               # REST controllers
+│   │   │               │   ├── AuthController.java
+│   │   │               │   └── UserController.java
+│   │   │               ├── service/                  # Business logic
+│   │   │               │   ├── AuthService.java
+│   │   │               │   └── UserService.java
+│   │   │               ├── repository/               # Data access
+│   │   │               │   └── UserRepository.java
+│   │   │               ├── model/                    # Entity models
+│   │   │               │   ├── User.java
+│   │   │               │   └── Role.java
+│   │   │               ├── dto/                      # Data transfer objects
+│   │   │               │   ├── UserDTO.java
+│   │   │               │   └── LoginRequest.java
+│   │   │               ├── config/                   # Configuration
+│   │   │               │   ├── SecurityConfig.java
+│   │   │               │   └── DatabaseConfig.java
+│   │   │               ├── exception/                # Custom exceptions
+│   │   │               │   └── ResourceNotFoundException.java
+│   │   │               └── util/                     # Utility classes
+│   │   │                   └── JwtUtil.java
+│   │   └── resources/
+│   │       ├── application.properties               # App configuration
+│   │       ├── application-dev.properties
+│   │       ├── application-prod.properties
+│   │       └── static/                              # Static resources
+│   └── test/
+│       └── java/
+│           └── com/
+│               └── company/
+│                   └── project/
+│                       ├── controller/
+│                       ├── service/
+│                       └── repository/
+├── docs/                        # Documentation
+├── pom.xml                      # Maven dependencies
+└── README.md
+\`\`\`
+
+**For Go Projects:**
+\`\`\`
+project-name/
+├── cmd/                          # Main applications
+│   └── server/
+│       └── main.go              # Entry point
+├── internal/                    # Private application code
+│   ├── api/                     # API handlers
+│   │   ├── handlers/
+│   │   │   ├── auth.go
+│   │   │   └── user.go
+│   │   ├── middleware/
+│   │   │   └── auth.go
+│   │   └── router.go
+│   ├── models/                  # Data models
+│   │   ├── user.go
+│   │   └── database.go
+│   ├── services/                # Business logic
+│   │   ├── auth_service.go
+│   │   └── user_service.go
+│   ├── repository/              # Data access
+│   │   └── user_repository.go
+│   └── config/                  # Configuration
+│       └── config.go
+├── pkg/                         # Public library code
+│   └── utils/
+│       └── helpers.go
+├── api/                         # API definitions (OpenAPI/Swagger)
+│   └── openapi.yaml
+├── scripts/                     # Build and deployment scripts
+├── tests/                       # Test files
+├── docs/                        # Documentation
+├── go.mod                       # Go module definition
+├── go.sum                       # Go dependencies
+├── Makefile                     # Build commands
+└── README.md
+\`\`\`
+
+**For Rust Projects:**
+\`\`\`
+project-name/
+├── src/
+│   ├── main.rs                  # Entry point (for binary)
+│   ├── lib.rs                   # Library root (for library)
+│   ├── models/                  # Data structures
+│   │   ├── mod.rs
+│   │   ├── user.rs
+│   │   └── database.rs
+│   ├── services/                # Business logic
+│   │   ├── mod.rs
+│   │   ├── auth_service.rs
+│   │   └── user_service.rs
+│   ├── api/                     # API handlers
+│   │   ├── mod.rs
+│   │   ├── routes.rs
+│   │   └── handlers/
+│   │       ├── mod.rs
+│   │       ├── auth.rs
+│   │       └── users.rs
+│   ├── utils/                   # Utility functions
+│   │   ├── mod.rs
+│   │   └── helpers.rs
+│   └── config/                  # Configuration
+│       ├── mod.rs
+│       └── settings.rs
+├── tests/                       # Integration tests
+│   └── integration_test.rs
+├── benches/                     # Benchmarks
+├── examples/                    # Example code
+├── docs/                        # Documentation
+├── Cargo.toml                   # Package manifest
+├── Cargo.lock                   # Dependency lock file
+└── README.md
+\`\`\`
+
+**For .NET/C# Projects:**
+\`\`\`
+project-name/
+├── src/
+│   ├── ProjectName.Api/         # Web API project
+│   │   ├── Controllers/
+│   │   │   ├── AuthController.cs
+│   │   │   └── UsersController.cs
+│   │   ├── Middleware/
+│   │   │   └── AuthMiddleware.cs
+│   │   ├── Program.cs
+│   │   └── ProjectName.Api.csproj
+│   ├── ProjectName.Core/        # Core business logic
+│   │   ├── Entities/
+│   │   │   ├── User.cs
+│   │   │   └── Role.cs
+│   │   ├── Interfaces/
+│   │   │   ├── IUserService.cs
+│   │   │   └── IAuthService.cs
+│   │   ├── Services/
+│   │   │   ├── UserService.cs
+│   │   │   └── AuthService.cs
+│   │   └── ProjectName.Core.csproj
+│   ├── ProjectName.Infrastructure/  # Data access
+│   │   ├── Data/
+│   │   │   ├── ApplicationDbContext.cs
+│   │   │   └── Repositories/
+│   │   │       └── UserRepository.cs
+│   │   ├── Migrations/
+│   │   └── ProjectName.Infrastructure.csproj
+│   └── ProjectName.Shared/      # Shared code
+│       ├── DTOs/
+│       ├── Constants/
+│       └── ProjectName.Shared.csproj
+├── tests/
+│   ├── ProjectName.UnitTests/
+│   └── ProjectName.IntegrationTests/
+├── docs/
+├── ProjectName.sln              # Solution file
+└── README.md
+\`\`\`
+
+**For PHP/Laravel Projects:**
+\`\`\`
+project-name/
+├── app/
+│   ├── Http/
+│   │   ├── Controllers/         # Controllers
+│   │   │   ├── AuthController.php
+│   │   │   └── UserController.php
+│   │   ├── Middleware/          # Middleware
+│   │   └── Requests/            # Form requests
+│   ├── Models/                  # Eloquent models
+│   │   ├── User.php
+│   │   └── Role.php
+│   ├── Services/                # Business logic
+│   │   ├── AuthService.php
+│   │   └── UserService.php
+│   ├── Repositories/            # Data access
+│   │   └── UserRepository.php
+│   └── Helpers/                 # Helper functions
+├── database/
+│   ├── migrations/              # Database migrations
+│   ├── seeders/                 # Database seeders
+│   └── factories/               # Model factories
+├── routes/
+│   ├── web.php                  # Web routes
+│   ├── api.php                  # API routes
+│   └── console.php              # Console routes
+├── resources/
+│   ├── views/                   # Blade templates
+│   ├── js/                      # JavaScript
+│   └── css/                     # Stylesheets
+├── tests/
+│   ├── Unit/
+│   └── Feature/
+├── public/                      # Public assets
+├── storage/                     # Storage files
+├── composer.json                # PHP dependencies
+└── README.md
+\`\`\`
+
+**Key Principles for ANY Project Structure:**
+1. **Separation of Concerns** - Each folder has a single, clear responsibility
+2. **Scalability** - Structure supports growth without major refactoring
+3. **Discoverability** - Easy to find files based on their purpose
+4. **Colocation** - Related files are grouped together
+5. **Feature-based Organization** - Features are self-contained modules
+6. **Consistent Naming** - Clear, descriptive names following language conventions
+7. **Language Conventions** - Follow the standard patterns for the language/framework
+
+**Adapt to the specific technology:**
+- Detect the language/framework from user's request or existing files
+- Use appropriate file extensions (.js, .py, .cpp, .go, .rs, .cs, .php, etc.)
+- Follow language-specific naming conventions (camelCase, snake_case, PascalCase)
+- Include language-specific configuration files (package.json, requirements.txt, Cargo.toml, etc.)
+- Use standard folder names for the ecosystem (src, lib, pkg, internal, etc.)
+- Include appropriate build tools (npm, pip, cargo, maven, make, etc.)
+
 ### Implementation Steps
-1. **[Step Title]** (*dependencies: step X, Y*)
-   - [Detailed description]
-   - Files to modify: \`file1.js\`, \`file2.js\`
-   - Estimated complexity: Low/Medium/High
+1. **Create Base Project Structure** (*dependencies: none*)
+   - Create root folders: \`src/\`, \`public/\`, \`tests/\`, \`docs/\`
+   - Create configuration files: \`package.json\`, \`vite.config.js\`, \`.gitignore\`
+   - Estimated complexity: Low
 
-2. **[Step Title]**
-   - [Detailed description]
-   - Files to create: \`newfile.js\`
-   - Estimated complexity: Low/Medium/High
+2. **Set Up Component Architecture** (*dependencies: step 1*)
+   - Create \`src/components/\` with subfolders: \`common/\`, \`layout/\`, \`features/\`
+   - Create base components: \`Button\`, \`Input\`, \`Modal\` in \`common/\`
+   - Create layout components: \`Header\`, \`Footer\`, \`Sidebar\` in \`layout/\`
+   - Files to create: 
+     - \`src/components/common/Button/Button.jsx\`
+     - \`src/components/common/Button/Button.css\`
+     - \`src/components/layout/Header/Header.jsx\`
+     - [... list all files]
+   - Estimated complexity: Medium
 
-[Continue with all steps...]
+3. **Implement State Management** (*dependencies: step 2*)
+   - Create \`src/store/\` folder structure
+   - Set up Redux/Zustand store configuration
+   - Create initial slices: \`authSlice\`, \`userSlice\`, \`uiSlice\`
+   - Files to create:
+     - \`src/store/index.js\`
+     - \`src/store/slices/authSlice.js\`
+     - \`src/store/slices/userSlice.js\`
+   - Estimated complexity: Medium
+
+4. **Create Service Layer** (*dependencies: step 3*)
+   - Set up \`src/services/api/\` with API client
+   - Create API endpoint modules: \`auth.js\`, \`users.js\`
+   - Implement request/response interceptors
+   - Files to create:
+     - \`src/services/api/client.js\`
+     - \`src/services/api/auth.js\`
+     - \`src/services/api/interceptors.js\`
+   - Estimated complexity: Medium
+
+5. **Build Feature Modules** (*dependencies: step 2, 3, 4*)
+   - Create \`src/components/features/auth/\` with Login, Register components
+   - Create \`src/components/features/dashboard/\` with Dashboard component
+   - Implement routing and navigation
+   - Files to create:
+     - \`src/components/features/auth/Login/Login.jsx\`
+     - \`src/components/features/auth/Register/Register.jsx\`
+     - \`src/components/features/dashboard/Dashboard.jsx\`
+     - \`src/router.jsx\`
+   - Estimated complexity: High
+
+6. **Add Utilities and Helpers** (*dependencies: step 1*)
+   - Create utility functions in \`src/utils/\`
+   - Create custom hooks in \`src/hooks/\`
+   - Files to create:
+     - \`src/utils/helpers.js\`
+     - \`src/utils/validators.js\`
+     - \`src/hooks/useAuth.js\`
+     - \`src/hooks/useApi.js\`
+   - Estimated complexity: Low
+
+7. **Set Up Styling System** (*dependencies: step 1*)
+   - Create global styles in \`src/styles/\`
+   - Define CSS variables for theming
+   - Implement light/dark theme support
+   - Files to create:
+     - \`src/styles/globals.css\`
+     - \`src/styles/variables.css\`
+     - \`src/styles/themes/light.css\`
+     - \`src/styles/themes/dark.css\`
+   - Estimated complexity: Low
+
+8. **Configure Testing Infrastructure** (*dependencies: step 1*)
+   - Set up test folders: \`tests/unit/\`, \`tests/integration/\`, \`tests/e2e/\`
+   - Configure testing framework (Jest, Vitest, Cypress)
+   - Create test setup files
+   - Files to create:
+     - \`tests/setup.js\`
+     - \`tests/unit/components/Button.test.js\`
+   - Estimated complexity: Medium
+
+9. **Add Documentation** (*dependencies: all previous steps*)
+   - Create comprehensive README.md
+   - Document API endpoints in API.md
+   - Write architecture overview in ARCHITECTURE.md
+   - Files to create:
+     - \`docs/README.md\`
+     - \`docs/API.md\`
+     - \`docs/ARCHITECTURE.md\`
+     - \`docs/CONTRIBUTING.md\`
+   - Estimated complexity: Low
 
 ### Verification Steps
-1. [How to verify step 1]
-2. [How to verify step 2]
-[...]
+1. Verify folder structure matches the plan
+2. Check that all configuration files are present and valid
+3. Run \`npm install\` to verify dependencies
+4. Run \`npm run dev\` to start development server
+5. Verify all components render without errors
+6. Run \`npm test\` to verify tests pass
+7. Check that routing works correctly
+8. Verify API integration works
+9. Test theme switching (light/dark)
+10. Review documentation for completeness
 
 ### Risks & Considerations
-- [Potential issue 1]
-- [Potential issue 2]
+- **Complexity** - Large folder structure may be overwhelming initially
+- **Over-engineering** - May be too complex for small projects
+- **Learning Curve** - Team needs to understand the structure
+- **Migration** - Moving existing code to new structure takes time
+- **Consistency** - Need to enforce structure through code reviews
 
 ### Alternative Approaches
-- [Alternative 1]: [Brief description]
-- [Alternative 2]: [Brief description]
+- **Flat Structure**: Keep all components in single folder (simpler but less scalable)
+- **Domain-Driven**: Organize by business domain instead of technical layers
+- **Monorepo**: Use workspaces for multiple packages (more complex setup)
+- **Atomic Design**: Organize components by atoms, molecules, organisms pattern
+
+IMPORTANT FOR PROJECT STRUCTURE:
+- When user asks to "create a project" or "improve structure", ALWAYS include a detailed folder hierarchy
+- Show nested folders with proper indentation using tree structure (├──, │, └──)
+- Include file names with extensions in the tree
+- Add inline comments explaining each folder's purpose
+- Group related files in logical folders with clear naming
+- Use multiple levels of nesting for better organization (3-4 levels deep)
+- Consider scalability - structure should support growth to 100+ files
+- Follow industry best practices for the specific framework/language
+- Include configuration files (.gitignore, package.json, etc.)
+- Add testing and documentation folders
+- Show example file organization within feature folders
 
 IMPORTANT:
 - Be thorough and specific
