@@ -1,5 +1,32 @@
 import { useReducer } from 'react';
 
+/**
+ * @deprecated This hook is deprecated and will be removed in a future version.
+ * Use `chatStore` from `src/lib/stores/chatStore.js` instead.
+ * 
+ * Migration guide:
+ * ```js
+ * // Old way:
+ * import { useChatState } from '../hooks/useChatState';
+ * const { state, actions } = useChatState();
+ * actions.addMessage({ role: 'user', content: 'Hello' });
+ * actions.setStreaming(true);
+ * 
+ * // New way:
+ * import { useChatStore } from '../lib/stores/chatStore';
+ * const messages = useChatStore((s) => s.messages);
+ * const addMessage = useChatStore((s) => s.addMessage);
+ * const isStreaming = useChatStore((s) => s.isStreaming);
+ * const setIsStreaming = useChatStore((s) => s.setIsStreaming);
+ * 
+ * // Usage:
+ * addMessage({ role: 'user', content: 'Hello' });
+ * setIsStreaming(true);
+ * ```
+ * 
+ * @see src/lib/stores/chatStore.js for the new implementation
+ */
+
 const initialState = {
   messages: [],
   isStreaming: false,

@@ -1,5 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 
+/**
+ * Custom hook for managing chat history persistence.
+ * 
+ * Handles loading, saving, and managing chat sessions with workspace-scoped storage.
+ * Uses Electron IPC for file system persistence.
+ * 
+ * @param {string} workspacePath - The current workspace path for scoping chat history
+ * @returns {Object} Chat history state and management functions
+ * @returns {Array} chatHistory - Array of saved chat sessions
+ * @returns {string|null} currentChatId - ID of the currently active chat
+ * @returns {boolean} isLoading - Loading state for initial history fetch
+ * @returns {Function} saveChat - Save or update a chat session
+ * @returns {Function} loadChat - Load a specific chat by ID
+ * @returns {Function} deleteChat - Delete a chat session
+ * @returns {Function} newChat - Start a new chat session
+ * 
+ * @example
+ * const { chatHistory, saveChat, loadChat } = useChatHistory(workspacePath);
+ */
 export function useChatHistory(workspacePath) {
   const [chatHistory, setChatHistory] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);

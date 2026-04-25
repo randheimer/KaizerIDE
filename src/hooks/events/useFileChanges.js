@@ -1,5 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 
+/**
+ * Custom hook for tracking file changes via custom events.
+ * 
+ * Listens to 'kaizer:file-written' events and maintains a list of modified files
+ * with their metadata. Useful for displaying file change indicators and managing
+ * file modification state in the UI.
+ * 
+ * @returns {Object} File changes state and management functions
+ * @returns {Array} fileChanges - Array of file change records with path, type, content, timestamp
+ * @returns {Function} trackFileChange - Manually track a file change
+ * @returns {Function} clearFileChanges - Clear all tracked changes
+ * @returns {Function} getFileChange - Get change record for a specific file path
+ * 
+ * @example
+ * const { fileChanges, trackFileChange, clearFileChanges } = useFileChanges();
+ */
 export function useFileChanges() {
   const [fileChanges, setFileChanges] = useState([]);
 
