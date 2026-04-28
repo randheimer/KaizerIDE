@@ -871,6 +871,35 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'define', name: match[1], line, level: 0 });
       }
+    } else if (['.lua'].includes(ext)) {
+      // Lua: functions, local functions, tables
+      const functionRegex = /^function\s+(\w+(?:\.\w+)*)/gm;
+      const localFunctionRegex = /^local\s+function\s+(\w+)/gm;
+      const tableRegex = /^(?:local\s+)?(\w+)\s*=\s*{/gm;
+      
+      let match;
+      
+      // Find global functions
+      while ((match = functionRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'function', name: match[1], line, level: 0 });
+      }
+      
+      // Find local functions
+      while ((match = localFunctionRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'function', name: match[1], line, level: 0 });
+      }
+      
+      // Find tables
+      while ((match = tableRegex.exec(content)) !== null) {
+        const name = match[1];
+        // Skip common keywords
+        if (!['if', 'for', 'while', 'repeat', 'return'].includes(name)) {
+          const line = content.substring(0, match.index).split('\n').length;
+          outline.push({ kind: 'table', name, line, level: 0 });
+        }
+      }
     }
     
     // Sort by line number
