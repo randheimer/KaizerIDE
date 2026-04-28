@@ -12,6 +12,7 @@ import ChatHeader from './ChatHeader';
 import EmptyState from './EmptyState';
 import MessageList from './MessageList';
 import TypingIndicator from './TypingIndicator';
+import AnalysingIndicator from './AnalysingIndicator';
 import Composer from './Composer/Composer';
 import MessageActions from './MessageActions';
 import FileLink from './FileLink';
@@ -177,6 +178,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const thinkStartTime = useRef(null);
   const [autoApproveCommands, setAutoApproveCommands] = useState(false);
   const [filesChangedCard, setFilesChangedCard] = useState(null);
+  const [isAnalysing, setIsAnalysing] = useState(false);
+  const [analysingFiles, setAnalysingFiles] = useState([]);
   
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -589,6 +592,12 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         activeFileContent,
         mode: currentMode, // Pass the selected mode (agent/plan/ask/fixer)
         onToken: (token) => {
+          // Clear analysing indicator when text response starts
+          if (isAnalysing) {
+            setIsAnalysing(false);
+            setAnalysingFiles([]);
+          }
+          
           streamingMsgRef.current.content += token;
           // Append to the current content segment (after last thinking block)
           const segmentIndex = streamingMsgRef.current.thinkingBlocks.length;
@@ -642,7 +651,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             console.log('[ChatPanel] ✅ Thinking block ended at index:', currentIdx, 'Duration:', duration, 'ms');
             if (currentIdx >= 0 && currentIdx < streamingMsgRef.current.thinkingBlocks.length) {
               streamingMsgRef.current.thinkingBlocks[currentIdx].isThinking = false;
-              streamingMsgRef.current.thinkingBlocks[currentIdx].expanded = false;
+              streamingMsgRef.current.thinkingBlocks[currentIdx].expanded = true; // Keep expanded by default
               streamingMsgRef.current.thinkingBlocks[currentIdx].duration = duration;
             }
             streamingMsgRef.current.currentThinkingIndex = -1;
@@ -661,6 +670,16 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           }
         },
         onToolCall: ({ id, name, args }) => {
+          // Detect context-gathering tools and start analysing indicator
+          const contextTools = ['read_file', 'search_files', 'grep_index', 'search_index', 'list_directory'];
+          if (contextTools.includes(name)) {
+            setIsAnalysing(true);
+            // Track file being read
+            if (name === 'read_file' && args.path) {
+              setAnalysingFiles(prev => [...prev, args.path]);
+            }
+          }
+          
           // Add tool to current turn's group
           setToolGroups(prev => {
             const group = prev[turnId];
@@ -707,10 +726,16 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               [turnId]: updatedGroup
             };
           });
+          
+          // Don't clear analysing here - let it clear when text starts or agent finishes
         },
         onDone: () => {
           clearTimeout(streamingUpdateTimer.current);
           streamingUpdateTimer.current = null;
+          
+          // Clear analysing indicator
+          setIsAnalysing(false);
+          setAnalysingFiles([]);
           
           // Commit streaming message to messages (only if exists)
           if (streamingMsgRef.current) {
@@ -877,6 +902,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         thinkStartTime.current = null;
         setStreamingMsg(null);
         streamingMsgRef.current = null;
+        setIsAnalysing(false);
+        setAnalysingFiles([]);
         clearTimeout(streamingUpdateTimer.current);
         streamingUpdateTimer.current = null;
         
@@ -918,6 +945,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       streamingMsgRef.current = null;
       setIsStreaming(false);
       setIsAgentRunning(false);
+      setIsAnalysing(false);
+      setAnalysingFiles([]);
       
       // Mark current tool group as done
       if (currentTurnId && toolGroups[currentTurnId]) {
@@ -1429,12 +1458,18 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                 onToggleGroupExpanded={handleToggleGroupExpanded}
                 onToggleRowExpanded={handleToggleRowExpanded}
               />
+              {isAnalysing && (
+                <AnalysingIndicator 
+                  files={analysingFiles} 
+                  totalFiles={analysingFiles.length} 
+                />
+              )}
               {streamingMsg && (
                 <div className="streaming-row">
                   {renderStreamingMessage(streamingMsg)}
                 </div>
               )}
-              {isAgentRunning && !streamingMsg?.content && !streamingMsg?.thinkingContent && (
+              {isAgentRunning && !streamingMsg?.content && !streamingMsg?.thinkingContent && !isAnalysing && (
                 <TypingIndicator />
               )}
               <div ref={messagesEndRef} style={{ height: 1 }} />
