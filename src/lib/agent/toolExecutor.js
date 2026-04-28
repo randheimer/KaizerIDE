@@ -143,9 +143,17 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
     
     case 'search_index': {
       const limit = args.limit || 20;
-      const results = indexer.search(args.query, limit);
+      let results = indexer.search(args.query, limit);
+      
+      // Filter out documentation files (.md, .txt, etc.) - only return code files
+      const codeExtensions = ['.js', '.jsx', '.ts', '.tsx', '.py', '.lua', '.cpp', '.c', '.h', '.hpp', '.rs', '.go', '.java', '.cs', '.rb', '.php', '.swift', '.kt', '.scala', '.sh', '.bash', '.ps1', '.json', '.yaml', '.yml', '.toml', '.xml', '.html', '.css', '.scss', '.sass', '.vue', '.svelte'];
+      results = results.filter(f => {
+        const ext = f.ext?.toLowerCase() || '';
+        return codeExtensions.includes(ext);
+      });
+      
       if (results.length === 0) {
-        return `No files found matching "${args.query}"`;
+        return `No code files found matching "${args.query}" (documentation files excluded)`;
       }
       const needle = (args.query || '').toLowerCase();
       // Build a richer per-result block: metadata + a short code snippet
@@ -190,9 +198,17 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
 
     case 'grep_index': {
       const limit = args.limit || 30;
-      const results = indexer.grep(args.query, limit);
+      let results = indexer.grep(args.query, limit);
+      
+      // Filter out documentation files (.md, .txt, etc.) - only return code files
+      const codeExtensions = ['.js', '.jsx', '.ts', '.tsx', '.py', '.lua', '.cpp', '.c', '.h', '.hpp', '.rs', '.go', '.java', '.cs', '.rb', '.php', '.swift', '.kt', '.scala', '.sh', '.bash', '.ps1', '.json', '.yaml', '.yml', '.toml', '.xml', '.html', '.css', '.scss', '.sass', '.vue', '.svelte'];
+      results = results.filter(r => {
+        const ext = r.path?.split('.').pop()?.toLowerCase();
+        return ext && codeExtensions.includes('.' + ext);
+      });
+      
       if (results.length === 0) {
-        return `No matches for "${args.query}" in indexed previews.`;
+        return `No matches for "${args.query}" in code files (documentation files excluded).`;
       }
       // Group by file for a compact, grep-like output.
       const byFile = new Map();

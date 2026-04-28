@@ -292,6 +292,14 @@ const ToolRow = React.memo(function ToolRow({ tool, index, onToggleExpanded }) {
           <span className="tool-row-file">{fileName}</span>
         )}
         {badge && <span className={`tool-row-badge ${badgeClass}`}>{badge}</span>}
+        {tool.compressed && (
+          <span
+            className="tool-row-badge badge-compressed"
+            title="Token Saver compressed this result before sending it back to the model"
+          >
+            compressed
+          </span>
+        )}
       </div>
       {tool.expanded && hasOriginalContent && (
         <WriteFileDiff

@@ -687,7 +687,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             };
           });
         },
-        onToolResult: ({ id, name, result }) => {
+        onToolResult: ({ id, result, compressed, modelResult }) => {
           // Update tool status in current turn's group
           setToolGroups(prev => {
             const group = prev[turnId];
@@ -697,7 +697,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               ...group,
               tools: group.tools.map(tool =>
                 tool.id === id
-                  ? { ...tool, status: 'done', result }
+                  ? { ...tool, status: 'done', result, compressed, modelResult }
                   : tool
               )
             };

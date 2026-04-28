@@ -17,6 +17,12 @@
 
 <p align="center">
   <a href="https://github.com/randheimer/KaizerIDE/releases"><strong>⬇️ &nbsp;Download for Windows</strong></a>
+  ·
+  <a href="QUICK_START.md"><strong>Quick Start</strong></a>
+  ·
+  <a href="FEATURES.md"><strong>Features</strong></a>
+  ·
+  <a href="PRIVACY.md"><strong>Privacy</strong></a>
 </p>
 
 <p align="center">
@@ -30,6 +36,28 @@
 KaizerIDE is a lightweight desktop IDE that pairs a full Monaco code editor with a multi-agent AI assistant — and keeps everything under your control. No telemetry, no required account. AI requests go directly to the endpoint you configure, including local models running on your own machine.
 
 It ships with **local workspace indexing** so the AI understands your entire codebase instantly, without cloud embeddings or external services.
+
+## Why KaizerIDE?
+
+| You want | KaizerIDE gives you |
+| --- | --- |
+| **AI without lock-in** | Bring any OpenAI-compatible endpoint, hosted or local. |
+| **Privacy by default** | No telemetry, no required account, no KaizerIDE AI proxy. |
+| **A real editor** | Monaco-powered editing with tabs, IntelliSense, minimap, autosave, and syntax highlighting. |
+| **Workspace-aware help** | Local indexing, file context, selection context, and agent modes built for real codebases. |
+| **A lightweight desktop workflow** | File explorer, terminal, command palette, settings, SSH/SFTP, and Windows integration. |
+
+---
+
+## Choose your path
+
+| If you want to... | Go here |
+| --- | --- |
+| Install and set up KaizerIDE for the first time | **[Quick Start](QUICK_START.md)** |
+| Configure AI endpoints, appearance, editor behavior, or indexing | **[Configuration](CONFIGURATION.md)** |
+| Understand the main product areas | **[Features](FEATURES.md)** |
+| See how local-first AI and indexing work | **[Privacy](PRIVACY.md)** |
+| Build or modify the app from source | **[Building from Source](BUILDING.md)** |
 
 ---
 
@@ -133,14 +161,14 @@ Optionally verify the SHA256 checksum shipped with each release. See the full **
 
 ## Documentation hub
 
-| Start here | Description |
+| Guide | Best for |
 | --- | --- |
-| **[Quick Start](QUICK_START.md)** | Install KaizerIDE, open your first folder, configure AI, and learn core shortcuts. |
-| **[Configuration](CONFIGURATION.md)** | Set AI endpoints, editor preferences, appearance options, and indexing behavior. |
-| **[Features](FEATURES.md)** | Browse the main product areas and jump into detailed feature docs. |
-| **[Privacy](PRIVACY.md)** | Understand local-first guarantees, AI request routing, and workspace indexing privacy. |
-| **[Trust & Positioning](TRUST.md)** | Compare KaizerIDE with other IDEs and review the enterprise trust model. |
-| **[Building from Source](BUILDING.md)** | Run the app locally, build releases, and use linting/formatting commands. |
+| **[Quick Start](QUICK_START.md)** | First install, first folder, first AI setup, and core shortcuts. |
+| **[Configuration](CONFIGURATION.md)** | AI providers, editor preferences, appearance options, and indexing behavior. |
+| **[Features](FEATURES.md)** | A product overview with links into every feature area. |
+| **[Privacy](PRIVACY.md)** | Local-first guarantees, AI request routing, and workspace indexing behavior. |
+| **[Trust & Positioning](TRUST.md)** | How KaizerIDE compares with other IDEs and what the trust model promises. |
+| **[Building from Source](BUILDING.md)** | Local development, release builds, linting, formatting, and packaging. |
 
 ---
 

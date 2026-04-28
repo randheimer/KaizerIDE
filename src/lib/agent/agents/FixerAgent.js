@@ -2,6 +2,7 @@ import { AgentBase } from '../core/AgentBase';
 import { buildSystemPrompt } from '../systemPrompt';
 import { TOOLS } from '../tools';
 import { executeTool } from '../toolExecutor';
+import { compressToolResult, estimateTokens } from '../toolResultCompressor';
 import { consumeStream } from '../streamProcessor';
 import { indexer } from '../../indexer';
 
@@ -187,6 +188,10 @@ IMPORTANT:
   /**
    * Process messages
    */
+  /**
+   * Process messages to include attached file contents
+   * Note: User messages are NOT compressed, only attached file context
+   */
   async processMessages(context) {
     return await Promise.all(context.messages.map(async (msg) => {
       if (msg.role === 'user' && msg.context && msg.context.length > 0) {
@@ -197,7 +202,23 @@ IMPORTANT:
             try {
               const result = await window.electron.readFile(ctx.data);
               if (result && result.success && result.content !== null) {
-                contextContent += `\n\n<attached_file path="${ctx.data}">\n${result.content}\n</attached_file>`;
+                const fileContent = result.content;
+                
+                // Compress attached file content if too large
+                const tokens = estimateTokens(fileContent);
+                let compressedFileContent = fileContent;
+                
+                if (tokens > 3000) {
+                  const lines = fileContent.split('\n');
+                  const maxLines = 150;
+                  if (lines.length > maxLines) {
+                    const head = lines.slice(0, 75).join('\n');
+                    const tail = lines.slice(-75).join('\n');
+                    compressedFileContent = `${head}\n\n[... ${lines.length - maxLines} lines omitted ...]\n\n${tail}`;
+                  }
+                }
+                
+                contextContent += `\n\n<attached_file path="${ctx.data}">\n${compressedFileContent}\n</attached_file>`;
               }
             } catch (e) {
               context.logger?.error('[FixerAgent] Failed to read attached file:', ctx.data, e);
@@ -222,16 +243,32 @@ IMPORTANT:
 
   /**
    * Add context to messages
+   * Compresses large files and context to save tokens
    */
   addContext(messages, context) {
     if (messages.length === 0) return messages;
 
-    // Add active file context
+    // Add active file context with compression
     if (context.activeFile && context.activeFileContent) {
       const firstUserMsgIndex = messages.findIndex(m => m.role === 'user');
       if (firstUserMsgIndex !== -1) {
         const fileName = context.activeFile.split(/[\\/]/).pop();
-        const openFileContext = `\n\n<currently_open_file path="${context.activeFile}">\n${context.activeFileContent}\n</currently_open_file>`;
+        
+        // Compress active file content if too large
+        const tokens = estimateTokens(context.activeFileContent);
+        let compressedContent = context.activeFileContent;
+        
+        if (tokens > 3000) {
+          const lines = context.activeFileContent.split('\n');
+          const maxLines = 150;
+          if (lines.length > maxLines) {
+            const head = lines.slice(0, 75).join('\n');
+            const tail = lines.slice(-75).join('\n');
+            compressedContent = `${head}\n\n[... ${lines.length - maxLines} lines omitted ...]\n\n${tail}`;
+          }
+        }
+        
+        const openFileContext = `\n\n<currently_open_file path="${context.activeFile}">\n${compressedContent}\n</currently_open_file>`;
         
         messages[firstUserMsgIndex] = {
           ...messages[firstUserMsgIndex],
@@ -350,18 +387,29 @@ IMPORTANT:
         context.metrics?.recordToolExecution(toolName, 0, false);
       }
       
+      const rawContent = typeof result === 'string' ? result : JSON.stringify(result);
+      const compressedContent = compressToolResult(
+        toolName,
+        args,
+        result,
+        context.settings?.tokenSaver
+      );
+      const compressed = compressedContent !== rawContent;
+
       if (context.onToolResult) {
         context.onToolResult({
           id: toolCall.id,
           name: toolName,
-          result: result
+          result: result,
+          compressed,
+          modelResult: compressed ? compressedContent : null
         });
       }
       
       toolResultMessages.push({
         role: 'tool',
         tool_call_id: toolCall.id,
-        content: typeof result === 'string' ? result : JSON.stringify(result)
+        content: compressedContent
       });
     }
     

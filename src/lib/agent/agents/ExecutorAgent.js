@@ -2,6 +2,7 @@ import { AgentBase } from '../core/AgentBase';
 import { buildSystemPrompt } from '../systemPrompt';
 import { TOOLS } from '../tools';
 import { executeTool } from '../toolExecutor';
+import { compressToolResult, estimateTokens } from '../toolResultCompressor';
 import { consumeStream } from '../streamProcessor';
 import { indexer } from '../../indexer';
 
@@ -180,6 +181,7 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
 
   /**
    * Process messages to include attached file contents
+   * Note: User messages are NOT compressed, only attached file context
    */
   async processMessages(context) {
     return await Promise.all(context.messages.map(async (msg) => {
@@ -192,7 +194,23 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
               const result = await window.electron.readFile(ctx.data);
               if (result && result.success && result.content !== null && result.content !== undefined) {
                 const fileName = ctx.data.split(/[\\/]/).pop();
-                contextContent += `\n\n<attached_file path="${ctx.data}">\n${result.content}\n</attached_file>`;
+                const fileContent = result.content;
+                
+                // Compress attached file content if too large (but not user's message)
+                const tokens = estimateTokens(fileContent);
+                let compressedFileContent = fileContent;
+                
+                if (tokens > 3000) {
+                  const lines = fileContent.split('\n');
+                  const maxLines = 150;
+                  if (lines.length > maxLines) {
+                    const head = lines.slice(0, 75).join('\n');
+                    const tail = lines.slice(-75).join('\n');
+                    compressedFileContent = `${head}\n\n[... ${lines.length - maxLines} lines omitted ...]\n\n${tail}`;
+                  }
+                }
+                
+                contextContent += `\n\n<attached_file path="${ctx.data}">\n${compressedFileContent}\n</attached_file>`;
               }
             } catch (e) {
               context.logger?.error('[ExecutorAgent] Failed to read attached file:', ctx.data, e);
@@ -217,6 +235,7 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
 
   /**
    * Add active file context to messages
+   * Compresses large files to save tokens
    */
   addActiveFileContext(messages, activeFile, activeFileContent) {
     if (!activeFile || !activeFileContent || messages.length === 0) {
@@ -229,7 +248,22 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
     }
 
     const fileName = activeFile.split(/[\\/]/).pop();
-    const openFileContext = `\n\n<currently_open_file path="${activeFile}">\n${activeFileContent}\n</currently_open_file>`;
+    
+    // Compress active file content if too large
+    const tokens = estimateTokens(activeFileContent);
+    let compressedContent = activeFileContent;
+    
+    if (tokens > 3000) {
+      const lines = activeFileContent.split('\n');
+      const maxLines = 150;
+      if (lines.length > maxLines) {
+        const head = lines.slice(0, 75).join('\n');
+        const tail = lines.slice(-75).join('\n');
+        compressedContent = `${head}\n\n[... ${lines.length - maxLines} lines omitted ...]\n\n${tail}`;
+      }
+    }
+    
+    const openFileContext = `\n\n<currently_open_file path="${activeFile}">\n${compressedContent}\n</currently_open_file>`;
     
     const updatedMessages = [...messages];
     updatedMessages[firstUserMsgIndex] = {
@@ -246,6 +280,38 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
   addIndexerContext(messages, context) {
     if (messages.length === 0) return messages;
 
+    const indexFileCount = indexer.index?.length || 0;
+    
+    // For large projects (> 140 files), don't auto-inject full context
+    // Instead, tell AI to use tools to discover what it needs
+    if (indexFileCount > 140) {
+      const truncatedContext = `
+━━━ WORKSPACE CONTEXT (TRUNCATED) ━━━
+Large project detected: ${indexFileCount} files indexed
+
+⚠️ Full context not provided to save tokens.
+Use these tools to discover relevant files:
+• search_index(query) - Find files by name, path, or symbols (code files only)
+• grep_index(query) - Search code content across all files (code files only)
+
+Start by using search tools before reading files.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+      const firstUserMsgIndex = messages.findIndex(m => m.role === 'user');
+      if (firstUserMsgIndex === -1 || !messages[firstUserMsgIndex]) {
+        return messages;
+      }
+
+      const updatedMessages = [...messages];
+      updatedMessages[firstUserMsgIndex] = {
+        ...messages[firstUserMsgIndex],
+        content: truncatedContext + '\n\n' + (messages[firstUserMsgIndex].content || '')
+      };
+
+      return updatedMessages;
+    }
+
+    // For smaller projects, use full relevant context search
     const lastUserMsg = messages.filter(m => m.role === 'user').pop()?.content || '';
     const relevantContext = indexer.getRelevantContext(lastUserMsg);
     
@@ -364,12 +430,24 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
         context.metrics?.recordToolExecution(toolName, 0, false);
       }
       
+      const rawContent = typeof result === 'string' ? result : JSON.stringify(result);
+      const compressedContent = compressToolResult(
+        toolName,
+        args,
+        result,
+        context.settings?.tokenSaver
+      );
+      const compressed = compressedContent !== rawContent;
+      const showCompressionBadge = context.settings?.tokenSaver?.showCompressionBadge !== false;
+
       // Notify UI of tool result
       if (context.onToolResult) {
         context.onToolResult({
           id: toolCall.id,
           name: toolName,
-          result: result
+          result: result,
+          compressed: compressed && showCompressionBadge,
+          modelResult: compressed ? compressedContent : null
         });
       }
       
@@ -377,7 +455,7 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
       toolResultMessages.push({
         role: 'tool',
         tool_call_id: toolCall.id,
-        content: typeof result === 'string' ? result : JSON.stringify(result)
+        content: compressedContent
       });
     }
     

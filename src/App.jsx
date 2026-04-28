@@ -35,7 +35,23 @@ const DEFAULT_SETTINGS = {
     { id: "qw/qwen3-coder-plus", name: "Qwen3 Coder+", maxOutputTokens: 16000 },
     { id: "gemini/gemini-3.1-flash-lite-preview", name: "Gemini 3.1 Flash", maxOutputTokens: 16000 }
   ],
-  systemPrompts: {}
+  systemPrompts: {},
+  tokenSaver: {
+    enabled: true,
+    targetTokenBudget: 2000,
+    hardCharLimit: 8000,
+    adaptiveMode: true,
+    deduplicateLines: true,
+    showCompressionBadge: true,
+    perTool: {
+      run_command: { budget: 2000, strategy: 'semantic' },
+      read_file: { budget: 3000, strategy: 'structural' },
+      search_files: { budget: 1500, strategy: 'grouped' },
+      grep_index: { budget: 1500, strategy: 'grouped' },
+      search_index: { budget: 1500, strategy: 'grouped' },
+      list_directory: { budget: 800, strategy: 'capped' },
+    }
+  }
 };
 
 function App() {
@@ -46,7 +62,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('kaizer-settings');
-    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+    return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
   });
   const [errorMessage, setErrorMessage] = useState(null);
   const [filePickerOpen, setFilePickerOpen] = useState(false);

@@ -42,9 +42,6 @@ export const CODE_EXTENSIONS = new Set([
   '.json', '.json5', '.jsonc', '.yaml', '.yml', '.toml', '.xml', '.ini', '.conf', '.config',
   '.env', '.properties', '.cfg', '.editorconfig',
   
-  // Markup & Docs
-  '.md', '.mdx', '.markdown', '.txt', '.rst', '.adoc', '.tex',
-  
   // Database & Query
   '.sql', '.psql', '.mysql', '.pgsql', '.plsql',
   '.graphql', '.gql',

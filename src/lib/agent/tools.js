@@ -111,7 +111,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'search_index',
-      description: 'Search the workspace index for files by name, path, symbols, or content. Returns each match with file metadata AND a short code snippet (5 lines around the hit), so you can usually answer without a follow-up read_file. Much faster than list_directory.',
+      description: 'Search the workspace index for files by name, path, symbols, or content. Returns code files only. Returns each match with file metadata AND a short code snippet (5 lines around the hit), so you can usually answer without a follow-up read_file. Much faster than list_directory.',
       parameters: {
         type: 'object',
         properties: {
@@ -132,7 +132,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'grep_index',
-      description: 'Line-level text search across the first ~50 lines of every indexed file. Returns file path, line number, and matching line content grouped by file. Use this to quickly locate usages/definitions without reading files. Case-insensitive literal match.',
+      description: 'Line-level text search across the first ~50 lines of every indexed file. Returns code files only. Returns file path, line number, and matching line content grouped by file. Use this to quickly locate usages/definitions without reading files. Case-insensitive literal match.',
       parameters: {
         type: 'object',
         properties: {

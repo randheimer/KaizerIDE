@@ -104,6 +104,24 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
     onSave(localSettings);
   };
 
+  const tokenSaver = localSettings.tokenSaver || {
+    enabled: true,
+    targetTokenBudget: 2000,
+    adaptiveMode: true,
+    deduplicateLines: true,
+    showCompressionBadge: true
+  };
+
+  const updateTokenSaver = (patch) => {
+    setLocalSettings(prev => ({
+      ...prev,
+      tokenSaver: {
+        ...(prev.tokenSaver || tokenSaver),
+        ...patch
+      }
+    }));
+  };
+
   return (
     <div className="settings-overlay" onClick={onClose}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
@@ -203,6 +221,58 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                     ? 'Your Anthropic API key (required)' 
                     : 'Optional API key for authentication'}
                 </span>
+              </div>
+
+              <div className="token-saver-card">
+                <div className="setting-group checkbox-group">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={!!tokenSaver.enabled}
+                      onChange={(e) => updateTokenSaver({ enabled: e.target.checked })}
+                    />
+                    Enable Token Saver
+                  </label>
+                  <span className="setting-description">Compress large tool results before they are sent back to the model</span>
+                </div>
+
+                <div className="setting-group">
+                  <label>Tool Result Budget</label>
+                  <input
+                    type="range"
+                    min="500"
+                    max="6000"
+                    step="250"
+                    value={tokenSaver.targetTokenBudget || 2000}
+                    onChange={(e) => updateTokenSaver({ targetTokenBudget: parseInt(e.target.value, 10) })}
+                    className="token-saver-range"
+                  />
+                  <span className="setting-description">~{tokenSaver.targetTokenBudget || 2000} tokens per compressed tool result</span>
+                </div>
+
+                <div className="setting-group checkbox-group">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={tokenSaver.adaptiveMode !== false}
+                      onChange={(e) => updateTokenSaver({ adaptiveMode: e.target.checked })}
+                    />
+                    Adaptive mode
+                  </label>
+                  <span className="setting-description">Use tighter compression when context is already large</span>
+                </div>
+
+                <div className="setting-group checkbox-group">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={tokenSaver.showCompressionBadge !== false}
+                      onChange={(e) => updateTokenSaver({ showCompressionBadge: e.target.checked })}
+                    />
+                    Show compression badge
+                  </label>
+                  <span className="setting-description">Show a badge when the model receives compressed output</span>
+                </div>
               </div>
 
               <button className="save-btn" onClick={handleSaveGeneral}>
