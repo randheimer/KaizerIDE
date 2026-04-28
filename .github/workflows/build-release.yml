@@ -149,7 +149,7 @@ jobs:
       # Cache electron-builder downloads (Electron binary, Squirrel, etc.)
       # Typically saves 1–3 minutes per run.
       - name: Cache electron-builder
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/AppData/Local/electron/Cache
