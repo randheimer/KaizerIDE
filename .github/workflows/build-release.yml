@@ -186,7 +186,7 @@ jobs:
           Write-Host "Built: $dest"
           Write-Host "SHA256: $hash"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: electron-build
           path: |
