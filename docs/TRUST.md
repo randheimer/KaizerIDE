@@ -27,7 +27,7 @@ KaizerIDE is built for teams that require control over convenience trade-offs.
 | **Telemetry** | None | Yes, opt-out | Yes, configurable | Yes |
 | **Usage tracking** | None | Yes, opt-out | Yes, privacy mode available | Yes |
 | **Cloud sync** | None | Optional | Yes | Yes |
-| **Account required** | No | No | Yes | Yes |
+| **Account required** | No | Yes | Yes | Yes |
 | **Code sent to servers** | Never by default* | For some features | Yes, for AI features | Yes, for AI features |
 | **Workspace indexing** | Local, no AI needed | Manual search | Semantic AI vector embeddings | RAG-based AI indexing |
 | **Local AI support** | Yes | Full | Limited via Cursor Pro | Limited |
