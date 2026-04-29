@@ -2,7 +2,32 @@ import React, { useState, useEffect } from 'react';
 import { indexer } from '../../lib/indexer';
 import './StatusBar.css';
 
-function StatusBar({ activeFile, modelName, endpoint }) {
+const LANG_DISPLAY = {
+  javascript: 'JavaScript',
+  typescript: 'TypeScript',
+  python: 'Python',
+  html: 'HTML',
+  css: 'CSS',
+  json: 'JSON',
+  markdown: 'Markdown',
+  yaml: 'YAML',
+  xml: 'XML',
+  cpp: 'C++',
+  c: 'C',
+  csharp: 'C#',
+  java: 'Java',
+  go: 'Go',
+  rust: 'Rust',
+  lua: 'Lua',
+  php: 'PHP',
+  ruby: 'Ruby',
+  sql: 'SQL',
+  shell: 'Shell',
+  bat: 'Batch',
+  plaintext: 'Plain Text',
+};
+
+function StatusBar({ activeFile, modelName, endpoint, cursorPosition, languageMode, chatVisible, onToggleChat }) {
   const [indexStatus, setIndexStatus] = useState(() => ({
     status: indexer.status,
     progress: indexer.progress,
@@ -41,6 +66,11 @@ function StatusBar({ activeFile, modelName, endpoint }) {
 
   const handleIndexerClick = () => {
     window.dispatchEvent(new CustomEvent('kaizer:open-settings', { detail: { tab: 'indexer' } }));
+  };
+
+  const getLanguageDisplay = () => {
+    if (!languageMode || languageMode === 'plaintext') return null;
+    return LANG_DISPLAY[languageMode] || languageMode;
   };
 
   const getIndexerIndicator = () => {
@@ -82,6 +112,8 @@ function StatusBar({ activeFile, modelName, endpoint }) {
     return null;
   };
 
+  const langDisplay = getLanguageDisplay();
+
   return (
     <div className="status-bar">
       <div className="status-left">
@@ -92,6 +124,22 @@ function StatusBar({ activeFile, modelName, endpoint }) {
         )}
       </div>
       <div className="status-right">
+        {cursorPosition && activeFile && (
+          <div className="status-item" title="Line / Column">
+            <span>Ln {cursorPosition.line}, Col {cursorPosition.column}</span>
+          </div>
+        )}
+        {langDisplay && (
+          <div className="status-item status-language" title="Language Mode">
+            <span>{langDisplay}</span>
+          </div>
+        )}
+        <div className="status-item" title="Encoding">
+          <span>UTF-8</span>
+        </div>
+        <div className="status-item" title="Line Endings">
+          <span>CRLF</span>
+        </div>
         {sshStatus.connected && (
           <div className="status-ssh connected" title="SSH Connected">
             <span className="ssh-dot"></span>
@@ -99,6 +147,15 @@ function StatusBar({ activeFile, modelName, endpoint }) {
           </div>
         )}
         {getIndexerIndicator()}
+        <div
+          className={`status-item status-chat-toggle ${chatVisible ? 'active' : ''}`}
+          onClick={onToggleChat}
+          title="Toggle AI Chat"
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M14 1H2a1 1 0 00-1 1v8a1 1 0 001 1h3l3 3 3-3h3a1 1 0 001-1V2a1 1 0 00-1-1zM2 11V2h12v8H5.5L3 12.5V11H2z"/>
+          </svg>
+        </div>
       </div>
     </div>
   );

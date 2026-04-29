@@ -20,7 +20,44 @@
 .status-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--text-2);
+  cursor: default;
+  transition: background 80ms ease;
+}
+
+.status-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.status-language {
+  cursor: pointer;
+}
+
+.status-chat-toggle {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background 80ms ease, color 80ms ease;
+}
+
+.status-chat-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-0);
+}
+
+.status-chat-toggle.active {
+  color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .status-file {
