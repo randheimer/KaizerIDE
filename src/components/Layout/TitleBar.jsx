@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import MenuBar from './MenuBar';
 import './TitleBar.css';
 
-function TitleBar({ workspacePath, onSettingsClick, onMenuAction, hideMenu = false }) {
+function TitleBar({ workspacePath, onSettingsClick, onMenuAction, hideMenu = false, chatVisible, onToggleChat }) {
   const [isMacOS, setIsMacOS] = useState(false);
 
   useEffect(() => {
@@ -67,12 +67,26 @@ function TitleBar({ workspacePath, onSettingsClick, onMenuAction, hideMenu = fal
       </div>
       <div className="titlebar-center">
         {!isMacOS && !hideMenu && (
-          <button className="titlebar-icon-btn" onClick={onSettingsClick} title="Settings (Ctrl+,)">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
-              <path d="M14 8a1.5 1.5 0 01-1.5 1.5h-.5a.5.5 0 00-.5.5v.5a1.5 1.5 0 01-1.5 1.5h-.5a.5.5 0 00-.5.5v.5a1.5 1.5 0 01-1.5 1.5h-1a1.5 1.5 0 01-1.5-1.5v-.5a.5.5 0 00-.5-.5h-.5A1.5 1.5 0 012 10.5v-.5a.5.5 0 00-.5-.5h-.5A1.5 1.5 0 010 8v-1a1.5 1.5 0 011.5-1.5h.5a.5.5 0 00.5-.5v-.5A1.5 1.5 0 014 3h.5a.5.5 0 00.5-.5v-.5A1.5 1.5 0 016.5 0h1A1.5 1.5 0 019 1.5v.5a.5.5 0 00.5.5h.5A1.5 1.5 0 0111.5 4v.5a.5.5 0 00.5.5h.5A1.5 1.5 0 0114 6.5V8z"/>
-            </svg>
-          </button>
+          <>
+            <button
+              className={`titlebar-icon-btn ${chatVisible ? 'active' : ''}`}
+              onClick={onToggleChat}
+              title="Toggle AI Chat (Ctrl+Shift+C)"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M14 1H2a1 1 0 00-1 1v8a1 1 0 001 1h3l3 3 3-3h3a1 1 0 001-1V2a1 1 0 00-1-1zM2 11V2h12v8H5.5L3 12.5V11H2z"/>
+                <circle cx="5" cy="6" r="0.8"/>
+                <circle cx="8" cy="6" r="0.8"/>
+                <circle cx="11" cy="6" r="0.8"/>
+              </svg>
+            </button>
+            <button className="titlebar-icon-btn" onClick={onSettingsClick} title="Settings (Ctrl+,)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
+                <path d="M14 8a1.5 1.5 0 01-1.5 1.5h-.5a.5.5 0 00-.5.5v.5a1.5 1.5 0 01-1.5 1.5h-.5a.5.5 0 00-.5.5v.5a1.5 1.5 0 01-1.5 1.5h-1a1.5 1.5 0 01-1.5-1.5v-.5a.5.5 0 00-.5-.5h-.5A1.5 1.5 0 012 10.5v-.5a.5.5 0 00-.5-.5h-.5A1.5 1.5 0 010 8v-1a1.5 1.5 0 011.5-1.5h.5a.5.5 0 00.5-.5v-.5A1.5 1.5 0 014 3h.5a.5.5 0 00.5-.5v-.5A1.5 1.5 0 016.5 0h1A1.5 1.5 0 019 1.5v.5a.5.5 0 00.5.5h.5A1.5 1.5 0 0111.5 4v.5a.5.5 0 00.5.5h.5A1.5 1.5 0 0114 6.5V8z"/>
+              </svg>
+            </button>
+          </>
         )}
       </div>
       <div className="titlebar-right">

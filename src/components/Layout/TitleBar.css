@@ -154,6 +154,12 @@
   color: var(--text-0);
 }
 
+.titlebar-icon-btn.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
 /* Windows Window Controls */
 .titlebar-btn {
   width: 46px;
