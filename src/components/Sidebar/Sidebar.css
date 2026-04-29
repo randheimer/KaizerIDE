@@ -46,6 +46,23 @@
   background: var(--accent);
 }
 
+.sidebar-tab-ai.active {
+  color: var(--accent);
+}
+
+.sidebar-spacer {
+  flex: 1;
+}
+
+.sidebar-tab-settings {
+  margin-bottom: 4px;
+  opacity: 0.6;
+}
+
+.sidebar-tab-settings:hover {
+  opacity: 1;
+}
+
 .sidebar-content {
   flex: 1;
   display: flex;
