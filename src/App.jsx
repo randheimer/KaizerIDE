@@ -573,7 +573,7 @@ function App() {
             </div>
             <ResizeHandle
               direction="horizontal"
-              onResize={(delta) => {
+              onDrag={(delta) => {
                 const next = Math.min(500, Math.max(180, sidebarWidth - delta));
                 setSidebarWidth(next);
               }}
@@ -592,7 +592,7 @@ function App() {
             <>
               <ResizeHandle
                 direction="vertical"
-                onResize={(delta) => {
+                onDrag={(delta) => {
                   const next = Math.min(600, Math.max(120, terminalHeight - delta));
                   setTerminalHeight(next);
                 }}
@@ -607,8 +607,10 @@ function App() {
           <>
             <ResizeHandle
               direction="horizontal"
-              onResize={(delta) => {
-                const next = Math.min(600, Math.max(260, chatWidth + delta));
+              onDrag={(delta) => {
+                // Chat is on RIGHT side. Drag handle LEFT = delta negative = user wants chat BIGGER.
+                // So we SUBTRACT delta (negative delta → bigger width).
+                const next = Math.min(600, Math.max(260, chatWidth - delta));
                 setChatWidth(next);
               }}
             />

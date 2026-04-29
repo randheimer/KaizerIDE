@@ -28,23 +28,57 @@
 .resize-handle {
   flex-shrink: 0;
   z-index: 50;
+  position: relative;
+}
+
+/* Visible bar — thin line */
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
   transition: background 120ms ease;
 }
 
-.resize-handle:hover,
-.resize-handle:active {
+.resize-handle:hover::after {
+  background: var(--accent);
+  opacity: 0.4;
+}
+
+/* Kill all transitions during drag for instant visual feedback */
+.is-resizing,
+.is-resizing * {
+  transition: none !important;
+}
+
+.is-resizing .resize-handle::after {
   background: var(--accent);
   opacity: 0.6;
 }
 
+/* Horizontal: thin visual bar, wide invisible hit area */
 .resize-horizontal {
-  width: 4px;
+  width: 12px;
   cursor: col-resize;
   height: 100%;
 }
 
+.resize-horizontal::after {
+  width: 2px;
+  left: 5px;
+}
+
+/* Vertical: thin visual bar, wide invisible hit area */
 .resize-vertical {
-  height: 4px;
+  height: 12px;
   cursor: row-resize;
   width: 100%;
+}
+
+.resize-vertical::after {
+  height: 2px;
+  top: 5px;
 }
