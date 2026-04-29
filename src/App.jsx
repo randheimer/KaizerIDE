@@ -1,10 +1,11 @@
-import React, { useEffect, Suspense, lazy, useCallback, useRef } from 'react';
+import React, { useEffect, Suspense, lazy, useCallback, useRef, useState } from 'react';
 import TitleBar from './components/Layout/TitleBar';
 import FileExplorer from './components/Sidebar/FileExplorer';
 import EditorArea from './components/Editor/EditorArea';
 import ChatPanel from './components/AI/chat/ChatPanel';
 import TerminalPanel from './components/Terminal/TerminalPanel';
 import StatusBar from './components/Common/StatusBar';
+import ResizeHandle from './components/Common/ResizeHandle';
 import ErrorToast from './components/Common/ErrorToast';
 import Toaster from './components/Common/Toaster';
 import { indexer } from './lib/indexer';
@@ -60,6 +61,14 @@ function App() {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const terminalVisible = useUIStore((s) => s.terminalVisible);
   const setTerminalVisible = useUIStore((s) => s.setTerminalVisible);
+  const chatVisible = useUIStore((s) => s.chatVisible);
+  const toggleChat = useUIStore((s) => s.toggleChat);
+  const sidebarWidth = useUIStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
+  const terminalHeight = useUIStore((s) => s.terminalHeight);
+  const setTerminalHeight = useUIStore((s) => s.setTerminalHeight);
+  const chatWidth = useUIStore((s) => s.chatWidth);
+  const setChatWidth = useUIStore((s) => s.setChatWidth);
   const showSettings = useUIStore((s) => s.showSettings);
   const openSettings = useUIStore((s) => s.openSettings);
   const closeSettings = useUIStore((s) => s.closeSettings);
@@ -77,6 +86,21 @@ function App() {
   const errorMessage = useUIStore((s) => s.errorMessage);
   const setErrorMessage = useUIStore((s) => s.setErrorMessage);
   const clearError = useUIStore((s) => s.clearError);
+
+  // ── Cursor / language state (fed by EditorArea via events) ────────────
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
+  const [languageMode, setLanguageMode] = useState('plaintext');
+
+  useEffect(() => {
+    const handleCursorChange = (e) => setCursorPosition(e.detail);
+    const handleLanguageChange = (e) => setLanguageMode(e.detail);
+    window.addEventListener('kaizer:cursor-change', handleCursorChange);
+    window.addEventListener('kaizer:language-change', handleLanguageChange);
+    return () => {
+      window.removeEventListener('kaizer:cursor-change', handleCursorChange);
+      window.removeEventListener('kaizer:language-change', handleLanguageChange);
+    };
+  }, []);
 
   // Debounce tracker for handleOpenPath
   const lastOpenPathCall = useRef({ path: null, timestamp: 0 });
@@ -283,6 +307,9 @@ function App() {
       } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'L' || e.key === 'l')) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent('kaizer:new-chat'));
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
+        e.preventDefault();
+        toggleChat();
       }
     };
 
@@ -428,7 +455,7 @@ function App() {
     };
   }, [activeTabPath, tabs, workspacePath, findTab, updateTab, removeTab, closeAllTabs,
       markAllClean, handleFileOpen, handleOpenFolder, setWorkspacePath, setErrorMessage,
-      toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible]);
+      toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible, toggleChat]);
 
   const handleMenuAction = useCallback(async (action) => {
     switch (action) {
@@ -494,17 +521,32 @@ function App() {
         workspacePath={workspacePath}
         onSettingsClick={() => openSettings()}
         onMenuAction={handleMenuAction}
+        chatVisible={chatVisible}
+        onToggleChat={toggleChat}
       />
       <div className="main-content">
-        <FileExplorer
-          workspacePath={workspacePath}
-          activeFile={activeTabPath}
-          onFileOpen={handleFileOpen}
-          onOpenFolder={handleOpenFolder}
-          onOpenFilePicker={(startPath) => openFilePicker(startPath)}
-          visible={sidebarVisible}
-        />
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        {sidebarVisible && (
+          <>
+            <div style={{ width: sidebarWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}>
+              <FileExplorer
+                workspacePath={workspacePath}
+                activeFile={activeTabPath}
+                onFileOpen={handleFileOpen}
+                onOpenFolder={handleOpenFolder}
+                onOpenFilePicker={(startPath) => openFilePicker(startPath)}
+                visible={sidebarVisible}
+              />
+            </div>
+            <ResizeHandle
+              direction="horizontal"
+              onResize={(delta) => {
+                const next = Math.min(500, Math.max(180, sidebarWidth - delta));
+                setSidebarWidth(next);
+              }}
+            />
+          </>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minWidth: 0 }}>
           <EditorArea
             tabs={tabs}
             activeTab={activeTabPath}
@@ -512,22 +554,50 @@ function App() {
             onTabClose={handleTabClose}
             onContentChange={handleContentChange}
           />
-          {terminalVisible && <TerminalPanel workspacePath={workspacePath} />}
+          {terminalVisible && (
+            <>
+              <ResizeHandle
+                direction="vertical"
+                onResize={(delta) => {
+                  const next = Math.min(600, Math.max(120, terminalHeight - delta));
+                  setTerminalHeight(next);
+                }}
+              />
+              <div style={{ height: terminalHeight, flexShrink: 0, overflow: 'hidden' }}>
+                <TerminalPanel workspacePath={workspacePath} />
+              </div>
+            </>
+          )}
         </div>
-        <div style={{ width: '340px', minWidth: '340px', maxWidth: '340px', height: '100%', flexShrink: 0, overflow: 'hidden' }}>
-          <ChatPanel
-            workspacePath={workspacePath}
-            activeFile={activeTabPath}
-            activeFileContent={findTab(activeTabPath)?.content}
-            settings={settings}
-            onOpenFile={handleFileOpen}
-          />
-        </div>
+        {chatVisible && (
+          <>
+            <ResizeHandle
+              direction="horizontal"
+              onResize={(delta) => {
+                const next = Math.min(600, Math.max(260, chatWidth + delta));
+                setChatWidth(next);
+              }}
+            />
+            <div style={{ width: chatWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}>
+              <ChatPanel
+                workspacePath={workspacePath}
+                activeFile={activeTabPath}
+                activeFileContent={findTab(activeTabPath)?.content}
+                settings={settings}
+                onOpenFile={handleFileOpen}
+              />
+            </div>
+          </>
+        )}
       </div>
       <StatusBar
         activeFile={activeTabPath}
         modelName={settings.selectedModel.name}
         endpoint={settings.endpoint}
+        cursorPosition={cursorPosition}
+        languageMode={languageMode}
+        chatVisible={chatVisible}
+        onToggleChat={toggleChat}
       />
       {errorMessage && <ErrorToast message={errorMessage} onClose={clearError} />}
       <Suspense fallback={null}>
@@ -579,6 +649,7 @@ function App() {
               { id: 'view.toggleSidebar', group: 'View', title: 'Toggle Sidebar', shortcut: 'Ctrl+B', run: () => handleMenuAction('toggle-sidebar') },
               { id: 'view.toggleTerminal', group: 'View', title: 'New Terminal', run: () => handleMenuAction('new-terminal') },
               { id: 'view.toggleTerminalHide', group: 'View', title: 'Toggle Terminal Panel', run: () => setTerminalVisible((v) => !v) },
+              { id: 'view.toggleChat', group: 'View', title: 'Toggle AI Chat Panel', shortcut: 'Ctrl+Shift+C', run: () => toggleChat() },
               { id: 'app.settings', group: 'Preferences', title: 'Open Settings', shortcut: 'Ctrl+,', run: () => handleMenuAction('open-settings') },
               { id: 'app.help', group: 'Help', title: 'Show Docs / Help', run: () => handleMenuAction('show-docs') },
               { id: 'remote.ssh', group: 'Remote', title: 'Connect via SSH…', run: () => setShowSSHModal(true) },

@@ -24,10 +24,27 @@
   min-width: 0;
 }
 
-.file-explorer {
-  width: 250px;
-  min-width: 200px;
-  max-width: 400px;
-  border-right: 1px solid var(--border);
+/* ── Resize handles ─────────────────────────────────────────────────────── */
+.resize-handle {
   flex-shrink: 0;
+  z-index: 50;
+  transition: background 120ms ease;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+.resize-horizontal {
+  width: 4px;
+  cursor: col-resize;
+  height: 100%;
+}
+
+.resize-vertical {
+  height: 4px;
+  cursor: row-resize;
+  width: 100%;
 }

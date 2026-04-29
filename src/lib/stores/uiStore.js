@@ -7,15 +7,44 @@ import { create } from 'zustand';
  *   import { useUIStore } from '@/lib/stores/uiStore';
  *   const sidebarVisible = useUIStore((s) => s.sidebarVisible);
  */
+// Helper: read a number from localStorage with a fallback
+const readNum = (key, fallback) => {
+  try {
+    const v = parseInt(localStorage.getItem(key), 10);
+    return Number.isFinite(v) ? v : fallback;
+  } catch { return fallback; }
+};
+
 export const useUIStore = create((set, get) => ({
   // ── Panel visibility ───────────────────────────────────────────────────
   sidebarVisible: true,
   terminalVisible: false,
+  chatVisible: true,
 
   toggleSidebar: () => set((s) => ({ sidebarVisible: !s.sidebarVisible })),
   setSidebarVisible: (v) => set({ sidebarVisible: v }),
   toggleTerminal: () => set((s) => ({ terminalVisible: !s.terminalVisible })),
   setTerminalVisible: (v) => set({ terminalVisible: v }),
+  toggleChat: () => set((s) => ({ chatVisible: !s.chatVisible })),
+  setChatVisible: (v) => set({ chatVisible: v }),
+
+  // ── Panel sizes (persisted in localStorage) ────────────────────────────
+  sidebarWidth: readNum('kaizer-sidebar-width', 240),
+  terminalHeight: readNum('kaizer-terminal-height', 250),
+  chatWidth: readNum('kaizer-chat-width', 340),
+
+  setSidebarWidth: (w) => {
+    localStorage.setItem('kaizer-sidebar-width', String(w));
+    set({ sidebarWidth: w });
+  },
+  setTerminalHeight: (h) => {
+    localStorage.setItem('kaizer-terminal-height', String(h));
+    set({ terminalHeight: h });
+  },
+  setChatWidth: (w) => {
+    localStorage.setItem('kaizer-chat-width', String(w));
+    set({ chatWidth: w });
+  },
 
   // ── Modal state ────────────────────────────────────────────────────────
   // showSettings: false | true | string (tab name)
