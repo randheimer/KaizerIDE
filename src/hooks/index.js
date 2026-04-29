@@ -11,14 +11,14 @@
  * ### Event Hooks (`./events`)
  * - `useFileChanges` - Track file modifications via custom events
  * 
- * ## Deprecated Hooks (`./deprecated`)
+ * ## State Management
  * 
- * The following hooks are deprecated and replaced by `chatStore`:
- * - `useChatState` - Use `chatStore` messages slice instead
- * - `useContextPills` - Use `chatStore.contextPills` instead
- * - `useUIState` - Use `chatStore.openPopup` instead
- * 
- * See `./deprecated/README.md` for migration guide.
+ * Global state is managed via Zustand stores in `src/lib/stores/`:
+ * - `chatStore` - Chat messages, streaming, composer state
+ * - `workspaceStore` - Workspace path, SSH connection, settings
+ * - `editorStore` - Tabs, active file, AI diff state
+ * - `uiStore` - Panel visibility, modals, error toasts
+ * - `toastStore` - Global toast notifications
  * 
  * ## Usage
  * 
@@ -37,7 +37,3 @@
 // Active hooks - organized by category
 export { useChatHistory } from './chat';
 export { useFileChanges } from './events';
-
-// Deprecated hooks - kept for backward compatibility
-// These will be removed in a future major version
-export { useChatState, useContextPills, useUIState } from './deprecated';

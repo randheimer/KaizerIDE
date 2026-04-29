@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import WelcomeApp from './WelcomeApp';
+import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import './styles/tokens.css';
 import './index.css';
 
@@ -10,6 +11,8 @@ const isWelcomeMode = window.location.hash === '#welcome';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {isWelcomeMode ? <WelcomeApp /> : <App />}
+    <ErrorBoundary title="KaizerIDE crashed" message="An unexpected error occurred. You can try reloading the window.">
+      {isWelcomeMode ? <WelcomeApp /> : <App />}
+    </ErrorBoundary>
   </React.StrictMode>
 );

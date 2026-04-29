@@ -4,6 +4,8 @@ import { TOOLS } from '../tools';
 import { executeTool } from '../toolExecutor';
 import { compressToolResult, estimateTokens } from '../toolResultCompressor';
 import { consumeStream } from '../streamProcessor';
+import { ContextWindowManager } from '../contextWindowManager';
+import { RelevanceScorer } from '../relevanceScorer';
 import { indexer } from '../../indexer';
 
 /**
@@ -14,6 +16,9 @@ export class ExecutorAgent extends AgentBase {
   constructor(config = {}) {
     super('executor', config);
     this.maxIterations = config.maxIterations || 12;
+    // Cached system prompt — rebuilt only when workspace/model changes
+    this._cachedSystemPrompt = null;
+    this._cachedPromptKey = null;
   }
 
   /**
@@ -29,12 +34,24 @@ export class ExecutorAgent extends AgentBase {
   }
 
   /**
-   * Get agent-specific system prompt
+   * Get agent-specific system prompt (cached — only rebuilt when workspace/model changes)
    */
   getSystemPrompt(context) {
+    const modelId = context.settings?.selectedModel?.id || '';
+    const workspacePath = context.workspacePath || '';
+    const indexStatus = indexer.status;
+    const indexCount = indexer.index?.length || 0;
+
+    // Cache key: changes when workspace, model, or indexer state changes
+    const cacheKey = `${workspacePath}|${modelId}|${indexStatus}|${indexCount}`;
+
+    if (this._cachedPromptKey === cacheKey && this._cachedSystemPrompt) {
+      return this._cachedSystemPrompt;
+    }
+
     const basePrompt = buildSystemPrompt(
-      context.workspacePath,
-      context.settings?.selectedModel?.id,
+      workspacePath,
+      modelId,
       context.settings?.systemPrompts
     );
 
@@ -69,6 +86,8 @@ BEST PRACTICES:
 
 You are the primary agent for getting work done. Be proactive, thorough, and reliable.`;
 
+    this._cachedSystemPrompt = executorPrompt;
+    this._cachedPromptKey = cacheKey;
     return executorPrompt;
   }
 
@@ -77,6 +96,10 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
    */
   async doExecute(context) {
     const { endpoint, apiKey, selectedModel } = context.settings;
+    
+    // Initialize context window manager with model's context limit
+    const maxContextTokens = selectedModel?.maxContextTokens || 128000;
+    const cwm = new ContextWindowManager({ maxContextTokens });
     
     // Process messages to include attached file contents
     const processedMessages = await this.processMessages(context);
@@ -94,14 +117,32 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
       context
     );
     
-    // Initialize loop messages with system prompt
+    // Build system prompt (cached)
+    const rawSystemPrompt = this.getSystemPrompt(context);
+    
+    // Prune messages to fit within context window
+    const { systemPrompt, messages: prunedMessages, stats } = cwm.pruneMessages(
+      rawSystemPrompt,
+      messagesWithIndexContext
+    );
+    
+    if (stats.pruned) {
+      context.logger?.info('[ExecutorAgent] Context pruned', {
+        before: stats.totalBefore,
+        after: stats.totalAfter,
+        collapsedToolPairs: stats.collapsedToolPairs || 0,
+        prunedOldMessages: stats.prunedOldMessages || 0,
+      });
+    }
+    
+    // Initialize loop messages with pruned system prompt
     let loopMessages = [
-      { 
-        role: 'system', 
-        content: this.getSystemPrompt(context)
-      },
-      ...messagesWithIndexContext
+      { role: 'system', content: systemPrompt },
+      ...prunedMessages
     ];
+    
+    // Track token usage for adaptive compression
+    cwm.recordUsage(cwm.estimateTotal(systemPrompt, prunedMessages));
     
     try {
       // Main agent loop
@@ -134,6 +175,10 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
         
         context.logger?.debug(`[ExecutorAgent] Response: content="${content?.slice(0, 50)}...", thinking="${thinkingContent?.slice(0, 50)}...", tool_calls=${message.tool_calls?.length || 0}`);
         
+        // Track token usage from the response
+        const responseTokens = estimateTokens(content || '', 'code');
+        cwm.recordUsage(responseTokens);
+        
         // Add assistant message to loop
         loopMessages.push({
           role: 'assistant',
@@ -152,11 +197,23 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
         // Execute tools and collect results
         const toolResultMessages = await this.executeTools(
           message.tool_calls,
-          context
+          context,
+          cwm
         );
         
         // Add tool results to loop messages
         loopMessages.push(...toolResultMessages);
+        
+        // Mid-loop pruning: if we're accumulating too many messages,
+        // prune older tool exchanges to keep context manageable
+        if (iteration > 0 && iteration % 3 === 0) {
+          const loopTokens = cwm.estimateTotal(systemPrompt, loopMessages.slice(1));
+          if (loopTokens > maxContextTokens * 0.7) {
+            context.logger?.info('[ExecutorAgent] Mid-loop pruning triggered', { loopTokens });
+            const midPrune = cwm.pruneMessages(systemPrompt, loopMessages.slice(1));
+            loopMessages = [{ role: 'system', content: systemPrompt }, ...midPrune.messages];
+          }
+        }
         
         context.logger?.debug(`[ExecutorAgent] Added ${toolResultMessages.length} tool result(s), continuing loop...`);
       }
@@ -275,17 +332,35 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
   }
 
   /**
-   * Add indexer context to messages
+   * Add indexer context to messages using RelevanceScorer
    */
   addIndexerContext(messages, context) {
     if (messages.length === 0) return messages;
 
     const indexFileCount = indexer.index?.length || 0;
     
-    // For large projects (> 140 files), don't auto-inject full context
-    // Instead, tell AI to use tools to discover what it needs
+    // For large projects (> 140 files), use RelevanceScorer for smart selection
+    // instead of dumping everything or nothing
     if (indexFileCount > 140) {
-      const truncatedContext = `
+      // Use RelevanceScorer for intelligent file selection
+      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+      const contextPills = context.settings?.contextPills || [];
+      
+      // Initialize scorer lazily
+      if (!this._relevanceScorer && indexer.searchEngine) {
+        this._relevanceScorer = new RelevanceScorer(indexer.searchEngine);
+      }
+      
+      let relevantContext = null;
+      if (this._relevanceScorer) {
+        relevantContext = this._relevanceScorer.buildRelevantContext(
+          lastUserMsg, messages, contextPills, indexer
+        );
+      }
+      
+      // Fallback if scorer isn't available or found nothing
+      if (!relevantContext) {
+        relevantContext = `
 ━━━ WORKSPACE CONTEXT (TRUNCATED) ━━━
 Large project detected: ${indexFileCount} files indexed
 
@@ -296,6 +371,7 @@ Use these tools to discover relevant files:
 
 Start by using search tools before reading files.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+      }
 
       const firstUserMsgIndex = messages.findIndex(m => m.role === 'user');
       if (firstUserMsgIndex === -1 || !messages[firstUserMsgIndex]) {
@@ -305,15 +381,31 @@ Start by using search tools before reading files.
       const updatedMessages = [...messages];
       updatedMessages[firstUserMsgIndex] = {
         ...messages[firstUserMsgIndex],
-        content: truncatedContext + '\n\n' + (messages[firstUserMsgIndex].content || '')
+        content: relevantContext + '\n\n' + (messages[firstUserMsgIndex].content || '')
       };
 
       return updatedMessages;
     }
 
-    // For smaller projects, use full relevant context search
-    const lastUserMsg = messages.filter(m => m.role === 'user').pop()?.content || '';
-    const relevantContext = indexer.getRelevantContext(lastUserMsg);
+    // For smaller projects, use RelevanceScorer too (better than raw getRelevantContext)
+    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+    const contextPills = context.settings?.contextPills || [];
+    
+    if (!this._relevanceScorer && indexer.searchEngine) {
+      this._relevanceScorer = new RelevanceScorer(indexer.searchEngine);
+    }
+    
+    let relevantContext = null;
+    if (this._relevanceScorer) {
+      relevantContext = this._relevanceScorer.buildRelevantContext(
+        lastUserMsg, messages, contextPills, indexer
+      );
+    }
+    
+    // Fallback to legacy method
+    if (!relevantContext) {
+      relevantContext = indexer.getRelevantContext?.(lastUserMsg) || null;
+    }
     
     if (!relevantContext) return messages;
 
@@ -382,7 +474,7 @@ Start by using search tools before reading files.
   /**
    * Execute tools and collect results
    */
-  async executeTools(toolCalls, context) {
+  async executeTools(toolCalls, context, cwm = null) {
     const toolResultMessages = [];
     
     for (const toolCall of toolCalls) {
@@ -431,14 +523,22 @@ Start by using search tools before reading files.
       }
       
       const rawContent = typeof result === 'string' ? result : JSON.stringify(result);
+      // Pass remaining context budget to compressor for adaptive compression
+      const contextBudgetRemaining = cwm ? cwm.getRemainingBudget() : null;
       const compressedContent = compressToolResult(
         toolName,
         args,
         result,
-        context.settings?.tokenSaver
+        context.settings?.tokenSaver,
+        contextBudgetRemaining
       );
       const compressed = compressedContent !== rawContent;
       const showCompressionBadge = context.settings?.tokenSaver?.showCompressionBadge !== false;
+
+      // Track tool result token usage
+      if (cwm) {
+        cwm.recordUsage(compressed ? estimateTokens(compressedContent, 'code') : estimateTokens(rawContent, 'code'));
+      }
 
       // Notify UI of tool result
       if (context.onToolResult) {

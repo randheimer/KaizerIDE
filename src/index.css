@@ -29,6 +29,25 @@
   --ui-focus-ring: var(--focus-ring, 0 0 0 2px rgba(168, 85, 247, 0.34));
 }
 
+/* ── Light theme overrides for legacy aliases ───────────────────────────── */
+[data-theme="light"] {
+  --bg-0: #f8f9fa;
+  --bg-1: #ffffff;
+  --bg-2: #f1f3f5;
+  --bg-3: #e9ecef;
+  --bg-hover: #e9ecef;
+  --bg-active: #dee2e6;
+  --border: #dee2e6;
+  --border-2: #ced4da;
+  --text-0: #1a1a2e;
+  --text-1: #495057;
+  --text-2: #868e96;
+  --text-3: #adb5bd;
+  --accent: #7c3aed;
+  --accent-dim: #6d28d9;
+  --accent-bg: rgba(124, 58, 237, 0.08);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -49,6 +68,12 @@ body {
   color: var(--text-0);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+[data-theme="light"] body {
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(168, 85, 247, 0.05), transparent 40%),
+    radial-gradient(circle at 88% 0%, rgba(139, 92, 246, 0.03), transparent 34%);
 }
 
 #root {
@@ -72,6 +97,14 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #444;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 button {

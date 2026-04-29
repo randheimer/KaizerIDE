@@ -1,17 +1,23 @@
 /**
- * Manages the in-memory index storage
+ * Manages the in-memory index storage.
+ * Uses both an array (for ordered iteration) and a Map (for O(1) path lookups).
  */
 export class IndexStore {
   constructor() {
-    this.index = []; // Array of IndexedFile objects
+    this.index = []; // Array of IndexedFile objects (ordered)
+    this._pathMap = new Map(); // path -> IndexedFile (O(1) lookup)
   }
 
   add(file) {
     this.index.push(file);
+    if (file && file.path) {
+      this._pathMap.set(file.path, file);
+    }
   }
 
   clear() {
     this.index = [];
+    this._pathMap.clear();
   }
 
   getAll() {
@@ -23,7 +29,7 @@ export class IndexStore {
   }
 
   findByPath(path) {
-    return this.index.find(f => f.path === path);
+    return this._pathMap.get(path) || null;
   }
 
   filter(predicate) {
@@ -40,6 +46,13 @@ export class IndexStore {
 
   setAll(files) {
     this.index = files;
+    // Rebuild the path map
+    this._pathMap.clear();
+    for (const file of files) {
+      if (file && file.path) {
+        this._pathMap.set(file.path, file);
+      }
+    }
   }
 
   /**
@@ -48,15 +61,20 @@ export class IndexStore {
    * @param {object} fileData - IndexedFile data
    */
   updateFile(path, fileData) {
-    const existingIndex = this.index.findIndex(f => f.path === path);
+    const existing = this._pathMap.get(path);
     
-    if (existingIndex !== -1) {
-      // Update existing file
-      this.index[existingIndex] = fileData;
+    if (existing) {
+      // Update in-place via the map reference (same object in array)
+      const idx = this.index.indexOf(existing);
+      if (idx !== -1) {
+        this.index[idx] = fileData;
+      }
+      this._pathMap.set(path, fileData);
       console.log('[IndexStore] Updated file in index:', path);
     } else {
       // Add new file
       this.index.push(fileData);
+      this._pathMap.set(path, fileData);
       console.log('[IndexStore] Added new file to index:', path);
     }
   }
@@ -67,15 +85,12 @@ export class IndexStore {
    * @returns {boolean} - True if file was removed, false if not found
    */
   removeFile(path) {
-    const initialLength = this.index.length;
+    if (!this._pathMap.has(path)) return false;
+    
+    this._pathMap.delete(path);
     this.index = this.index.filter(f => f.path !== path);
-    const removed = this.index.length < initialLength;
-    
-    if (removed) {
-      console.log('[IndexStore] Removed file from index:', path);
-    }
-    
-    return removed;
+    console.log('[IndexStore] Removed file from index:', path);
+    return true;
   }
 
   /**
@@ -84,6 +99,6 @@ export class IndexStore {
    * @returns {boolean}
    */
   hasFile(path) {
-    return this.index.some(f => f.path === path);
+    return this._pathMap.has(path);
   }
 }

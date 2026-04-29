@@ -117,3 +117,98 @@
   --focus-ring: 0 0 0 2px rgba(168, 85, 247, 0.34);
   --focus-ring-subtle: 0 0 0 1px rgba(168, 85, 247, 0.3);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT THEME
+   Activated via data-theme="light" on <html> or <body>.
+   Only overrides semantic tokens — spacing/radii/motion are theme-agnostic.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] {
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  --surface-0: #f8f9fa;
+  --surface-1: #ffffff;
+  --surface-2: #f1f3f5;
+  --surface-3: #e9ecef;
+  --surface-4: #dee2e6;
+  --surface-overlay: rgba(0, 0, 0, 0.25);
+
+  /* ── Borders ──────────────────────────────────────────────────────────── */
+  --border-subtle: #e9ecef;
+  --border-default: #dee2e6;
+  --border-strong: #ced4da;
+  --border-focus: var(--accent);
+
+  /* ── Text ─────────────────────────────────────────────────────────────── */
+  --text-primary: #1a1a2e;
+  --text-secondary: #495057;
+  --text-tertiary: #868e96;
+  --text-disabled: #adb5bd;
+  --text-on-accent: #ffffff;
+
+  /* ── Status ───────────────────────────────────────────────────────────── */
+  --success: #16a34a;
+  --success-bg: rgba(22, 163, 74, 0.1);
+  --warning: #d97706;
+  --warning-bg: rgba(217, 119, 6, 0.1);
+  --danger: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.1);
+  --info: #2563eb;
+  --info-bg: rgba(37, 99, 235, 0.1);
+
+  /* ── Glass / elevation ────────────────────────────────────────────────── */
+  --glass-soft: rgba(255, 255, 255, 0.65);
+  --glass-medium: rgba(255, 255, 255, 0.78);
+  --glass-strong: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(168, 85, 247, 0.15);
+  --glass-highlight: rgba(255, 255, 255, 0.8);
+  --glass-blur: 18px;
+  --glass-blur-strong: 24px;
+
+  --elevation-panel: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --elevation-float: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --elevation-modal: 0 8px 32px rgba(0, 0, 0, 0.14);
+
+  /* ── Interaction ──────────────────────────────────────────────────────── */
+  --interactive-hover: rgba(168, 85, 247, 0.08);
+  --interactive-active: rgba(168, 85, 247, 0.14);
+  --focus-ring: 0 0 0 2px rgba(168, 85, 247, 0.25);
+  --focus-ring-subtle: 0 0 0 1px rgba(168, 85, 247, 0.2);
+
+  /* ── Shadows (lighter for light theme) ────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.16);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLASS PANEL UTILITY
+   Drop-in class for glassmorphism panels. Use instead of inline styles.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.glass-panel {
+  background: var(--glass-medium);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-panel);
+}
+
+.glass-panel--soft {
+  background: var(--glass-soft);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+}
+
+.glass-panel--strong {
+  background: var(--glass-strong);
+  backdrop-filter: blur(var(--glass-blur-strong));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-float);
+}

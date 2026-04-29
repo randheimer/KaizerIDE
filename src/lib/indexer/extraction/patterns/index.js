@@ -3,6 +3,10 @@ import { pythonPatterns } from './python';
 import { commonPatterns } from './common';
 import { cPatterns } from './c';
 import { assemblyPatterns } from './assembly';
+import { rustPatterns } from './rust';
+import { goPatterns } from './go';
+import { javaPatterns } from './java';
+import { luaPatterns } from './lua';
 
 /**
  * Pattern registry for different file types
@@ -38,21 +42,21 @@ export const patternRegistry = {
   '.s': assemblyPatterns,
   '.S': assemblyPatterns,
   
-  // Lua
-  '.lua': commonPatterns,
-  '.luau': commonPatterns,
+  // Lua (language-specific patterns)
+  '.lua': luaPatterns,
+  '.luau': luaPatterns,
   
-  // Rust
-  '.rs': commonPatterns,
+  // Rust (language-specific patterns)
+  '.rs': rustPatterns,
   
-  // Go
-  '.go': commonPatterns,
+  // Go (language-specific patterns)
+  '.go': goPatterns,
   
-  // Java/C#/Kotlin
-  '.java': commonPatterns,
-  '.cs': commonPatterns,
-  '.kt': commonPatterns,
-  '.scala': commonPatterns,
+  // Java/C#/Kotlin (language-specific patterns)
+  '.java': javaPatterns,
+  '.cs': javaPatterns,
+  '.kt': javaPatterns,
+  '.scala': javaPatterns,
 };
 
 /**
