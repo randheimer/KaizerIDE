@@ -6,7 +6,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'read_file',
-      description: 'Read the contents of a file. If fromLine/toLine are provided, only that 1-indexed inclusive range is returned, prefixed with line numbers. Use a range when you already know where to look (e.g., from search_index symbol line numbers) so you don\'t pull entire large files.',
+      description: 'Read a file. Use fromLine/toLine for ranges. Prefer ranges when you know the location.',
       parameters: {
         type: 'object',
         properties: {
@@ -31,7 +31,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'write_file',
-      description: 'Write content to a file',
+      description: 'Write content to a file, creating it if needed.',
       parameters: {
         type: 'object',
         properties: {
@@ -52,7 +52,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'list_directory',
-      description: 'List entries in a directory',
+      description: 'List entries in a directory.',
       parameters: {
         type: 'object',
         properties: {
@@ -69,7 +69,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'run_command',
-      description: 'Execute a shell command',
+      description: 'Execute a shell command (requires user permission).',
       parameters: {
         type: 'object',
         properties: {
@@ -90,7 +90,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'search_files',
-      description: 'Search for text across files in the workspace',
+      description: 'Grep for text across workspace files.',
       parameters: {
         type: 'object',
         properties: {
@@ -111,7 +111,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'search_index',
-      description: 'Search the workspace index for files by name, path, symbols, or content. Returns code files only. Returns each match with file metadata AND a short code snippet (5 lines around the hit), so you can usually answer without a follow-up read_file. Much faster than list_directory.',
+      description: 'Search the workspace index by name, path, symbols, or content. Returns matches with code snippets.',
       parameters: {
         type: 'object',
         properties: {
@@ -132,7 +132,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'grep_index',
-      description: 'Line-level text search across the first ~50 lines of every indexed file. Returns code files only. Returns file path, line number, and matching line content grouped by file. Use this to quickly locate usages/definitions without reading files. Case-insensitive literal match.',
+      description: 'Line-level search across indexed files. Returns file:line:content grouped by file.',
       parameters: {
         type: 'object',
         properties: {
@@ -153,7 +153,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'get_file_outline',
-      description: 'Get a structured outline of a file showing all functions, classes, methods, and exports. Returns AST-based structure without reading the entire file content. Perfect for understanding file organization quickly.',
+      description: 'Get structured outline of a file (functions, classes, exports) without reading full content.',
       parameters: {
         type: 'object',
         properties: {
@@ -170,7 +170,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'patch_file',
-      description: 'Apply a precise patch to a file by replacing specific old text with new text. More surgical than rewriting entire files. Useful for making targeted changes to large files.',
+      description: 'Replace exact oldText with newText in a file. More surgical than write_file.',
       parameters: {
         type: 'object',
         properties: {
@@ -195,7 +195,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'get_symbol_definition',
-      description: 'Find the definition location of a symbol (function, class, variable, etc.). Returns file path, line number, and surrounding code context.',
+      description: 'Find where a symbol is defined. Returns file, line, and surrounding context.',
       parameters: {
         type: 'object',
         properties: {
@@ -216,7 +216,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'find_references',
-      description: 'Find all references/usages of a symbol across the workspace. Returns list of locations where the symbol is used with file path, line number, and code context.',
+      description: 'Find all usages of a symbol across the workspace.',
       parameters: {
         type: 'object',
         properties: {

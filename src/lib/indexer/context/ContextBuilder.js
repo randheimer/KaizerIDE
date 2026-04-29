@@ -39,9 +39,7 @@ function formatResult(file, needle) {
         .join(', ')
     : '';
 
-  const header = `\u2022 ${file.path || 'unknown'} (${file.lines || 0} lines) \u2014 symbols: ${
-    symbols || 'none'
-  }`;
+  const header = `\u2022 ${file.path || 'unknown'} (${file.lines || 0} lines)`;
 
   const snippet = extractSnippet(file.preview, needle);
   return snippet ? `${header}\n${snippet}` : header;

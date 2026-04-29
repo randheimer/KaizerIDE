@@ -10,7 +10,7 @@ export class QueryParser {
     const normalized = query.toLowerCase().trim();
     const words = normalized
       .split(/\s+/)
-      .filter(w => w.length > 2); // Filter out very short words
+      .filter(w => w.length > 1); // Keep 2-char words (go, db, ui, os, fn)
 
     return {
       original: query,
