@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import SearchPanel from '../Sidebar/SearchPanel';
+import Breadcrumb from './Breadcrumb';
 import { computeLineDiff } from '../../lib/diff/lineDiff';
 import { highlightLine } from '../../lib/diff/prismHighlight';
 import './EditorArea.css';
@@ -81,12 +82,39 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
   const [tabContextMenu, setTabContextMenu] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
+  const tabsScrollRef = useRef(null);
+  const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
+  const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
   
   // Check if current tab is a preview
   const isPreviewTab = activeTab && activeTab.includes(':preview');
   
   // Check if current tab is a plan.md preview (not the regular .md tab)
   const isPlanPreview = isPreviewTab && activeTab.toLowerCase().includes('plan-') && activeTab.includes('.md:preview');
+
+  // Tab scroll arrow visibility
+  const checkTabScroll = () => {
+    const el = tabsScrollRef.current;
+    if (!el) return;
+    setCanScrollTabsLeft(el.scrollLeft > 2);
+    setCanScrollTabsRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  };
+
+  useEffect(() => {
+    checkTabScroll();
+    const el = tabsScrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(checkTabScroll);
+    observer.observe(el);
+    el.addEventListener('scroll', checkTabScroll);
+    return () => { observer.disconnect(); el.removeEventListener('scroll', checkTabScroll); };
+  }, [tabs.length]);
+
+  const scrollTabs = (direction) => {
+    const el = tabsScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * 150, behavior: 'smooth' });
+  };
 
   // Turn a unified line-diff (from computeLineDiff) into two lists the
   // editor needs:
@@ -925,6 +953,26 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       window.dispatchEvent(new CustomEvent('kaizer:save-active'));
     });
 
+    // Dispatch cursor position changes for the status bar
+    editor.onDidChangeCursorPosition((e) => {
+      window.dispatchEvent(new CustomEvent('kaizer:cursor-change', {
+        detail: { line: e.position.lineNumber, column: e.position.column }
+      }));
+    });
+
+    // Dispatch language mode changes for the status bar
+    const model = editor.getModel();
+    if (model) {
+      window.dispatchEvent(new CustomEvent('kaizer:language-change', {
+        detail: model.getLanguageId()
+      }));
+      model.onDidChangeLanguage((e) => {
+        window.dispatchEvent(new CustomEvent('kaizer:language-change', {
+          detail: e.newLanguage
+        }));
+      });
+    }
+
     // Ctrl+F for search
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
       setShowSearch(true);
@@ -977,7 +1025,6 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     });
 
     // Listen for model changes to validate syntax for other languages
-    const model = editor.getModel();
     if (model) {
       const validateSyntax = () => {
         const language = model.getLanguageId();
@@ -1233,12 +1280,62 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
   if (tabs.length === 0) {
     return (
       <div className="editor-area">
-        <div className="editor-placeholder">
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="8" y="12" width="48" height="40" rx="2" />
-            <path d="M8 20h48M20 28l8 8-8 8M32 44h16" />
-          </svg>
-          <p>Open a file to start editing</p>
+        <div className="editor-empty-state">
+          <div className="empty-logo">
+            <div className="empty-logo-icon">K</div>
+          </div>
+          <h2 className="empty-title">KaizerIDE</h2>
+          <p className="empty-subtitle">AI-Powered Code Editor</p>
+
+          <div className="empty-actions">
+            <button className="empty-action-btn" onClick={() => window.dispatchEvent(new CustomEvent('kaizer:open-filepicker'))}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+              <span>Open Folder</span>
+              <kbd>Ctrl+O</kbd>
+            </button>
+            <button className="empty-action-btn" onClick={() => window.dispatchEvent(new CustomEvent('kaizer:new-file'))}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <line x1="9" y1="15" x2="15" y2="15" />
+              </svg>
+              <span>New File</span>
+              <kbd>Ctrl+N</kbd>
+            </button>
+          </div>
+
+          <div className="empty-shortcuts">
+            <div className="shortcut-title">Keyboard Shortcuts</div>
+            <div className="shortcut-grid">
+              <div className="shortcut-item">
+                <kbd>Ctrl+Shift+P</kbd>
+                <span>Command Palette</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>Ctrl+B</kbd>
+                <span>Toggle Sidebar</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>Ctrl+`</kbd>
+                <span>Toggle Terminal</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>Ctrl+Shift+C</kbd>
+                <span>Toggle AI Chat</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>Ctrl+S</kbd>
+                <span>Save File</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>Ctrl+,</kbd>
+                <span>Settings</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1246,26 +1343,59 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
 
   return (
     <div className="editor-area">
-      <div className="editor-tabs">
-        {tabs.map(tab => {
-          const isPreview = tab.isPreview;
-          return (
-            <div
-              key={tab.path}
-              className={`editor-tab ${activeTab === tab.path ? 'active' : ''} ${isPreview ? 'preview-tab' : ''}`}
-              onClick={(e) => handleTabClick(e, tab.path)}
-              onContextMenu={(e) => handleTabContextMenu(e, tab.path)}
-            >
-              {isPreview && <span className="tab-icon">👁</span>}
-              <span className="tab-name">{tab.name}</span>
-              {tab.dirty && <span className="dirty-indicator"></span>}
-              <button className="tab-close" onClick={(e) => handleCloseClick(e, tab.path)}>
-                ×
-              </button>
-            </div>
-          );
-        })}
+      <div className="editor-tabs-wrapper">
+        {canScrollTabsLeft && (
+          <button className="tab-scroll-btn tab-scroll-left" onClick={() => scrollTabs(-1)} title="Scroll tabs left">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M8 1L3 6l5 5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        )}
+        <div className="editor-tabs" ref={tabsScrollRef}>
+          {tabs.map(tab => {
+            const isPreview = tab.isPreview;
+            return (
+              <div
+                key={tab.path}
+                className={`editor-tab ${activeTab === tab.path ? 'active' : ''} ${isPreview ? 'preview-tab' : ''}`}
+                onClick={(e) => handleTabClick(e, tab.path)}
+                onMouseDown={(e) => {
+                  // Middle-click to close tab
+                  if (e.button === 1) {
+                    e.preventDefault();
+                    handleCloseClick(e, tab.path);
+                  }
+                }}
+                onContextMenu={(e) => handleTabContextMenu(e, tab.path)}
+              >
+                {isPreview && <span className="tab-icon">👁</span>}
+                <span className="tab-name">{tab.name}</span>
+                {tab.dirty && <span className="dirty-indicator"></span>}
+                <button className="tab-close" onClick={(e) => handleCloseClick(e, tab.path)}>
+                  ×
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        {canScrollTabsRight && (
+          <button className="tab-scroll-btn tab-scroll-right" onClick={() => scrollTabs(1)} title="Scroll tabs right">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M4 1l5 5-5 5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        )}
       </div>
+      {activeTab && !isPreviewTab && (
+        <Breadcrumb
+          filePath={activeTab}
+          onNavigate={(path, isFolder) => {
+            if (isFolder) {
+              window.dispatchEvent(new CustomEvent('kaizer:open-file', { detail: { path } }));
+            }
+          }}
+        />
+      )}
       <div className="editor-container" onContextMenu={handleEditorContextMenu}>
         {activeTabData && (
           <>
