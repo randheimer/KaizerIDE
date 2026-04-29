@@ -292,6 +292,12 @@ function App() {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         saveActiveTab();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+        e.preventDefault();
+        handleOpenFolder();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('kaizer:new-file'));
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
         e.preventDefault();
         toggleSidebar();
@@ -427,35 +433,63 @@ function App() {
     };
 
     const handleClearDiff = () => clearAiFileChanges();
+    const handleCloseTerminal = () => setTerminalVisible(false);
+    const handleNewTerminal = () => setTerminalVisible(true);
+    const handleOpenSSHModal = () => setShowSSHModal(true);
+
+    const handleNewFileEvent = () => {
+      if (workspacePath) {
+        const fileName = prompt('Enter file name:');
+        if (fileName) {
+          const newFilePath = `${workspacePath}\\${fileName}`;
+          window.electron.writeFile(newFilePath, '').then(result => {
+            if (result.success) {
+              handleFileOpen(newFilePath);
+              window.electron.getFileTree(workspacePath).then(res => {
+                if (res.success) window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: res.tree }));
+              });
+            } else {
+              setErrorMessage(`Failed to create file: ${result.error}`);
+            }
+          });
+        }
+      } else {
+        setErrorMessage('Please open a folder first');
+      }
+    };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('kaizer:file-written', handleFileWritten);
     window.addEventListener('kaizer:open-filepicker', handleOpenFilePicker);
     window.addEventListener('kaizer:open-file', handleOpenFile);
+    window.addEventListener('kaizer:open-folder', handleOpenFolder);
     window.addEventListener('kaizer:open-preview', handleOpenPreview);
     window.addEventListener('kaizer:open-include-file', handleOpenIncludeFile);
-    window.addEventListener('kaizer:close-terminal', () => setTerminalVisible(false));
-    window.addEventListener('kaizer:new-terminal', () => setTerminalVisible(true));
+    window.addEventListener('kaizer:new-file', handleNewFileEvent);
+    window.addEventListener('kaizer:close-terminal', handleCloseTerminal);
+    window.addEventListener('kaizer:new-terminal', handleNewTerminal);
     window.addEventListener('kaizer:clear-diff', handleClearDiff);
     window.addEventListener('kaizer:open-settings', handleOpenSettings);
-    window.addEventListener('kaizer:open-ssh-modal', () => setShowSSHModal(true));
+    window.addEventListener('kaizer:open-ssh-modal', handleOpenSSHModal);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('kaizer:file-written', handleFileWritten);
       window.removeEventListener('kaizer:open-filepicker', handleOpenFilePicker);
       window.removeEventListener('kaizer:open-file', handleOpenFile);
+      window.removeEventListener('kaizer:open-folder', handleOpenFolder);
       window.removeEventListener('kaizer:open-preview', handleOpenPreview);
       window.removeEventListener('kaizer:open-include-file', handleOpenIncludeFile);
-      window.removeEventListener('kaizer:close-terminal', () => setTerminalVisible(false));
-      window.removeEventListener('kaizer:new-terminal', () => setTerminalVisible(true));
+      window.removeEventListener('kaizer:new-file', handleNewFileEvent);
+      window.removeEventListener('kaizer:close-terminal', handleCloseTerminal);
+      window.removeEventListener('kaizer:new-terminal', handleNewTerminal);
       window.removeEventListener('kaizer:clear-diff', handleClearDiff);
       window.removeEventListener('kaizer:open-settings', handleOpenSettings);
-      window.removeEventListener('kaizer:open-ssh-modal', () => setShowSSHModal(true));
+      window.removeEventListener('kaizer:open-ssh-modal', handleOpenSSHModal);
     };
   }, [activeTabPath, tabs, workspacePath, findTab, updateTab, removeTab, closeAllTabs,
       markAllClean, handleFileOpen, handleOpenFolder, setWorkspacePath, setErrorMessage,
-      toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible, toggleChat]);
+      toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible, toggleChat, clearAiFileChanges]);
 
   const handleMenuAction = useCallback(async (action) => {
     switch (action) {
