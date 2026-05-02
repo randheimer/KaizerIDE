@@ -211,6 +211,43 @@ function WorkspaceSearchPanel({ workspacePath, onFileOpen }) {
         >
           {showReplace ? '▲ Replace' : '▼ Replace'}
         </button>
+        {showReplace && replaceText && results.length > 0 && (
+          <button
+            className="wsp-action-btn wsp-replace-all"
+            onClick={async () => {
+              const files = {};
+              for (const r of results) {
+                const p = r.path || '';
+                if (!p) continue;
+                if (!files[p]) files[p] = [];
+                files[p].push(r);
+              }
+              for (const [filePath] of Object.entries(files)) {
+                try {
+                  const content = await window.electron?.readFile?.(filePath);
+                  if (!content?.success) continue;
+                  let newContent = content.content;
+                  if (useRegex) {
+                    const flags = matchCase ? 'g' : 'gi';
+                    const pattern = new RegExp(query, flags);
+                    newContent = newContent.replace(pattern, replaceText);
+                  } else {
+                    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const pattern = wholeWord
+                      ? new RegExp(`\\b${escaped}\\b`, matchCase ? 'g' : 'gi')
+                      : new RegExp(escaped, matchCase ? 'g' : 'gi');
+                    newContent = newContent.replace(pattern, replaceText);
+                  }
+                  await window.electron?.writeFile?.(filePath, newContent);
+                } catch { /* skip */ }
+              }
+              doSearch(query);
+            }}
+            title="Replace All in Workspace"
+          >
+            Replace All
+          </button>
+        )}
         {query && (
           <span className="wsp-count">
             {searching ? 'Searching…' : `${results.length} result${results.length !== 1 ? 's' : ''}`}

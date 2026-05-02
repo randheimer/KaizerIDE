@@ -95,6 +95,20 @@
   color: var(--text-primary, #e7e7e7);
 }
 
+.wsp-replace-all {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-weight: 500;
+}
+
+.wsp-replace-all:hover {
+  background: rgba(168, 85, 247, 0.25);
+  color: #e9d5ff;
+}
+
 .wsp-count {
   font-size: 11px;
   color: var(--text-tertiary, #8a8a8a);
