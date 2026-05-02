@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -458,22 +458,36 @@ ipcMain.handle('execute-command', async (event, command, cwd) => {
   }
 });
 
-ipcMain.handle('search-files', async (event, query, directory) => {
+ipcMain.handle('search-files', async (event, query, directory, options = {}) => {
   const results = [];
-  const MAX_RESULTS = 200;
+  const MAX_RESULTS = 500;
   const BINARY_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.exe', '.dll', '.so', '.dylib']);
-  
+  const { matchCase = false, wholeWord = false, useRegex = false } = options;
+
+  let searchPattern;
+  try {
+    if (useRegex) {
+      searchPattern = new RegExp(query, matchCase ? '' : 'i');
+    } else {
+      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = wholeWord ? `\\b${escaped}\\b` : escaped;
+      searchPattern = new RegExp(pattern, matchCase ? '' : 'i');
+    }
+  } catch {
+    return { success: false, error: 'Invalid search pattern' };
+  }
+
   function searchInFile(filePath) {
     try {
       const ext = path.extname(filePath).toLowerCase();
       if (BINARY_EXTENSIONS.has(ext)) return;
-      
+
       const content = fs.readFileSync(filePath, 'utf-8');
       const lines = content.split('\n');
-      
+
       lines.forEach((line, index) => {
         if (results.length >= MAX_RESULTS) return;
-        if (line.toLowerCase().includes(query.toLowerCase())) {
+        if (searchPattern.test(line)) {
           results.push({
             file: filePath,
             line: index + 1,
@@ -914,6 +928,27 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
   }
 });
 
+// ── Utility IPC handlers ─────────────────────────────────────────────────
+
+ipcMain.handle('reveal-in-explorer', (event, filePath) => {
+  try {
+    shell.showItemInFolder(filePath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('copy-relative-path', (event, filePath, workspacePath) => {
+  try {
+    const relativePath = path.relative(workspacePath, filePath);
+    clipboard.writeText(relativePath);
+    return { success: true, path: relativePath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // ── Git IPC handlers ────────────────────────────────────────────────────
 
 ipcMain.handle('git:status', async (event, repoPath) => {
@@ -934,6 +969,58 @@ ipcMain.handle('git:status', async (event, repoPath) => {
       created: status.created,
       isClean: status.isClean(),
     };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:blame', async (event, repoPath, filePath) => {
+  try {
+    const git = simpleGit(repoPath);
+    const relativePath = path.relative(repoPath, filePath);
+    const blame = await git.raw(['blame', '--porcelain', relativePath]);
+    const lines = blame.split('\n');
+    const result = [];
+    const commits = {};
+
+    // Parse porcelain format
+    let currentCommit = null;
+    for (const line of lines) {
+      const commitMatch = line.match(/^([0-9a-f]{40})\s+(\d+)\s+(\d+)/);
+      if (commitMatch) {
+        currentCommit = commitMatch[1];
+      }
+      const authorMatch = line.match(/^author (.+)/);
+      if (authorMatch && currentCommit) {
+        commits[currentCommit] = commits[currentCommit] || {};
+        commits[currentCommit].author = authorMatch[1];
+      }
+      const timeMatch = line.match(/^author-time (\d+)/);
+      if (timeMatch && currentCommit) {
+        commits[currentCommit] = commits[currentCommit] || {};
+        commits[currentCommit].timestamp = parseInt(timeMatch[1]);
+      }
+      const summaryMatch = line.match(/^summary (.+)/);
+      if (summaryMatch && currentCommit) {
+        commits[currentCommit] = commits[currentCommit] || {};
+        commits[currentCommit].summary = summaryMatch[1];
+      }
+      const contentMatch = line.match(/^\t(.*)/);
+      if (contentMatch && currentCommit) {
+        result.push({
+          line: result.length + 1,
+          hash: currentCommit.substring(0, 7),
+          author: commits[currentCommit]?.author || 'Unknown',
+          date: commits[currentCommit]?.timestamp
+            ? new Date(commits[currentCommit].timestamp * 1000).toISOString().split('T')[0]
+            : '',
+          summary: commits[currentCommit]?.summary || '',
+          content: contentMatch[1],
+        });
+      }
+    }
+
+    return { success: true, blame: result };
   } catch (error) {
     return { success: false, error: error.message };
   }

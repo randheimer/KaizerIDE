@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('electron', {
   listDir: (dirPath) => ipcRenderer.invoke('list-dir', dirPath),
   runCommand: (command, cwd) => ipcRenderer.invoke('run-command', command, cwd),
   executeCommand: (command, cwd) => ipcRenderer.invoke('execute-command', command, cwd),
-  searchFiles: (query, directory) => ipcRenderer.invoke('search-files', query, directory),
+  searchFiles: (query, directory, options) => ipcRenderer.invoke('search-files', query, directory, options),
   getAppDataPath: () => ipcRenderer.invoke('get-app-data-path'),
   saveChatHistory: (chatHistory, workspacePath) => ipcRenderer.invoke('save-chat-history', chatHistory, workspacePath),
   loadChatHistory: (workspacePath) => ipcRenderer.invoke('load-chat-history', workspacePath),
@@ -24,7 +24,9 @@ contextBridge.exposeInMainWorld('electron', {
   loadWorkspacePath: () => ipcRenderer.invoke('load-workspace-path'),
   getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
   getFileOutline: (filePath) => ipcRenderer.invoke('get-file-outline', filePath),
-  
+  revealInExplorer: (filePath) => ipcRenderer.invoke('reveal-in-explorer', filePath),
+  copyRelativePath: (filePath, workspacePath) => ipcRenderer.invoke('copy-relative-path', filePath, workspacePath),
+
   // Context menu integration - get path passed from command line
   getOpenPath: () => ipcRenderer.invoke('get-open-path'),
   
@@ -69,6 +71,7 @@ contextBridge.exposeInMainWorld('electron', {
   gitBranches: (repoPath) => ipcRenderer.invoke('git:branches', repoPath),
   gitCheckout: (repoPath, branch) => ipcRenderer.invoke('git:checkout', repoPath, branch),
   gitIsRepo: (dirPath) => ipcRenderer.invoke('git:is-repo', dirPath),
+  gitBlame: (repoPath, filePath) => ipcRenderer.invoke('git:blame', repoPath, filePath),
 
   // SSH/Remote connection
   connectSSH: (config) => ipcRenderer.invoke('connect-ssh', config),
