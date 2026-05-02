@@ -27,7 +27,7 @@ const LANG_DISPLAY = {
   plaintext: 'Plain Text',
 };
 
-function StatusBar({ activeFile, modelName, endpoint, cursorPosition, languageMode, chatVisible, onToggleChat }) {
+function StatusBar({ activeFile, modelName, endpoint, cursorPosition, languageMode, chatVisible, onToggleChat, workspacePath }) {
   const [indexStatus, setIndexStatus] = useState(() => ({
     status: indexer.status,
     progress: indexer.progress,
@@ -35,6 +35,7 @@ function StatusBar({ activeFile, modelName, endpoint, cursorPosition, languageMo
     enabled: indexer.enabled
   }));
   const [sshStatus, setSSHStatus] = useState({ connected: false, isRemote: false });
+  const [gitBranch, setGitBranch] = useState(null);
 
   useEffect(() => {
     return indexer.subscribe(setIndexStatus);
@@ -54,6 +55,21 @@ function StatusBar({ activeFile, modelName, endpoint, cursorPosition, languageMo
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!workspacePath || !window.electron?.gitBranches) { setGitBranch(null); return; }
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await window.electron.gitBranches(workspacePath);
+        if (!cancelled && res.success && res.current) setGitBranch(res.current);
+        else if (!cancelled) setGitBranch(null);
+      } catch { if (!cancelled) setGitBranch(null); }
+    };
+    check();
+    const interval = setInterval(check, 10000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [workspacePath]);
 
   const getEndpointHost = (url) => {
     try {
@@ -117,6 +133,12 @@ function StatusBar({ activeFile, modelName, endpoint, cursorPosition, languageMo
   return (
     <div className="status-bar">
       <div className="status-left">
+        {gitBranch && (
+          <div className="status-git" title={`Branch: ${gitBranch}`}>
+            <span className="git-icon">⎇</span>
+            <span>{gitBranch}</span>
+          </div>
+        )}
         {activeFile ? (
           <span className="status-file">{activeFile}</span>
         ) : (

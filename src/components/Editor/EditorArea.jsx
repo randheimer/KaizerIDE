@@ -340,9 +340,20 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     window.addEventListener('kaizer:file-written', handleFileWritten);
     window.addEventListener('kaizer:clear-diff', handleClearDiff);
 
+    const handleGoToLine = (e) => {
+      const { line } = e.detail;
+      if (editorRef.current && line > 0) {
+        editorRef.current.revealLineInCenter(line);
+        editorRef.current.setPosition({ lineNumber: line, column: 1 });
+        editorRef.current.focus();
+      }
+    };
+    window.addEventListener('kaizer:go-to-line', handleGoToLine);
+
     return () => {
       window.removeEventListener('kaizer:file-written', handleFileWritten);
       window.removeEventListener('kaizer:clear-diff', handleClearDiff);
+      window.removeEventListener('kaizer:go-to-line', handleGoToLine);
     };
   }, [activeTab]);
 

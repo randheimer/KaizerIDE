@@ -1,6 +1,6 @@
 import React, { useEffect, Suspense, lazy, useCallback, useRef, useState } from 'react';
 import TitleBar from './components/Layout/TitleBar';
-import FileExplorer from './components/Sidebar/FileExplorer';
+import Sidebar from './components/Sidebar/Sidebar';
 import EditorArea from './components/Editor/EditorArea';
 import ChatPanel from './components/AI/chat/ChatPanel';
 import TerminalPanel from './components/Terminal/TerminalPanel';
@@ -25,6 +25,7 @@ const FilePicker = lazy(() => import('./components/Common/FilePicker'));
 const HelpModal = lazy(() => import('./components/UI/HelpModal'));
 const RemoteConnectionModal = lazy(() => import('./components/Modals/RemoteConnectionModal'));
 const CommandPalette = lazy(() => import('./components/Common/CommandPalette'));
+const GoToFile = lazy(() => import('./components/Common/GoToFile'));
 
 // Utility: Normalize file paths to use consistent separators (Windows backslashes)
 const normalizePath = (path) => {
@@ -78,6 +79,8 @@ function App() {
   const setShowSSHModal = useUIStore((s) => s.setShowSSHModal);
   const showCommandPalette = useUIStore((s) => s.showCommandPalette);
   const setShowCommandPalette = useUIStore((s) => s.setShowCommandPalette);
+  const showGoToFile = useUIStore((s) => s.showGoToFile);
+  const setShowGoToFile = useUIStore((s) => s.setShowGoToFile);
   const filePickerOpen = useUIStore((s) => s.filePickerOpen);
   const filePickerStartPath = useUIStore((s) => s.filePickerStartPath);
   const filePickerMode = useUIStore((s) => s.filePickerMode);
@@ -304,6 +307,9 @@ function App() {
       } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault();
         openSettings();
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        setShowGoToFile((prev) => !prev);
       } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
         e.preventDefault();
         setShowCommandPalette((prev) => !prev);
@@ -489,7 +495,8 @@ function App() {
     };
   }, [activeTabPath, tabs, workspacePath, findTab, updateTab, removeTab, closeAllTabs,
       markAllClean, handleFileOpen, handleOpenFolder, setWorkspacePath, setErrorMessage,
-      toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible, toggleChat, clearAiFileChanges]);
+      toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible, toggleChat, clearAiFileChanges,
+      setShowGoToFile]);
 
   const handleMenuAction = useCallback(async (action) => {
     switch (action) {
@@ -537,8 +544,13 @@ function App() {
         break;
       case 'toggle-sidebar': toggleSidebar(); break;
       case 'toggle-explorer': toggleSidebar(); break;
+      case 'toggle-search':
+        if (!sidebarVisible) toggleSidebar();
+        window.dispatchEvent(new CustomEvent('kaizer:show-search-tab'));
+        break;
       case 'show-docs': setShowHelpModal(true); break;
       case 'open-settings': openSettings(); break;
+      case 'go-to-file': setShowGoToFile(true); break;
       case 'new-terminal':
         setTerminalVisible(true);
         window.dispatchEvent(new CustomEvent('kaizer:new-terminal'));
@@ -547,7 +559,7 @@ function App() {
     }
   }, [workspacePath, activeTabPath, tabs, findTab, updateTab, removeTab, closeAllTabs,
       markAllClean, handleFileOpen, handleOpenFolder, setWorkspacePath, setErrorMessage,
-      toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible]);
+      toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible, setShowGoToFile]);
 
   return (
     <div className="app">
@@ -562,19 +574,21 @@ function App() {
         {sidebarVisible && (
           <>
             <div style={{ width: sidebarWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}>
-              <FileExplorer
+              <Sidebar
                 workspacePath={workspacePath}
                 activeFile={activeTabPath}
                 onFileOpen={handleFileOpen}
                 onOpenFolder={handleOpenFolder}
                 onOpenFilePicker={(startPath) => openFilePicker(startPath)}
                 visible={sidebarVisible}
+                chatVisible={chatVisible}
+                onToggleChat={toggleChat}
               />
             </div>
             <ResizeHandle
               direction="horizontal"
               onDrag={(delta) => {
-                const next = Math.min(500, Math.max(180, sidebarWidth - delta));
+                const next = Math.min(500, Math.max(220, sidebarWidth - delta));
                 setSidebarWidth(next);
               }}
             />
@@ -634,6 +648,7 @@ function App() {
         languageMode={languageMode}
         chatVisible={chatVisible}
         onToggleChat={toggleChat}
+        workspacePath={workspacePath}
       />
       {errorMessage && <ErrorToast message={errorMessage} onClose={clearError} />}
       <Suspense fallback={null}>
@@ -671,6 +686,13 @@ function App() {
             onConnect={(connection) => setSSHConnection(connection)}
           />
         )}
+        {showGoToFile && (
+          <GoToFile
+            workspacePath={workspacePath}
+            onClose={() => setShowGoToFile(false)}
+            onFileOpen={handleOpenPath}
+          />
+        )}
         {showCommandPalette && (
           <CommandPalette
             open={showCommandPalette}
@@ -686,6 +708,7 @@ function App() {
               { id: 'view.toggleTerminal', group: 'View', title: 'New Terminal', run: () => handleMenuAction('new-terminal') },
               { id: 'view.toggleTerminalHide', group: 'View', title: 'Toggle Terminal Panel', run: () => setTerminalVisible((v) => !v) },
               { id: 'view.toggleChat', group: 'View', title: 'Toggle AI Chat Panel', shortcut: 'Ctrl+Shift+C', run: () => toggleChat() },
+              { id: 'go.toFile', group: 'Go', title: 'Go to File…', shortcut: 'Ctrl+P', run: () => handleMenuAction('go-to-file') },
               { id: 'app.settings', group: 'Preferences', title: 'Open Settings', shortcut: 'Ctrl+,', run: () => handleMenuAction('open-settings') },
               { id: 'app.help', group: 'Help', title: 'Show Docs / Help', run: () => handleMenuAction('show-docs') },
               { id: 'remote.ssh', group: 'Remote', title: 'Connect via SSH…', run: () => setShowSSHModal(true) },

@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Sidebar.css';
 import FileExplorer from './FileExplorer';
+import WorkspaceSearchPanel from './WorkspaceSearchPanel';
+import GitPanel from './GitPanel';
 
-function Sidebar({ onFileOpen, chatVisible, onToggleChat }) {
+function Sidebar({ workspacePath, activeFile, onFileOpen, onOpenFolder, onOpenFilePicker, visible, chatVisible, onToggleChat }) {
   const [activeTab, setActiveTab] = useState('files');
+
+  // Listen for event to switch to search tab (from menu bar or keyboard shortcut)
+  useEffect(() => {
+    const handler = () => setActiveTab('search');
+    window.addEventListener('kaizer:show-search-tab', handler);
+    return () => window.removeEventListener('kaizer:show-search-tab', handler);
+  }, []);
 
   return (
     <div className="sidebar">
@@ -62,28 +71,28 @@ function Sidebar({ onFileOpen, chatVisible, onToggleChat }) {
         </button>
       </div>
       <div className="sidebar-content">
-        {activeTab === 'files' && (
-          <FileExplorer onFileOpen={onFileOpen} />
-        )}
+        {/* Always mounted, hidden via CSS to preserve state */}
+        <div style={{ display: activeTab === 'files' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
+          <FileExplorer
+            workspacePath={workspacePath}
+            activeFile={activeFile}
+            onFileOpen={onFileOpen}
+            onOpenFolder={onOpenFolder}
+            onOpenFilePicker={onOpenFilePicker}
+            visible={visible}
+          />
+        </div>
         {activeTab === 'search' && (
-          <div className="sidebar-panel">
-            <div className="sidebar-header">
-              <span>SEARCH</span>
-            </div>
-            <div className="search-container">
-              <input type="text" placeholder="Search..." className="search-input" />
-            </div>
-          </div>
+          <WorkspaceSearchPanel
+            workspacePath={workspacePath}
+            onFileOpen={onFileOpen}
+          />
         )}
         {activeTab === 'git' && (
-          <div className="sidebar-panel">
-            <div className="sidebar-header">
-              <span>SOURCE CONTROL</span>
-            </div>
-            <div className="git-status">
-              <p className="empty-state">No changes</p>
-            </div>
-          </div>
+          <GitPanel
+            workspacePath={workspacePath}
+            onFileOpen={onFileOpen}
+          />
         )}
       </div>
     </div>

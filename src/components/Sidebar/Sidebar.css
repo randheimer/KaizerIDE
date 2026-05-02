@@ -1,5 +1,6 @@
 .sidebar {
-  width: 240px;
+  width: 100%;
+  height: 100%;
   background: #0d0d0d;
   border-right: 1px solid var(--border);
   display: flex;
@@ -7,43 +8,53 @@
 }
 
 .sidebar-tabs {
-  width: 48px;
+  width: 40px;
+  min-width: 40px;
   background: #0d0d0d;
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  padding: 8px 0;
-  gap: 4px;
+  align-items: center;
+  padding: 4px 0;
+  gap: 2px;
 }
 
 .sidebar-tab {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-2);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
   transition: all 0.15s ease;
   position: relative;
+  opacity: 0.6;
 }
 
 .sidebar-tab:hover {
   color: var(--text-0);
   background: var(--bg-hover);
+  opacity: 1;
 }
 
 .sidebar-tab.active {
   color: var(--accent);
+  opacity: 1;
 }
 
-.sidebar-tab.active::before {
+.sidebar-tab.active::after {
   content: '';
   position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
+  left: -4px;
+  top: 6px;
+  bottom: 6px;
   width: 2px;
   background: var(--accent);
+  border-radius: 1px;
 }
 
 .sidebar-tab-ai.active {
@@ -55,8 +66,8 @@
 }
 
 .sidebar-tab-settings {
-  margin-bottom: 4px;
-  opacity: 0.6;
+  margin-bottom: 2px;
+  opacity: 0.4;
 }
 
 .sidebar-tab-settings:hover {
@@ -156,11 +167,10 @@
 }
 
 .sidebar-tab {
-  border-left: 2px solid transparent;
   transition:
     background var(--dur-fast, 120ms) var(--ease-out, ease),
     color var(--dur-fast, 120ms) var(--ease-out, ease),
-    border-color var(--dur-fast, 120ms) var(--ease-out, ease);
+    opacity var(--dur-fast, 120ms) var(--ease-out, ease);
 }
 
 .sidebar-tab:hover {
@@ -169,12 +179,11 @@
 
 .sidebar-tab.active {
   background: rgba(168, 85, 247, 0.08);
-  border-left-color: var(--accent);
   color: var(--accent);
 }
 
-.sidebar-tab.active::before {
-  width: 0;
+.sidebar-tab.active::after {
+  background: var(--accent);
 }
 
 .sidebar-header {
