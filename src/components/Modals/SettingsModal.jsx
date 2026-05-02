@@ -27,7 +27,7 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
   const [editorSettings, setEditorSettings] = useState(() => {
     const saved = localStorage.getItem('kaizer-editor-settings');
     return saved ? JSON.parse(saved) : {
-      fontSize: 14,
+      fontSize: 13.5,
       tabSize: 2,
       wordWrap: 'on',
       minimap: true,
@@ -35,7 +35,7 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
       autoSave: 'off',
       autoSaveDelay: 1000,
       theme: 'kaizer-dark',
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: "'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
       cursorStyle: 'line',
       renderWhitespace: 'selection',
       bracketPairColorization: true,
@@ -459,6 +459,18 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                   Format On Save
                 </label>
                 <span className="setting-description">Auto-format code when saving</span>
+              </div>
+
+              <div className="setting-group checkbox-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={editorSettings.inlineCompletions !== false}
+                    onChange={(e) => setEditorSettings(prev => ({ ...prev, inlineCompletions: e.target.checked }))}
+                  />
+                  AI Inline Completions
+                </label>
+                <span className="setting-description">Copilot-style ghost text suggestions as you type</span>
               </div>
 
               <button className="save-btn" onClick={handleSaveEditor}>
