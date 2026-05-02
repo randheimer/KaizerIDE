@@ -9,6 +9,12 @@ import SearchPanel from '../Sidebar/SearchPanel';
 import Breadcrumb from './Breadcrumb';
 import { computeLineDiff } from '../../lib/diff/lineDiff';
 import { highlightLine } from '../../lib/diff/prismHighlight';
+import { useEditorStore } from '../../lib/stores/editorStore';
+import { useWorkspaceStore } from '../../lib/stores/workspaceStore';
+import { useUIStore } from '../../lib/stores/uiStore';
+import { registerInlineCompletionProvider } from '../../lib/agent/InlineCompletionProvider';
+import InlineEditOverlay from './InlineEditOverlay';
+import emmet from 'emmet';
 import './EditorArea.css';
 
 const getLanguageFromPath = (filePath) => {
@@ -66,7 +72,15 @@ const getLanguageFromPath = (filePath) => {
   return langMap[ext] || 'plaintext';
 };
 
-function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange }) {
+function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange, pane = 'primary' }) {
+  const pinnedTabs = useEditorStore(s => s.pinnedTabs);
+  const togglePinTab = useEditorStore(s => s.togglePinTab);
+  const bookmarks = useEditorStore(s => s.bookmarks);
+  const toggleBookmark = useEditorStore(s => s.toggleBookmark);
+  const moveToPane2 = useEditorStore(s => s.moveToPane2);
+  const moveToPane1 = useEditorStore(s => s.moveToPane1);
+  const splitView = useUIStore(s => s.splitView);
+  const workspacePath = useWorkspaceStore(s => s.workspacePath);
   const activeTabData = tabs.find(tab => tab.path === activeTab);
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
@@ -81,6 +95,8 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
   const [editorContextMenu, setEditorContextMenu] = useState(null);
   const [tabContextMenu, setTabContextMenu] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
+  const [showBlame, setShowBlame] = useState(false);
+  const [inlineEdit, setInlineEdit] = useState(null); // { selectedText, position: { top, left }, range }
   const [editorKey, setEditorKey] = useState(0);
   const tabsScrollRef = useRef(null);
   const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
@@ -407,9 +423,92 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     activeTabData?.path,
   ]);
 
+  // Git blame annotations
+  const blameDecorationsRef = useRef([]);
+  const blameDataRef = useRef(null);
+
+  useEffect(() => {
+    if (!showBlame || !activeTab || !workspacePath || !editorRef.current || !monacoRef.current) {
+      // Clear blame decorations
+      if (editorRef.current && blameDecorationsRef.current.length > 0) {
+        blameDecorationsRef.current = editorRef.current.deltaDecorations(blameDecorationsRef.current, []);
+        blameDecorationsRef.current = [];
+      }
+      blameDataRef.current = null;
+      return;
+    }
+
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+
+    const loadBlame = async () => {
+      try {
+        const result = await window.electron?.gitBlame?.(workspacePath, activeTab);
+        if (!result?.success || !result.blame) return;
+
+        blameDataRef.current = result.blame;
+
+        const maxAuthorLen = 12;
+        const decorations = result.blame.map((entry) => ({
+          range: new monaco.Range(entry.line, 1, entry.line, 1),
+          options: {
+            isWholeLine: true,
+            glyphMarginClassName: 'blame-glyph',
+            glyphMarginHoverMessage: { value: `**${entry.author}** — ${entry.date} — ${entry.summary}` },
+            after: {
+              content: `  ${entry.hash} ${entry.author.padEnd(maxAuthorLen).slice(0, maxAuthorLen)} ${entry.date}`,
+              inlineClassName: 'blame-inline',
+              cursor: 'pointer',
+            },
+          },
+        }));
+
+        blameDecorationsRef.current = editor.deltaDecorations(blameDecorationsRef.current, decorations);
+      } catch (err) {
+        console.error('[GitBlame] Failed to load blame:', err);
+      }
+    };
+
+    loadBlame();
+  }, [showBlame, activeTab, workspacePath]);
+
+  // Bookmark decorations
+  const bookmarkDecorationsRef = useRef([]);
+
+  useEffect(() => {
+    if (!editorRef.current || !monacoRef.current || !activeTab) {
+      if (editorRef.current && bookmarkDecorationsRef.current.length > 0) {
+        editorRef.current.deltaDecorations(bookmarkDecorationsRef.current, []);
+        bookmarkDecorationsRef.current = [];
+      }
+      return;
+    }
+
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    const fileBookmarks = bookmarks[activeTab] || [];
+
+    if (fileBookmarks.length === 0) {
+      bookmarkDecorationsRef.current = editor.deltaDecorations(bookmarkDecorationsRef.current, []);
+      return;
+    }
+
+    const decorations = fileBookmarks.map(line => ({
+      range: new monaco.Range(line, 1, line, 1),
+      options: {
+        isWholeLine: false,
+        glyphMarginClassName: 'bookmark-glyph',
+        glyphMarginHoverMessage: { value: `Bookmark at line ${line}` },
+      },
+    }));
+
+    bookmarkDecorationsRef.current = editor.deltaDecorations(bookmarkDecorationsRef.current, decorations);
+  }, [bookmarks, activeTab]);
+
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    window.monaco = monaco;
     // Editor just (re-)mounted: any zone/decoration IDs we were holding
     // from a previous instance are now meaningless. Start from scratch.
     decorationsRef.current = [];
@@ -989,6 +1088,148 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       setShowSearch(true);
     });
 
+    // Editor zoom: Ctrl+= (zoom in), Ctrl+- (zoom out), Ctrl+0 (reset)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Equal, () => {
+      editor.getAction('editor.action.fontZoomIn')?.run();
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Minus, () => {
+      editor.getAction('editor.action.fontZoomOut')?.run();
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit0, () => {
+      editor.getAction('editor.action.fontZoomReset')?.run();
+    });
+
+    // Ctrl+Shift+G B for git blame toggle
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyG, () => {
+      setShowBlame(prev => !prev);
+    });
+
+    // Ctrl+Shift+K to toggle bookmark on current line
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyK, () => {
+      const position = editor.getPosition();
+      if (position && activeTab) {
+        toggleBookmark(activeTab, position.lineNumber);
+      }
+    });
+
+    // Ctrl+Shift+I for inline AI edit
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyI, () => {
+      const selection = editor.getSelection();
+      if (!selection || selection.isEmpty()) return;
+
+      const model = editor.getModel();
+      const selectedText = model.getValueInRange(selection);
+      if (!selectedText.trim()) return;
+
+      // Get position for overlay - place it below the selection
+      const endPos = selection.getEndLineNumber();
+      const editorDom = editor.getDomNode();
+      const editorRect = editorDom?.getBoundingClientRect();
+
+      // Get pixel position of end of selection
+      const pixelPos = editor.getScrolledVisiblePosition({
+        lineNumber: endPos,
+        column: selection.endColumn,
+      });
+
+      if (pixelPos && editorRect) {
+        setInlineEdit({
+          selectedText,
+          language: model.getLanguageId(),
+          fileName: model.uri?.path?.split('/').pop() || 'untitled',
+          range: {
+            startLineNumber: selection.startLineNumber,
+            startColumn: selection.startColumn,
+            endLineNumber: selection.endLineNumber,
+            endColumn: selection.endColumn,
+          },
+          position: {
+            top: editorRect.top + pixelPos.top + 22,
+            left: editorRect.left + pixelPos.left,
+          },
+        });
+      }
+    });
+
+    // Register inline completion provider (Copilot-style)
+    const inlineCompletionDisposable = registerInlineCompletionProvider(monaco, () => {
+      try {
+        const saved = localStorage.getItem('kaizer-settings');
+        const settings = saved ? JSON.parse(saved) : {};
+        const editorSettings = JSON.parse(localStorage.getItem('kaizer-editor-settings') || '{}');
+        settings.inlineCompletions = editorSettings.inlineCompletions !== false;
+        return settings;
+      } catch {
+        return { inlineCompletions: false };
+      }
+    });
+
+    // Emmet expansion on Tab
+    editor.onKeyDown((e) => {
+      if (e.keyCode !== monaco.KeyCode.Tab) return;
+
+      const model = editor.getModel();
+      const position = editor.getPosition();
+      if (!model || !position) return;
+
+      const language = model.getLanguageId();
+      // Only expand in HTML, CSS, SCSS, JSX, TSX
+      const emmetLangs = ['html', 'css', 'scss', 'javascript', 'typescript'];
+      const isJSX = language === 'javascript' || language === 'typescript';
+      if (!emmetLangs.includes(language)) return;
+
+      // Get text before cursor on current line
+      const lineContent = model.getLineContent(position.lineNumber);
+      const textBefore = lineContent.substring(0, position.column - 1);
+
+      // Check if textBefore looks like an emmet abbreviation
+      // Must contain at least one letter and not start with whitespace
+      if (!textBefore.trim() || !/[a-zA-Z.#\[\(]/.test(textBefore)) return;
+
+      // For JSX/TSX, only expand if it looks like HTML tags (not JS code)
+      if (isJSX && /[=;({})]/.test(textBefore)) return;
+
+      try {
+        const syntax = language === 'css' || language === 'scss' ? 'css' : 'html';
+        const expanded = emmet(textBefore, { syntax });
+
+        if (!expanded || expanded === textBefore) return;
+
+        // Calculate range to replace
+        const startColumn = 1;
+        const range = new monaco.Range(
+          position.lineNumber,
+          startColumn,
+          position.lineNumber,
+          position.column,
+        );
+
+        // Check if we need indentation adjustment
+        const indent = lineContent.match(/^\s*/)[0];
+        const expandedLines = expanded.split('\n');
+        const formattedExpanded = expandedLines
+          .map((line, i) => i === 0 ? line : indent + line)
+          .join('\n');
+
+        editor.executeEdits('emmet', [{
+          range,
+          text: formattedExpanded,
+        }]);
+
+        // Position cursor after expansion
+        const newLine = position.lineNumber + expandedLines.length - 1;
+        const newCol = expandedLines.length === 1
+          ? startColumn + formattedExpanded.length
+          : indent.length + expandedLines[expandedLines.length - 1].length + 1;
+        editor.setPosition({ lineNumber: newLine, column: newCol });
+
+        e.preventDefault();
+        e.stopPropagation();
+      } catch {
+        // Not a valid emmet abbreviation, let default Tab behavior happen
+      }
+    });
+
     // Enable syntax validation and error markers
     monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
@@ -1083,6 +1324,25 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     onTabSelect(path);
   };
 
+  const handleInlineEditApply = (newText) => {
+    if (!inlineEdit || !editorRef.current || !monacoRef.current) return;
+    const editor = editorRef.current;
+    const range = new monacoRef.current.Range(
+      inlineEdit.range.startLineNumber,
+      inlineEdit.range.startColumn,
+      inlineEdit.range.endLineNumber,
+      inlineEdit.range.endColumn,
+    );
+    editor.executeEdits('inline-ai-edit', [{ range, text: newText }]);
+    setInlineEdit(null);
+    editor.focus();
+  };
+
+  const handleInlineEditCancel = () => {
+    setInlineEdit(null);
+    editorRef.current?.focus();
+  };
+
 
   const handleTabContextMenu = (e, path) => {
     e.preventDefault();
@@ -1140,6 +1400,16 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     if (tabIndex !== -1) {
       tabs.slice(tabIndex + 1).forEach(tab => onTabClose(tab.path));
     }
+  };
+
+  const handleRevealInExplorer = (filePath) => {
+    setTabContextMenu(null);
+    window.electron?.revealInExplorer?.(filePath);
+  };
+
+  const handleCopyRelativePath = (filePath) => {
+    setTabContextMenu(null);
+    window.electron?.copyRelativePath?.(filePath, workspacePath);
   };
 
   const handleOpenPreview = (path) => {
@@ -1363,12 +1633,17 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
           </button>
         )}
         <div className="editor-tabs" ref={tabsScrollRef}>
-          {tabs.map(tab => {
+          {[...tabs].sort((a, b) => {
+            const aPinned = pinnedTabs.includes(a.path) ? 0 : 1;
+            const bPinned = pinnedTabs.includes(b.path) ? 0 : 1;
+            return aPinned - bPinned;
+          }).map(tab => {
             const isPreview = tab.isPreview;
+            const isPinned = pinnedTabs.includes(tab.path);
             return (
               <div
                 key={tab.path}
-                className={`editor-tab ${activeTab === tab.path ? 'active' : ''} ${isPreview ? 'preview-tab' : ''}`}
+                className={`editor-tab ${activeTab === tab.path ? 'active' : ''} ${isPreview ? 'preview-tab' : ''} ${isPinned ? 'pinned' : ''}`}
                 onClick={(e) => handleTabClick(e, tab.path)}
                 onMouseDown={(e) => {
                   // Middle-click to close tab
@@ -1380,11 +1655,14 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
                 onContextMenu={(e) => handleTabContextMenu(e, tab.path)}
               >
                 {isPreview && <span className="tab-icon">👁</span>}
-                <span className="tab-name">{tab.name}</span>
+                {isPinned && <span className="tab-icon tab-pin-icon">📌</span>}
+                <span className="tab-name">{isPinned && !tab.dirty ? tab.name.split(/[\\/]/).pop() : tab.name}</span>
                 {tab.dirty && <span className="dirty-indicator"></span>}
-                <button className="tab-close" onClick={(e) => handleCloseClick(e, tab.path)}>
-                  ×
-                </button>
+                {!isPinned && (
+                  <button className="tab-close" onClick={(e) => handleCloseClick(e, tab.path)}>
+                    ×
+                  </button>
+                )}
               </div>
             );
           })}
@@ -1643,6 +1921,10 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          <div className="context-item" onClick={() => { togglePinTab(tabContextMenu.path); setTabContextMenu(null); }}>
+            <span className="context-item-label">{pinnedTabs.includes(tabContextMenu.path) ? 'Unpin Tab' : 'Pin Tab'}</span>
+          </div>
+          <div className="context-separator" />
           <div className="context-item" onClick={() => handleCloseTab(tabContextMenu.path)}>
             <span className="context-item-label">Close</span>
             <span className="context-item-shortcut">Ctrl+W</span>
@@ -1660,7 +1942,23 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
             <span className="context-item-label">Close All</span>
             <span className="context-item-shortcut">Ctrl+K W</span>
           </div>
-          
+          <div className="context-separator" />
+          <div className="context-item" onClick={() => handleRevealInExplorer(tabContextMenu.path)}>
+            <span className="context-item-label">Reveal in File Explorer</span>
+          </div>
+          <div className="context-item" onClick={() => handleCopyRelativePath(tabContextMenu.path)}>
+            <span className="context-item-label">Copy Relative Path</span>
+          </div>
+          {splitView && (
+            <div className="context-item" onClick={() => {
+              if (pane === 'primary') moveToPane2(tabContextMenu.path);
+              else moveToPane1(tabContextMenu.path);
+              setTabContextMenu(null);
+            }}>
+              <span className="context-item-label">Move to {pane === 'primary' ? 'Right' : 'Left'} Pane</span>
+            </div>
+          )}
+
           {tabs.find(t => t.path === tabContextMenu.path)?.path.endsWith('.md') && (
             <>
               <div className="context-separator" />
@@ -1745,10 +2043,32 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       )}
 
       {showSearch && editorRef.current && (
-        <SearchPanel 
-          editor={editorRef.current} 
-          onClose={() => setShowSearch(false)} 
+        <SearchPanel
+          editor={editorRef.current}
+          onClose={() => setShowSearch(false)}
+          workspacePath={workspacePath}
+          onOpenFileAtLine={(filePath, line) => {
+            window.dispatchEvent(new CustomEvent('kaizer:open-file', { detail: { path: filePath, line } }));
+          }}
         />
+      )}
+
+      {inlineEdit && ReactDOM.createPortal(
+        <InlineEditOverlay
+          selectedText={inlineEdit.selectedText}
+          language={inlineEdit.language}
+          fileName={inlineEdit.fileName}
+          position={inlineEdit.position}
+          onApply={handleInlineEditApply}
+          onCancel={handleInlineEditCancel}
+          settings={(() => {
+            try {
+              const saved = localStorage.getItem('kaizer-settings');
+              return saved ? JSON.parse(saved) : {};
+            } catch { return {}; }
+          })()}
+        />,
+        document.body
       )}
     </div>
   );
