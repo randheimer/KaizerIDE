@@ -151,6 +151,18 @@
   font-weight: 500;
 }
 
+/* Model name indicator */
+.status-model {
+  color: var(--accent);
+  opacity: 0.8;
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.status-model:hover {
+  opacity: 1;
+}
+
 /* Cursor-v2 polish pass */
 .status-bar {
   background: linear-gradient(180deg, rgba(8, 8, 8, 0.92), rgba(8, 8, 8, 0.8));

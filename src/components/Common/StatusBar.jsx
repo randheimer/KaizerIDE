@@ -169,6 +169,11 @@ function StatusBar({ activeFile, modelName, endpoint, cursorPosition, languageMo
           </div>
         )}
         {getIndexerIndicator()}
+        {modelName && (
+          <div className="status-item status-model" title={endpoint || 'AI Model'}>
+            <span>{modelName}</span>
+          </div>
+        )}
         <div
           className={`status-item status-chat-toggle ${chatVisible ? 'active' : ''}`}
           onClick={onToggleChat}
