@@ -17,16 +17,33 @@ const readNum = (key, fallback) => {
 
 export const useUIStore = create((set, get) => ({
   // ── Panel visibility ───────────────────────────────────────────────────
+  activeSidebarTab: localStorage.getItem('kaizer-sidebar-tab') || 'files',
   sidebarVisible: true,
   terminalVisible: false,
+  problemsVisible: false,
   chatVisible: true,
+  outputVisible: false,
+  zenMode: false,
+  splitView: false,
 
+  setActiveSidebarTab: (tab) => {
+    localStorage.setItem('kaizer-sidebar-tab', tab);
+    set({ activeSidebarTab: tab });
+  },
   toggleSidebar: () => set((s) => ({ sidebarVisible: !s.sidebarVisible })),
   setSidebarVisible: (v) => set({ sidebarVisible: v }),
   toggleTerminal: () => set((s) => ({ terminalVisible: !s.terminalVisible })),
   setTerminalVisible: (v) => set({ terminalVisible: v }),
+  toggleProblems: () => set((s) => ({ problemsVisible: !s.problemsVisible })),
+  setProblemsVisible: (v) => set({ problemsVisible: v }),
   toggleChat: () => set((s) => ({ chatVisible: !s.chatVisible })),
   setChatVisible: (v) => set({ chatVisible: v }),
+  toggleOutput: () => set((s) => ({ outputVisible: !s.outputVisible })),
+  setOutputVisible: (v) => set({ outputVisible: v }),
+  toggleZenMode: () => set((s) => ({ zenMode: !s.zenMode })),
+  setZenMode: (v) => set({ zenMode: v }),
+  toggleSplitView: () => set((s) => ({ splitView: !s.splitView })),
+  setSplitView: (v) => set({ splitView: v }),
 
   // ── Panel sizes (persisted in localStorage) ────────────────────────────
   sidebarWidth: readNum('kaizer-sidebar-width', 280),
