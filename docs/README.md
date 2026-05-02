@@ -152,7 +152,7 @@ Optionally verify the SHA256 checksum shipped with each release. See the full **
 | Multi-agent AI system (Agent / Planner / Ask / Fixer) | ✅ Complete |
 | Local workspace indexing with real-time file watching | ✅ Complete |
 | Command palette, durable sessions, ESLint + Prettier | ✅ Complete |
-| Git UI — visual diff and commit history | 🚧 In progress |
+| Git UI — visual diff and commit history | ✅ Complete |
 | Debugger integration | 📋 Planned |
 | Custom themes and color schemes | 📋 Planned |
 | Documentation generation from code | 📋 Planned |
