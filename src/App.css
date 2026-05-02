@@ -82,3 +82,28 @@
   height: 2px;
   top: 5px;
 }
+
+/* Zen Mode */
+.app.zen-mode {
+  background: #0a0a0a;
+}
+
+.app.zen-mode .main-content {
+  padding: 0;
+}
+
+.app.zen-mode .editor-area {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.app.zen-mode .editor-tabs-wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.app.zen-mode .editor-container {
+  max-width: 900px;
+  margin: 0 auto;
+}

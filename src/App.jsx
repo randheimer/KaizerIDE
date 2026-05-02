@@ -4,6 +4,8 @@ import Sidebar from './components/Sidebar/Sidebar';
 import EditorArea from './components/Editor/EditorArea';
 import ChatPanel from './components/AI/chat/ChatPanel';
 import TerminalPanel from './components/Terminal/TerminalPanel';
+import ProblemsPanel from './components/Problems/ProblemsPanel';
+import OutputPanel from './components/Output/OutputPanel';
 import StatusBar from './components/Common/StatusBar';
 import ResizeHandle from './components/Common/ResizeHandle';
 import ErrorToast from './components/Common/ErrorToast';
@@ -56,14 +58,28 @@ function App() {
   const setAiFileChange = useEditorStore((s) => s.setAiFileChange);
   const clearAiFileChanges = useEditorStore((s) => s.clearAiFileChanges);
   const findTab = useEditorStore((s) => s.findTab);
+  const pane2Tabs = useEditorStore((s) => s.pane2Tabs);
+  const pane2ActiveTab = useEditorStore((s) => s.pane2ActiveTab);
+  const setPane2ActiveTab = useEditorStore((s) => s.setPane2ActiveTab);
+  const addPane2Tab = useEditorStore((s) => s.addPane2Tab);
+  const removePane2Tab = useEditorStore((s) => s.removePane2Tab);
+  const updatePane2Content = useEditorStore((s) => s.updatePane2Content);
 
   // ── UI store ─────────────────────────────────────────────────────────
   const sidebarVisible = useUIStore((s) => s.sidebarVisible);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const terminalVisible = useUIStore((s) => s.terminalVisible);
   const setTerminalVisible = useUIStore((s) => s.setTerminalVisible);
+  const problemsVisible = useUIStore((s) => s.problemsVisible);
+  const setProblemsVisible = useUIStore((s) => s.setProblemsVisible);
   const chatVisible = useUIStore((s) => s.chatVisible);
   const toggleChat = useUIStore((s) => s.toggleChat);
+  const outputVisible = useUIStore((s) => s.outputVisible);
+  const setOutputVisible = useUIStore((s) => s.setOutputVisible);
+  const zenMode = useUIStore((s) => s.zenMode);
+  const setZenMode = useUIStore((s) => s.setZenMode);
+  const splitView = useUIStore((s) => s.splitView);
+  const toggleSplitView = useUIStore((s) => s.toggleSplitView);
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
   const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
   const terminalHeight = useUIStore((s) => s.terminalHeight);
@@ -322,8 +338,30 @@ function App() {
       } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
         e.preventDefault();
         toggleChat();
+      } else if (e.key === 'Escape' && zenMode) {
+        e.preventDefault();
+        setZenMode(false);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault();
+        toggleSplitView();
       }
     };
+
+    // Ctrl+K Z for zen mode (needs separate handler due to key sequence)
+    const handleKeyDownForZen = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        // Listen for the next key
+        const handleNextKey = (e2) => {
+          if (e2.key === 'z' || e2.key === 'Z') {
+            e2.preventDefault();
+            setZenMode(prev => !prev);
+          }
+          window.removeEventListener('keydown', handleNextKey);
+        };
+        window.addEventListener('keydown', handleNextKey, { once: true });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDownForZen);
 
     const handleFileWritten = (event) => {
       const { path, type, content, originalContent, oldContent, newContent } = event.detail;
@@ -478,6 +516,41 @@ function App() {
     window.addEventListener('kaizer:open-settings', handleOpenSettings);
     window.addEventListener('kaizer:open-ssh-modal', handleOpenSSHModal);
 
+    // Git diff view handler
+    const handleOpenDiff = async (event) => {
+      const { path: filePath, diff, fileName } = event.detail;
+      if (!filePath) return;
+
+      const normalizedPath = normalizePath(filePath);
+      const existingTab = findTab(normalizedPath);
+
+      if (existingTab) {
+        setActiveTabPath(normalizedPath);
+        // Update tab to show diff view
+        updateTab(normalizedPath, {
+          showDiff: true,
+          diffContent: diff,
+        });
+        return;
+      }
+
+      // Read current file content
+      const result = await window.electron.readFile(normalizedPath);
+      if (result.success) {
+        addTab({
+          path: normalizedPath,
+          name: fileName || normalizedPath.split(/[\\/]/).pop(),
+          content: result.content,
+          dirty: false,
+          showDiff: true,
+          diffContent: diff,
+          originalContent: result.content,
+        });
+        setActiveTabPath(normalizedPath);
+      }
+    };
+    window.addEventListener('kaizer:open-diff', handleOpenDiff);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('kaizer:file-written', handleFileWritten);
@@ -492,10 +565,13 @@ function App() {
       window.removeEventListener('kaizer:clear-diff', handleClearDiff);
       window.removeEventListener('kaizer:open-settings', handleOpenSettings);
       window.removeEventListener('kaizer:open-ssh-modal', handleOpenSSHModal);
+      window.removeEventListener('kaizer:open-diff', handleOpenDiff);
+      window.removeEventListener('keydown', handleKeyDownForZen);
     };
   }, [activeTabPath, tabs, workspacePath, findTab, updateTab, removeTab, closeAllTabs,
       markAllClean, handleFileOpen, handleOpenFolder, setWorkspacePath, setErrorMessage,
       toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible, toggleChat, clearAiFileChanges,
+      zenMode, setZenMode,
       setShowGoToFile]);
 
   const handleMenuAction = useCallback(async (action) => {
@@ -562,16 +638,18 @@ function App() {
       toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible, setShowGoToFile]);
 
   return (
-    <div className="app">
-      <TitleBar
-        workspacePath={workspacePath}
-        onSettingsClick={() => openSettings()}
-        onMenuAction={handleMenuAction}
-        chatVisible={chatVisible}
-        onToggleChat={toggleChat}
-      />
+    <div className={`app${zenMode ? ' zen-mode' : ''}`}>
+      {!zenMode && (
+        <TitleBar
+          workspacePath={workspacePath}
+          onSettingsClick={() => openSettings()}
+          onMenuAction={handleMenuAction}
+          chatVisible={chatVisible}
+          onToggleChat={toggleChat}
+        />
+      )}
       <div className="main-content">
-        {sidebarVisible && (
+        {!zenMode && sidebarVisible && (
           <>
             <div style={{ width: sidebarWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}>
               <Sidebar
@@ -594,14 +672,39 @@ function App() {
             />
           </>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minWidth: 0 }}>
-          <EditorArea
-            tabs={tabs}
-            activeTab={activeTabPath}
-            onTabSelect={handleTabSelect}
-            onTabClose={handleTabClose}
-            onContentChange={handleContentChange}
-          />
+        <div style={{ display: 'flex', flexDirection: splitView ? 'row' : 'column', flex: 1, overflow: 'hidden', minWidth: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minWidth: 0 }}>
+            <EditorArea
+              tabs={tabs}
+              activeTab={activeTabPath}
+              onTabSelect={handleTabSelect}
+              onTabClose={handleTabClose}
+              onContentChange={handleContentChange}
+              pane="primary"
+            />
+          </div>
+          {splitView && (
+            <>
+              <ResizeHandle
+                direction="horizontal"
+                onDrag={(delta) => {
+                  // Resize between panes - handled by flex layout
+                }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minWidth: 0 }}>
+                <EditorArea
+                  tabs={pane2Tabs}
+                  activeTab={pane2ActiveTab}
+                  onTabSelect={setPane2ActiveTab}
+                  onTabClose={removePane2Tab}
+                  onContentChange={(content) => {
+                    if (pane2ActiveTab) updatePane2Content(pane2ActiveTab, content);
+                  }}
+                  pane="secondary"
+                />
+              </div>
+            </>
+          )}
           {terminalVisible && (
             <>
               <ResizeHandle
@@ -616,8 +719,35 @@ function App() {
               </div>
             </>
           )}
+          {problemsVisible && !terminalVisible && !outputVisible && (
+            <>
+              <ResizeHandle
+                direction="vertical"
+                onDrag={(delta) => {
+                  const next = Math.min(600, Math.max(120, 250 - delta));
+                  // TODO: add problemsHeight to uiStore if needed
+                }}
+              />
+              <div style={{ height: 250, flexShrink: 0, overflow: 'hidden' }}>
+                <ProblemsPanel onClose={() => setProblemsVisible(false)} />
+              </div>
+            </>
+          )}
+          {outputVisible && !terminalVisible && (
+            <>
+              <ResizeHandle
+                direction="vertical"
+                onDrag={(delta) => {
+                  const next = Math.min(600, Math.max(120, 250 - delta));
+                }}
+              />
+              <div style={{ height: 250, flexShrink: 0, overflow: 'hidden' }}>
+                <OutputPanel onClose={() => setOutputVisible(false)} />
+              </div>
+            </>
+          )}
         </div>
-        {chatVisible && (
+        {!zenMode && chatVisible && (
           <>
             <ResizeHandle
               direction="horizontal"
@@ -640,7 +770,7 @@ function App() {
           </>
         )}
       </div>
-      <StatusBar
+      {!zenMode && <StatusBar
         activeFile={activeTabPath}
         modelName={settings.selectedModel.name}
         endpoint={settings.endpoint}
@@ -649,7 +779,7 @@ function App() {
         chatVisible={chatVisible}
         onToggleChat={toggleChat}
         workspacePath={workspacePath}
-      />
+      />}
       {errorMessage && <ErrorToast message={errorMessage} onClose={clearError} />}
       <Suspense fallback={null}>
         {showSettings && (
@@ -707,6 +837,7 @@ function App() {
               { id: 'view.toggleSidebar', group: 'View', title: 'Toggle Sidebar', shortcut: 'Ctrl+B', run: () => handleMenuAction('toggle-sidebar') },
               { id: 'view.toggleTerminal', group: 'View', title: 'New Terminal', run: () => handleMenuAction('new-terminal') },
               { id: 'view.toggleTerminalHide', group: 'View', title: 'Toggle Terminal Panel', run: () => setTerminalVisible((v) => !v) },
+              { id: 'view.toggleOutput', group: 'View', title: 'Toggle Output Panel', run: () => setOutputVisible((v) => !v) },
               { id: 'view.toggleChat', group: 'View', title: 'Toggle AI Chat Panel', shortcut: 'Ctrl+Shift+C', run: () => toggleChat() },
               { id: 'go.toFile', group: 'Go', title: 'Go to File…', shortcut: 'Ctrl+P', run: () => handleMenuAction('go-to-file') },
               { id: 'app.settings', group: 'Preferences', title: 'Open Settings', shortcut: 'Ctrl+,', run: () => handleMenuAction('open-settings') },
