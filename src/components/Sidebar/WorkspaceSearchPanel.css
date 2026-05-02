@@ -1,0 +1,214 @@
+.wsp-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 13px;
+  color: var(--text-primary, #e7e7e7);
+}
+
+.wsp-header {
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-tertiary, #8a8a8a);
+  text-transform: uppercase;
+}
+
+.wsp-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px 6px;
+}
+
+.wsp-input {
+  flex: 1;
+  background: var(--ui-input-bg, rgba(255, 255, 255, 0.06));
+  color: inherit;
+  border: 1px solid var(--ui-glass-border, #2f2f2f);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+
+.wsp-input:focus {
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: var(--ui-focus-ring, 0 0 0 2px rgba(168, 85, 247, 0.15));
+}
+
+.wsp-input::placeholder {
+  color: var(--text-tertiary, #777);
+}
+
+.wsp-toggles {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.wsp-toggle {
+  background: transparent;
+  color: var(--text-tertiary, #8a8a8a);
+  border: 1px solid var(--ui-glass-border, #2f2f2f);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.wsp-toggle:hover {
+  background: var(--interactive-hover, rgba(255, 255, 255, 0.06));
+}
+
+.wsp-toggle.active {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+.wsp-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 6px;
+}
+
+.wsp-action-btn {
+  background: transparent;
+  color: var(--text-tertiary, #8a8a8a);
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  font-family: inherit;
+}
+
+.wsp-action-btn:hover {
+  color: var(--text-primary, #e7e7e7);
+}
+
+.wsp-count {
+  font-size: 11px;
+  color: var(--text-tertiary, #8a8a8a);
+}
+
+.wsp-results {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.wsp-empty {
+  padding: 16px 12px;
+  text-align: center;
+  color: var(--text-tertiary, #8a8a8a);
+  font-size: 12px;
+}
+
+.wsp-file-group {
+  margin-bottom: 2px;
+}
+
+.wsp-file-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-primary, #e7e7e7);
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  transition: background 120ms ease;
+}
+
+.wsp-file-header:hover {
+  background: var(--interactive-hover, rgba(255, 255, 255, 0.06));
+}
+
+.wsp-chevron {
+  font-size: 10px;
+  color: var(--text-tertiary, #8a8a8a);
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.wsp-file-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.wsp-file-path {
+  color: var(--text-tertiary, #8a8a8a);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.wsp-file-count {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.wsp-match {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #ccc);
+  padding: 3px 8px 3px 26px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  text-align: left;
+  transition: background 120ms ease;
+  line-height: 1.4;
+}
+
+.wsp-match:hover {
+  background: var(--interactive-hover, rgba(255, 255, 255, 0.06));
+}
+
+.wsp-line-num {
+  color: var(--text-tertiary, #8a8a8a);
+  min-width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+  font-size: 11px;
+  user-select: none;
+}
+
+.wsp-line-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.wsp-highlight {
+  background: rgba(168, 85, 247, 0.35);
+  color: #e9d5ff;
+  border-radius: 2px;
+  padding: 0 1px;
+}
