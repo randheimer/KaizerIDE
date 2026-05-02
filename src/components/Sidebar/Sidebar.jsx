@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useUIStore } from '../../lib/stores/uiStore';
 import './Sidebar.css';
 import FileExplorer from './FileExplorer';
 import WorkspaceSearchPanel from './WorkspaceSearchPanel';
 import GitPanel from './GitPanel';
+import TodoExplorer from './TodoExplorer';
+import TaskRunner from './TaskRunner';
 
 function Sidebar({ workspacePath, activeFile, onFileOpen, onOpenFolder, onOpenFilePicker, visible, chatVisible, onToggleChat }) {
-  const [activeTab, setActiveTab] = useState('files');
+  const activeSidebarTab = useUIStore(s => s.activeSidebarTab);
+  const setActiveSidebarTab = useUIStore(s => s.setActiveSidebarTab);
+  const activeTab = activeSidebarTab;
+  const setActiveTab = setActiveSidebarTab;
 
   // Listen for event to switch to search tab (from menu bar or keyboard shortcut)
   useEffect(() => {
@@ -47,7 +53,26 @@ function Sidebar({ workspacePath, activeFile, onFileOpen, onOpenFolder, onOpenFi
             <path d="M5 7v6M7 5h6M15 13V7" />
           </svg>
         </button>
-        <button 
+        <button
+          className={`sidebar-tab ${activeTab === 'todos' ? 'active' : ''}`}
+          onClick={() => setActiveTab('todos')}
+          title="TODO Explorer"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="2" width="14" height="16" rx="2" />
+            <path d="M7 7h6M7 10h6M7 13h4" />
+          </svg>
+        </button>
+        <button
+          className={`sidebar-tab ${activeTab === 'tasks' ? 'active' : ''}`}
+          onClick={() => setActiveTab('tasks')}
+          title="Task Runner"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="5,3 17,10 5,17" />
+          </svg>
+        </button>
+        <button
           className={`sidebar-tab sidebar-tab-ai ${chatVisible ? 'active' : ''}`}
           onClick={onToggleChat}
           title="AI Assistant (Ctrl+Shift+C)"
@@ -93,6 +118,15 @@ function Sidebar({ workspacePath, activeFile, onFileOpen, onOpenFolder, onOpenFi
             workspacePath={workspacePath}
             onFileOpen={onFileOpen}
           />
+        )}
+        {activeTab === 'todos' && (
+          <TodoExplorer
+            workspacePath={workspacePath}
+            onFileOpen={onFileOpen}
+          />
+        )}
+        {activeTab === 'tasks' && (
+          <TaskRunner workspacePath={workspacePath} />
         )}
       </div>
     </div>
