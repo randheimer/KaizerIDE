@@ -54,9 +54,29 @@ function GitPanel({ workspacePath, onFileOpen }) {
     setCommitting(false);
   };
 
-  const handleFileClick = (filePath) => {
+  const handleFileClick = async (filePath, showDiff = false) => {
+    const fullPath = workspacePath ? `${workspacePath}\\${filePath}` : filePath;
+
+    if (showDiff && getDiff) {
+      try {
+        const diffResult = await getDiff(workspacePath, filePath);
+        if (diffResult?.success) {
+          // Dispatch event to open diff view in editor
+          window.dispatchEvent(new CustomEvent('kaizer:open-diff', {
+            detail: {
+              path: fullPath,
+              diff: diffResult.diff,
+              fileName: filePath,
+            }
+          }));
+          return;
+        }
+      } catch (err) {
+        console.error('[GitPanel] Failed to get diff:', err);
+      }
+    }
+
     if (onFileOpen) {
-      const fullPath = workspacePath ? `${workspacePath}\\${filePath}` : filePath;
       onFileOpen(fullPath, { fileOnly: true });
     }
   };
@@ -179,7 +199,7 @@ function GitPanel({ workspacePath, onFileOpen }) {
                 <span className="git-file-status" style={{ color: info.color }} title={info.title}>
                   {info.label}
                 </span>
-                <button className="git-file-name" onClick={() => handleFileClick(file.path)}>
+                <button className="git-file-name" onClick={() => handleFileClick(file.path, true)} title="Click to view diff">
                   {file.path}
                 </button>
                 <button
