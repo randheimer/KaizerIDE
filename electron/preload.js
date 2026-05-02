@@ -42,6 +42,34 @@ contextBridge.exposeInMainWorld('electron', {
     return () => ipcRenderer.removeListener('file-system-changed', listener);
   },
   
+  // PTY Terminal operations
+  ptySpawn: (opts) => ipcRenderer.invoke('pty:spawn', opts),
+  ptyWrite: (opts) => ipcRenderer.invoke('pty:write', opts),
+  ptyResize: (opts) => ipcRenderer.invoke('pty:resize', opts),
+  ptyKill: (opts) => ipcRenderer.invoke('pty:kill', opts),
+  onPtyData: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('pty:data', listener);
+    return () => ipcRenderer.removeListener('pty:data', listener);
+  },
+  onPtyExit: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('pty:exit', listener);
+    return () => ipcRenderer.removeListener('pty:exit', listener);
+  },
+
+  // Git operations
+  gitStatus: (repoPath) => ipcRenderer.invoke('git:status', repoPath),
+  gitDiff: (repoPath, file) => ipcRenderer.invoke('git:diff', repoPath, file),
+  gitDiffStaged: (repoPath, file) => ipcRenderer.invoke('git:diff-staged', repoPath, file),
+  gitStage: (repoPath, files) => ipcRenderer.invoke('git:stage', repoPath, files),
+  gitUnstage: (repoPath, files) => ipcRenderer.invoke('git:unstage', repoPath, files),
+  gitCommit: (repoPath, message) => ipcRenderer.invoke('git:commit', repoPath, message),
+  gitLog: (repoPath, maxCount) => ipcRenderer.invoke('git:log', repoPath, maxCount),
+  gitBranches: (repoPath) => ipcRenderer.invoke('git:branches', repoPath),
+  gitCheckout: (repoPath, branch) => ipcRenderer.invoke('git:checkout', repoPath, branch),
+  gitIsRepo: (dirPath) => ipcRenderer.invoke('git:is-repo', dirPath),
+
   // SSH/Remote connection
   connectSSH: (config) => ipcRenderer.invoke('connect-ssh', config),
   disconnectSSH: () => ipcRenderer.invoke('disconnect-ssh'),

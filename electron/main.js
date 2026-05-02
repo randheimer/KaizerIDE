@@ -4,6 +4,8 @@ import fs from 'fs';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { Client } from 'ssh2';
+import simpleGit from 'simple-git';
+import { spawn as ptySpawn } from 'node-pty';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,6 +21,7 @@ let refreshTimeout = null;
 let sshClient = null;
 let sftpClient = null;
 let isRemoteMode = false;
+const ptyProcesses = new Map(); // id -> pty process
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'release', '__pycache__', '.vscode', '.idea']);
 
@@ -909,6 +912,206 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
   } catch (error) {
     return { success: false, error: error.message, outline: [] };
   }
+});
+
+// ── Git IPC handlers ────────────────────────────────────────────────────
+
+ipcMain.handle('git:status', async (event, repoPath) => {
+  try {
+    const git = simpleGit(repoPath);
+    const status = await git.status();
+    return {
+      success: true,
+      current: status.current,
+      tracking: status.tracking,
+      ahead: status.ahead,
+      behind: status.behind,
+      staged: status.staged,
+      modified: status.modified,
+      not_added: status.not_added,
+      deleted: status.deleted,
+      conflicted: status.conflicted,
+      created: status.created,
+      isClean: status.isClean(),
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:diff', async (event, repoPath, file) => {
+  try {
+    const git = simpleGit(repoPath);
+    const diff = file ? await git.diff([file]) : await git.diff();
+    const diffSummary = await git.diffSummary();
+    return { success: true, diff, summary: diffSummary };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:diff-staged', async (event, repoPath, file) => {
+  try {
+    const git = simpleGit(repoPath);
+    const diff = file ? await git.diff(['--cached', file]) : await git.diff(['--cached']);
+    return { success: true, diff };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:stage', async (event, repoPath, files) => {
+  try {
+    const git = simpleGit(repoPath);
+    await git.add(files);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:unstage', async (event, repoPath, files) => {
+  try {
+    const git = simpleGit(repoPath);
+    await git.reset(['--', ...files]);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:commit', async (event, repoPath, message) => {
+  try {
+    const git = simpleGit(repoPath);
+    const result = await git.commit(message);
+    return { success: true, hash: result.commit, summary: result.summary };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:log', async (event, repoPath, maxCount = 50) => {
+  try {
+    const git = simpleGit(repoPath);
+    const log = await git.log({ maxCount });
+    return { success: true, commits: log.all };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:branches', async (event, repoPath) => {
+  try {
+    const git = simpleGit(repoPath);
+    const branches = await git.branchLocal();
+    return {
+      success: true,
+      current: branches.current,
+      branches: branches.all.map(name => ({
+        name,
+        current: name === branches.current,
+      })),
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:checkout', async (event, repoPath, branch) => {
+  try {
+    const git = simpleGit(repoPath);
+    await git.checkout(branch);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:is-repo', async (event, dirPath) => {
+  try {
+    const git = simpleGit(dirPath);
+    const isRepo = await git.checkIsRepo();
+    return { success: true, isRepo };
+  } catch (error) {
+    return { success: false, isRepo: false };
+  }
+});
+
+// ── PTY Terminal IPC handlers ───────────────────────────────────────────
+
+ipcMain.handle('pty:spawn', async (event, { id, cwd, shell }) => {
+  try {
+    // Kill existing PTY with same id
+    if (ptyProcesses.has(id)) {
+      try { ptyProcesses.get(id).kill(); } catch {}
+      ptyProcesses.delete(id);
+    }
+
+    const defaultShell = shell || (process.platform === 'win32' ? 'powershell.exe' : 'bash');
+    const pty = ptySpawn(defaultShell, [], {
+      name: 'xterm-256color',
+      cols: 80,
+      rows: 24,
+      cwd: cwd || process.env.HOME || process.env.USERPROFILE,
+      env: { ...process.env, TERM: 'xterm-256color' },
+    });
+
+    ptyProcesses.set(id, pty);
+
+    // Forward PTY output to renderer
+    pty.onData((data) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('pty:data', { id, data });
+      }
+    });
+
+    pty.onExit(({ exitCode }) => {
+      ptyProcesses.delete(id);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('pty:exit', { id, exitCode });
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('pty:write', async (event, { id, data }) => {
+  const pty = ptyProcesses.get(id);
+  if (pty) {
+    pty.write(data);
+    return { success: true };
+  }
+  return { success: false, error: 'PTY not found' };
+});
+
+ipcMain.handle('pty:resize', async (event, { id, cols, rows }) => {
+  const pty = ptyProcesses.get(id);
+  if (pty) {
+    try {
+      pty.resize(cols, rows);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+  return { success: false, error: 'PTY not found' };
+});
+
+ipcMain.handle('pty:kill', async (event, { id }) => {
+  const pty = ptyProcesses.get(id);
+  if (pty) {
+    try {
+      pty.kill();
+      ptyProcesses.delete(id);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+  return { success: true };
 });
 
 // File system watcher functions
