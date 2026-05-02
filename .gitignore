@@ -32,3 +32,4 @@ start-dev.bat
 *.backup
 *.new
 *.old
+.claude/

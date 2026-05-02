@@ -29,7 +29,7 @@ export const useUIStore = create((set, get) => ({
   setChatVisible: (v) => set({ chatVisible: v }),
 
   // ── Panel sizes (persisted in localStorage) ────────────────────────────
-  sidebarWidth: readNum('kaizer-sidebar-width', 240),
+  sidebarWidth: readNum('kaizer-sidebar-width', 280),
   terminalHeight: readNum('kaizer-terminal-height', 250),
   chatWidth: readNum('kaizer-chat-width', 340),
 
@@ -52,6 +52,7 @@ export const useUIStore = create((set, get) => ({
   showHelpModal: false,
   showSSHModal: false,
   showCommandPalette: false,
+  showGoToFile: false,
 
   openSettings: (tab) => set({ showSettings: tab || true }),
   closeSettings: () => set({ showSettings: false }),
@@ -60,6 +61,7 @@ export const useUIStore = create((set, get) => ({
   setShowSSHModal: (v) => set({ showSSHModal: v }),
   toggleCommandPalette: () => set((s) => ({ showCommandPalette: !s.showCommandPalette })),
   setShowCommandPalette: (v) => set({ showCommandPalette: v }),
+  setShowGoToFile: (v) => set({ showGoToFile: v }),
 
   // ── File picker ────────────────────────────────────────────────────────
   filePickerOpen: false,
