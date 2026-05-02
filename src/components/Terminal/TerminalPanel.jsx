@@ -1,48 +1,197 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Terminal } from 'xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { SearchAddon } from '@xterm/addon-search';
+import 'xterm/css/xterm.css';
 import './TerminalPanel.css';
+
+let nextTermId = 1;
 
 function TerminalPanel({ workspacePath }) {
   const [terminals, setTerminals] = useState([]);
   const [activeTerminalId, setActiveTerminalId] = useState(null);
-  const [splitView, setSplitView] = useState(false);
-  const outputRefs = useRef({});
-  const inputRefs = useRef({});
+  const xtermRefs = useRef({});   // id -> { terminal, fitAddon, searchAddon, containerEl }
+  const cleanupRefs = useRef({}); // id -> cleanup functions
 
-  useEffect(() => {
-    // Auto-scroll to bottom when output changes
-    if (activeTerminalId && outputRefs.current[activeTerminalId]) {
-      outputRefs.current[activeTerminalId].scrollTop = outputRefs.current[activeTerminalId].scrollHeight;
+  // Create a new PTY-backed terminal
+  const createTerminal = useCallback(async () => {
+    const id = `term-${nextTermId++}`;
+    const name = `Terminal ${nextTermId - 1}`;
+
+    const terminal = new Terminal({
+      cursorBlink: true,
+      fontSize: 14,
+      fontFamily: "'Cascadia Code', 'Consolas', 'Courier New', monospace",
+      theme: {
+        background: '#0c0c0c',
+        foreground: '#cccccc',
+        cursor: '#c084fc',
+        selectionBackground: 'rgba(168, 85, 247, 0.3)',
+        black: '#1e1e1e',
+        red: '#f14c4c',
+        green: '#73c991',
+        yellow: '#e2c04d',
+        blue: '#3b82f6',
+        magenta: '#c084fc',
+        cyan: '#0ea5e9',
+        white: '#cccccc',
+        brightBlack: '#666666',
+        brightRed: '#ff6b6b',
+        brightGreen: '#4ade80',
+        brightYellow: '#fbbf24',
+        brightBlue: '#60a5fa',
+        brightMagenta: '#d8b4fe',
+        brightCyan: '#38bdf8',
+        brightWhite: '#ffffff',
+      },
+      allowProposedApi: true,
+    });
+
+    const fitAddon = new FitAddon();
+    const webLinksAddon = new WebLinksAddon();
+    const searchAddon = new SearchAddon();
+
+    terminal.loadAddon(fitAddon);
+    terminal.loadAddon(webLinksAddon);
+    terminal.loadAddon(searchAddon);
+
+    xtermRefs.current[id] = { terminal, fitAddon, searchAddon, containerEl: null };
+
+    // Spawn PTY
+    if (window.electron?.ptySpawn) {
+      const result = await window.electron.ptySpawn({
+        id,
+        cwd: workspacePath || undefined,
+      });
+
+      if (!result.success) {
+        terminal.writeln(`\x1b[31mFailed to start terminal: ${result.error}\x1b[0m`);
+      }
     }
-  }, [terminals, activeTerminalId]);
 
+    // Listen for PTY data
+    const onDataCleanup = window.electron?.onPtyData?.(({ id: termId, data }) => {
+      if (termId === id) {
+        terminal.write(data);
+      }
+    });
+
+    // Listen for PTY exit
+    const onExitCleanup = window.electron?.onPtyExit?.(({ id: termId, exitCode }) => {
+      if (termId === id) {
+        terminal.writeln(`\r\n\x1b[33m[Process exited with code ${exitCode}]\x1b[0m`);
+      }
+    });
+
+    // Forward terminal input to PTY
+    const inputDisposable = terminal.onData((data) => {
+      window.electron?.ptyWrite({ id, data });
+    });
+
+    cleanupRefs.current[id] = () => {
+      onDataCleanup?.();
+      onExitCleanup?.();
+      inputDisposable.dispose();
+    };
+
+    setTerminals(prev => [...prev, { id, name }]);
+    setActiveTerminalId(id);
+
+    return id;
+  }, [workspacePath]);
+
+  // Auto-create first terminal on mount
   useEffect(() => {
-    // Listen for new terminal event
-    const handleNewTerminal = () => {
-      createNewTerminal('powershell');
+    if (terminals.length === 0) {
+      createTerminal();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for external new-terminal event
+  useEffect(() => {
+    const handler = () => createTerminal();
+    window.addEventListener('kaizer:new-terminal', handler);
+    return () => window.removeEventListener('kaizer:new-terminal', handler);
+  }, [createTerminal]);
+
+  // Mount xterm to DOM when container ref becomes available
+  const containerRefCallback = useCallback((id, el) => {
+    if (!el || !xtermRefs.current[id]) return;
+    const { terminal, fitAddon } = xtermRefs.current[id];
+
+    if (xtermRefs.current[id].containerEl === el) return;
+    xtermRefs.current[id].containerEl = el;
+
+    terminal.open(el);
+    // Fit after open with a small delay for layout
+    requestAnimationFrame(() => {
+      try {
+        fitAddon.fit();
+        // Notify PTY of actual size
+        window.electron?.ptyResize({
+          id,
+          cols: terminal.cols,
+          rows: terminal.rows,
+        });
+      } catch {}
+    });
+  }, []);
+
+  // Fit all terminals on resize
+  useEffect(() => {
+    const handleResize = () => {
+      for (const [id, ref] of Object.entries(xtermRefs.current)) {
+        if (ref.containerEl) {
+          try {
+            ref.fitAddon.fit();
+            window.electron?.ptyResize({
+              id,
+              cols: ref.terminal.cols,
+              rows: ref.terminal.rows,
+            });
+          } catch {}
+        }
+      }
     };
 
-    window.addEventListener('kaizer:new-terminal', handleNewTerminal);
-    return () => {
-      window.removeEventListener('kaizer:new-terminal', handleNewTerminal);
-    };
-  }, [terminals.length, workspacePath]);
+    const observer = new ResizeObserver(handleResize);
+    const contentEl = document.querySelector('.terminal-content');
+    if (contentEl) observer.observe(contentEl);
 
-  const createNewTerminal = (shell = 'powershell') => {
-    const newTerminal = {
-      id: Date.now(),
-      name: `Terminal ${terminals.length + 1}`,
-      shell,
-      output: [],
-      input: '',
-      cwd: workspacePath || 'C:\\',
-      history: [],
-      historyIndex: -1
-    };
-    setTerminals(prev => [...prev, newTerminal]);
-    setActiveTerminalId(newTerminal.id);
-  };
+    return () => observer.disconnect();
+  }, []);
+
+  // Focus active terminal when tab changes
+  useEffect(() => {
+    if (activeTerminalId && xtermRefs.current[activeTerminalId]) {
+      const { terminal, fitAddon } = xtermRefs.current[activeTerminalId];
+      requestAnimationFrame(() => {
+        try {
+          fitAddon.fit();
+          window.electron?.ptyResize({
+            id: activeTerminalId,
+            cols: terminal.cols,
+            rows: terminal.rows,
+          });
+        } catch {}
+        terminal.focus();
+      });
+    }
+  }, [activeTerminalId]);
 
   const closeTerminal = (id) => {
+    // Kill PTY
+    window.electron?.ptyKill({ id });
+    // Cleanup listeners
+    cleanupRefs.current[id]?.();
+    delete cleanupRefs.current[id];
+    // Dispose xterm
+    if (xtermRefs.current[id]) {
+      xtermRefs.current[id].terminal.dispose();
+      delete xtermRefs.current[id];
+    }
+
     setTerminals(prev => prev.filter(t => t.id !== id));
     if (activeTerminalId === id) {
       const remaining = terminals.filter(t => t.id !== id);
@@ -50,124 +199,11 @@ function TerminalPanel({ workspacePath }) {
     }
   };
 
-  const executeCommand = async (terminalId, command) => {
-    if (!command.trim()) return;
-
-    const terminal = terminals.find(t => t.id === terminalId);
-    if (!terminal) return;
-
-    // Add command to output
-    setTerminals(prev => prev.map(t => 
-      t.id === terminalId 
-        ? { 
-            ...t, 
-            output: [...t.output, { type: 'command', text: `${t.cwd}> ${command}` }],
-            history: [...t.history, command],
-            historyIndex: -1,
-            input: ''
-          }
-        : t
-    ));
-
-    // Execute command via Electron
-    try {
-      const result = await window.electron.executeCommand(command, terminal.cwd);
-      
-      setTerminals(prev => prev.map(t => 
-        t.id === terminalId 
-          ? { 
-              ...t, 
-              output: [
-                ...t.output, 
-                { 
-                  type: result.success ? 'success' : 'error', 
-                  text: result.output || result.error || 'Command executed'
-                }
-              ],
-              cwd: result.cwd || t.cwd
-            }
-          : t
-      ));
-    } catch (error) {
-      setTerminals(prev => prev.map(t => 
-        t.id === terminalId 
-          ? { 
-              ...t, 
-              output: [...t.output, { type: 'error', text: `Error: ${error.message}` }]
-            }
-          : t
-      ));
+  const clearTerminal = (id) => {
+    if (xtermRefs.current[id]) {
+      xtermRefs.current[id].terminal.clear();
     }
   };
-
-  const handleKeyDown = (terminalId, e) => {
-    const terminal = terminals.find(t => t.id === terminalId);
-    if (!terminal) return;
-
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      executeCommand(terminalId, terminal.input);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (terminal.history.length > 0) {
-        const newIndex = terminal.historyIndex === -1 
-          ? terminal.history.length - 1 
-          : Math.max(0, terminal.historyIndex - 1);
-        setTerminals(prev => prev.map(t => 
-          t.id === terminalId 
-            ? { ...t, historyIndex: newIndex, input: t.history[newIndex] }
-            : t
-        ));
-      }
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (terminal.historyIndex !== -1) {
-        const newIndex = terminal.historyIndex + 1;
-        if (newIndex >= terminal.history.length) {
-          setTerminals(prev => prev.map(t => 
-            t.id === terminalId 
-              ? { ...t, historyIndex: -1, input: '' }
-              : t
-          ));
-        } else {
-          setTerminals(prev => prev.map(t => 
-            t.id === terminalId 
-              ? { ...t, historyIndex: newIndex, input: t.history[newIndex] }
-              : t
-          ));
-        }
-      }
-    }
-  };
-
-  const clearTerminal = (terminalId) => {
-    setTerminals(prev => prev.map(t => 
-      t.id === terminalId ? { ...t, output: [] } : t
-    ));
-  };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-  };
-
-  const handleOutputClick = (e) => {
-    // Auto-detect and send selected text to chat
-    const selection = window.getSelection();
-    const selectedText = selection.toString();
-    if (selectedText && selectedText.trim()) {
-      // Automatically send to chat when text is selected
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('kaizer:paste-to-chat', { 
-          detail: { 
-            text: selectedText,
-            type: 'terminal'
-          } 
-        }));
-      }, 100);
-    }
-  };
-
-  const activeTerminal = terminals.find(t => t.id === activeTerminalId);
 
   return (
     <div className="terminal-panel">
@@ -179,7 +215,7 @@ function TerminalPanel({ workspacePath }) {
               className={`terminal-tab ${activeTerminalId === terminal.id ? 'active' : ''}`}
               onClick={() => setActiveTerminalId(terminal.id)}
             >
-              <span className="terminal-tab-icon">💻</span>
+              <span className="terminal-tab-icon">&#x1F4BB;</span>
               <span>{terminal.name}</span>
               <span
                 className="terminal-tab-close"
@@ -188,60 +224,40 @@ function TerminalPanel({ workspacePath }) {
                   closeTerminal(terminal.id);
                 }}
               >
-                ×
+                &times;
               </span>
             </button>
           ))}
         </div>
         <div className="terminal-actions">
-          <button 
-            className="terminal-action-btn" 
-            onClick={() => createNewTerminal('powershell')}
+          <button
+            className="terminal-action-btn"
+            onClick={() => createTerminal()}
             title="New Terminal"
-          >
-            +
-          </button>
-          <button 
-            className="terminal-action-btn" 
-            onClick={() => setSplitView(!splitView)}
-            title="Split Terminal"
-            disabled={terminals.length < 2}
-          >
-            ⬌
-          </button>
-          <button 
-            className="terminal-action-btn ssh-btn" 
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('kaizer:open-ssh-modal'));
-            }}
+          >+</button>
+          <button
+            className="terminal-action-btn ssh-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent('kaizer:open-ssh-modal'))}
             title="Connect to SSH"
-          >
-            🔌
-          </button>
-          <button 
-            className="terminal-action-btn" 
+          >&#x1F50C;</button>
+          <button
+            className="terminal-action-btn"
             onClick={() => activeTerminalId && clearTerminal(activeTerminalId)}
             title="Clear Terminal"
             disabled={!activeTerminalId}
-          >
-            🗑
-          </button>
-          <button 
-            className="terminal-action-btn terminal-close-all" 
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('kaizer:close-terminal'));
-            }}
+          >&#x1F5D1;</button>
+          <button
+            className="terminal-action-btn terminal-close-all"
+            onClick={() => window.dispatchEvent(new CustomEvent('kaizer:close-terminal'))}
             title="Close Terminal Panel"
-          >
-            ✕
-          </button>
+          >&#x2715;</button>
         </div>
       </div>
 
       <div className="terminal-content">
         {terminals.length === 0 ? (
           <div className="terminal-empty">
-            <span className="terminal-empty-icon">💻</span>
+            <span className="terminal-empty-icon">&#x1F4BB;</span>
             <span className="terminal-empty-text">No terminals open</span>
             <span className="terminal-empty-hint">Click + to create a new terminal</span>
           </div>
@@ -250,35 +266,8 @@ function TerminalPanel({ workspacePath }) {
             <div
               key={terminal.id}
               className={`terminal-instance ${activeTerminalId === terminal.id ? 'active' : ''}`}
-            >
-              <div 
-                className="terminal-output"
-                ref={el => outputRefs.current[terminal.id] = el}
-                onMouseUp={handleOutputClick}
-              >
-                {terminal.output.map((line, idx) => (
-                  <div key={idx} className={`terminal-line ${line.type}`}>
-                    {line.type === 'command' && <span className="terminal-prompt">{line.text}</span>}
-                    {line.type !== 'command' && <pre className="terminal-output-text">{line.text}</pre>}
-                  </div>
-                ))}
-              </div>
-              <div className="terminal-input-area">
-                <span className="terminal-input-prompt">{terminal.cwd}{'>'}</span>
-                <input
-                  ref={el => inputRefs.current[terminal.id] = el}
-                  type="text"
-                  className="terminal-input"
-                  value={terminal.input}
-                  onChange={(e) => setTerminals(prev => prev.map(t => 
-                    t.id === terminal.id ? { ...t, input: e.target.value } : t
-                  ))}
-                  onKeyDown={(e) => handleKeyDown(terminal.id, e)}
-                  placeholder="Type a command..."
-                  autoFocus={activeTerminalId === terminal.id}
-                />
-              </div>
-            </div>
+              ref={(el) => el && containerRefCallback(terminal.id, el)}
+            />
           ))
         )}
       </div>

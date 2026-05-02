@@ -161,10 +161,38 @@
   display: none;
   flex-direction: column;
   background: #0c0c0c;
+  overflow: hidden;
 }
 
 .terminal-instance.active {
   display: flex;
+}
+
+/* xterm.js container overrides */
+.terminal-instance .xterm {
+  height: 100%;
+  padding: 4px 0;
+}
+
+.terminal-instance .xterm-viewport {
+  overflow-y: auto !important;
+}
+
+.terminal-instance .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-instance .xterm-viewport::-webkit-scrollbar-track {
+  background: #0c0c0c;
+}
+
+.terminal-instance .xterm-viewport::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+.terminal-instance .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: #444;
 }
 
 .terminal-output {
