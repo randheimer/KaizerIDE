@@ -152,7 +152,17 @@ Optionally verify the SHA256 checksum shipped with each release. See the full **
 | Multi-agent AI system (Agent / Planner / Ask / Fixer) | ✅ Complete |
 | Local workspace indexing with real-time file watching | ✅ Complete |
 | Command palette, durable sessions, ESLint + Prettier | ✅ Complete |
-| Git UI — visual diff and commit history | 🚧 In progress |
+| Git UI — visual diff and commit history | ✅ Complete |
+| Git blame annotations (`Ctrl+Shift+G`) | ✅ Complete |
+| Split editor view (`Ctrl+\`) | ✅ Complete |
+| Inline AI completions (Copilot-style) | ✅ Complete |
+| Inline AI edit (`Ctrl+Shift+I`) | ✅ Complete |
+| Emmet expansion (Tab in HTML/CSS/JSX/TSX) | ✅ Complete |
+| Bookmarks (`Ctrl+Shift+K`), pinned tabs, editor zoom | ✅ Complete |
+| Workspace search & replace with regex | ✅ Complete |
+| Problems panel, output panel, TODO explorer, task runner | ✅ Complete |
+| Zen mode (`Ctrl+K Z`) | ✅ Complete |
+| SSH remote development (connect, browse, SFTP) | ✅ Complete |
 | Debugger integration | 📋 Planned |
 | Custom themes and color schemes | 📋 Planned |
 | Documentation generation from code | 📋 Planned |
