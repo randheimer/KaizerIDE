@@ -72,6 +72,8 @@ contextBridge.exposeInMainWorld('electron', {
   gitCheckout: (repoPath, branch) => ipcRenderer.invoke('git:checkout', repoPath, branch),
   gitIsRepo: (dirPath) => ipcRenderer.invoke('git:is-repo', dirPath),
   gitBlame: (repoPath, filePath) => ipcRenderer.invoke('git:blame', repoPath, filePath),
+  gitShow: (repoPath, commitHash) => ipcRenderer.invoke('git:show', repoPath, commitHash),
+  gitDiffCommit: (repoPath, commitHash, file) => ipcRenderer.invoke('git:diff-commit', repoPath, commitHash, file),
 
   // SSH/Remote connection
   connectSSH: (config) => ipcRenderer.invoke('connect-ssh', config),

@@ -1087,6 +1087,37 @@ ipcMain.handle('git:log', async (event, repoPath, maxCount = 50) => {
   }
 });
 
+ipcMain.handle('git:show', async (event, repoPath, commitHash) => {
+  try {
+    const git = simpleGit(repoPath);
+    // Get files changed in this commit
+    const diffSummary = await git.raw(['diff-tree', '--no-commit-id', '-r', '--name-status', commitHash]);
+    const files = diffSummary.trim().split('\n').filter(Boolean).map(line => {
+      const [status, ...pathParts] = line.split('\t');
+      return { status: status.trim(), path: pathParts.join('\t') };
+    });
+    // Get the full diff for this commit
+    const diff = await git.raw(['diff', `${commitHash}~1..${commitHash}`]);
+    // Get commit stats (insertions/deletions)
+    const stat = await git.raw(['diff', '--stat', `${commitHash}~1..${commitHash}`]);
+    return { success: true, files, diff, stat };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:diff-commit', async (event, repoPath, commitHash, file) => {
+  try {
+    const git = simpleGit(repoPath);
+    const diff = file
+      ? await git.raw(['diff', `${commitHash}~1..${commitHash}`, '--', file])
+      : await git.raw(['diff', `${commitHash}~1..${commitHash}`]);
+    return { success: true, diff };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('git:branches', async (event, repoPath) => {
   try {
     const git = simpleGit(repoPath);

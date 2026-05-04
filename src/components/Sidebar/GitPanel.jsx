@@ -10,16 +10,39 @@ const STATUS_LABELS = {
   'C': { label: 'C', title: 'Conflict', color: '#f14c4c' },
 };
 
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  return date.toLocaleDateString();
+}
+
 function GitPanel({ workspacePath, onFileOpen }) {
   const {
     isRepo, currentBranch, branches, changedFiles, stagedFiles,
     commits, loading, error,
-    init, refresh, stage, unstage, commit, checkout, getDiff
+    init, refresh, stage, unstage, commit, checkout, getDiff,
+    getCommitDetails, getCommitFileDiff,
   } = useGitStore();
 
   const [commitMsg, setCommitMsg] = useState('');
   const [expandedSections, setExpandedSections] = useState({ changes: true, staged: true, branches: false, history: false });
   const [committing, setCommitting] = useState(false);
+  const [expandedCommit, setExpandedCommit] = useState(null); // hash of expanded commit
+  const [commitDetails, setCommitDetails] = useState({}); // { [hash]: { files, diff, stat } }
+  const [loadingCommit, setLoadingCommit] = useState(null);
+  const [inlineDiffFile, setInlineDiffFile] = useState(null); // { path, diff }
+  const [loadingDiff, setLoadingDiff] = useState(false);
 
   // Init git when workspace changes
   useEffect(() => {
@@ -58,27 +81,58 @@ function GitPanel({ workspacePath, onFileOpen }) {
     const fullPath = workspacePath ? `${workspacePath}\\${filePath}` : filePath;
 
     if (showDiff && getDiff) {
+      setLoadingDiff(true);
+      setInlineDiffFile(null);
       try {
         const diffResult = await getDiff(workspacePath, filePath);
-        if (diffResult?.success) {
-          // Dispatch event to open diff view in editor
-          window.dispatchEvent(new CustomEvent('kaizer:open-diff', {
-            detail: {
-              path: fullPath,
-              diff: diffResult.diff,
-              fileName: filePath,
-            }
-          }));
-          return;
+        if (diffResult?.success !== false) {
+          setInlineDiffFile({ path: filePath, diff: typeof diffResult === 'string' ? diffResult : diffResult?.diff || '' });
         }
       } catch (err) {
         console.error('[GitPanel] Failed to get diff:', err);
       }
+      setLoadingDiff(false);
+      return;
     }
 
     if (onFileOpen) {
       onFileOpen(fullPath, { fileOnly: true });
     }
+  };
+
+  const handleOpenDiffInEditor = (filePath) => {
+    const fullPath = workspacePath ? `${workspacePath}\\${filePath}` : filePath;
+    window.dispatchEvent(new CustomEvent('kaizer:open-diff', {
+      detail: {
+        path: fullPath,
+        diff: inlineDiffFile?.diff || '',
+        fileName: filePath,
+      }
+    }));
+  };
+
+  const handleCommitClick = async (hash) => {
+    if (expandedCommit === hash) {
+      setExpandedCommit(null);
+      return;
+    }
+    setExpandedCommit(hash);
+    if (!commitDetails[hash]) {
+      setLoadingCommit(hash);
+      const details = await getCommitDetails(workspacePath, hash);
+      if (details) {
+        setCommitDetails(prev => ({ ...prev, [hash]: details }));
+      }
+      setLoadingCommit(null);
+    }
+  };
+
+  const handleCommitFileClick = async (hash, filePath) => {
+    setLoadingDiff(true);
+    setInlineDiffFile(null);
+    const diff = await getCommitFileDiff(workspacePath, hash, filePath);
+    setInlineDiffFile({ path: filePath, diff });
+    setLoadingDiff(false);
   };
 
   const handleBranchSwitch = (branch) => {
@@ -194,8 +248,9 @@ function GitPanel({ workspacePath, onFileOpen }) {
           </button>
           {expandedSections.changes && unstagedChanges.map(file => {
             const info = STATUS_LABELS[file.status] || STATUS_LABELS['?'];
+            const isActive = inlineDiffFile?.path === file.path;
             return (
-              <div key={file.path} className="git-file-item">
+              <div key={file.path} className={`git-file-item ${isActive ? 'active' : ''}`}>
                 <span className="git-file-status" style={{ color: info.color }} title={info.title}>
                   {info.label}
                 </span>
@@ -213,8 +268,44 @@ function GitPanel({ workspacePath, onFileOpen }) {
         </div>
       )}
 
+      {/* Inline diff preview */}
+      {inlineDiffFile && (
+        <div className="git-inline-diff">
+          <div className="git-inline-diff-header">
+            <span className="git-inline-diff-file">{inlineDiffFile.path}</span>
+            <div className="git-inline-diff-actions">
+              <button
+                className="git-inline-btn"
+                onClick={() => handleOpenDiffInEditor(inlineDiffFile.path)}
+                title="Open in Editor"
+              >↗</button>
+              <button
+                className="git-inline-btn"
+                onClick={() => setInlineDiffFile(null)}
+                title="Close"
+              >×</button>
+            </div>
+          </div>
+          <pre className="git-inline-diff-content">
+            {inlineDiffFile.diff ? (
+              inlineDiffFile.diff.split('\n').map((line, i) => {
+                let cls = '';
+                if (line.startsWith('+') && !line.startsWith('+++')) cls = 'diff-add';
+                else if (line.startsWith('-') && !line.startsWith('---')) cls = 'diff-del';
+                else if (line.startsWith('@@')) cls = 'diff-hunk';
+                else if (line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) cls = 'diff-meta';
+                return <div key={i} className={cls}>{line}</div>;
+              })
+            ) : (
+              <div className="diff-empty">No diff content</div>
+            )}
+          </pre>
+        </div>
+      )}
+      {loadingDiff && <div className="git-loading">Loading diff…</div>}
+
       {/* No changes */}
-      {!hasChanges && !loading && (
+      {!hasChanges && !loading && !inlineDiffFile && (
         <div className="git-clean">
           <span>No changes</span>
         </div>
@@ -228,12 +319,63 @@ function GitPanel({ workspacePath, onFileOpen }) {
             <span>History</span>
             <span className="git-badge">{commits.length}</span>
           </button>
-          {expandedSections.history && commits.slice(0, 20).map(commit => (
-            <div key={commit.hash} className="git-commit-item">
-              <span className="git-commit-hash">{commit.hash.slice(0, 7)}</span>
-              <span className="git-commit-msg">{commit.message}</span>
-            </div>
-          ))}
+          {expandedSections.history && commits.slice(0, 30).map(c => {
+            const isExpanded = expandedCommit === c.hash;
+            const details = commitDetails[c.hash];
+            return (
+              <div key={c.hash} className={`git-commit-item ${isExpanded ? 'expanded' : ''}`}>
+                <button className="git-commit-row" onClick={() => handleCommitClick(c.hash)}>
+                  <div className="git-commit-main">
+                    <span className="git-commit-hash">{c.hash.slice(0, 7)}</span>
+                    <span className="git-commit-msg">{c.message}</span>
+                  </div>
+                  <div className="git-commit-meta">
+                    <span className="git-commit-author">{c.author_name}</span>
+                    <span className="git-commit-date">{formatRelativeTime(c.date)}</span>
+                  </div>
+                </button>
+
+                {isExpanded && (
+                  <div className="git-commit-details">
+                    {loadingCommit === c.hash && <div className="git-loading">Loading…</div>}
+                    {details && (
+                      <>
+                        <div className="git-commit-full-msg">
+                          {c.message}
+                          {c.body && <div className="git-commit-body">{c.body}</div>}
+                        </div>
+                        <div className="git-commit-info">
+                          <span>Author: {c.author_name} &lt;{c.author_email}&gt;</span>
+                          <span>Date: {new Date(c.date).toLocaleString()}</span>
+                          <span>Hash: {c.hash}</span>
+                        </div>
+                        {details.files.length > 0 && (
+                          <div className="git-commit-files">
+                            <div className="git-commit-files-header">
+                              Changed files ({details.files.length})
+                            </div>
+                            {details.files.map(f => {
+                              const info = STATUS_LABELS[f.status] || STATUS_LABELS['?'];
+                              return (
+                                <button
+                                  key={f.path}
+                                  className="git-commit-file"
+                                  onClick={() => handleCommitFileClick(c.hash, f.path)}
+                                >
+                                  <span className="git-file-status" style={{ color: info.color }}>{info.label}</span>
+                                  <span className="git-commit-file-path">{f.path}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

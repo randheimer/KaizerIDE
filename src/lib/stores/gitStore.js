@@ -134,4 +134,24 @@ export const useGitStore = create((set, get) => ({
       return '';
     }
   },
+
+  // Get commit details (files changed, diff)
+  getCommitDetails: async (repoPath, commitHash) => {
+    try {
+      const res = await window.electron.gitShow(repoPath, commitHash);
+      return res.success ? res : null;
+    } catch {
+      return null;
+    }
+  },
+
+  // Get diff for a specific file in a commit
+  getCommitFileDiff: async (repoPath, commitHash, file) => {
+    try {
+      const res = await window.electron.gitDiffCommit(repoPath, commitHash, file);
+      return res.success ? res.diff : '';
+    } catch {
+      return '';
+    }
+  },
 }));
