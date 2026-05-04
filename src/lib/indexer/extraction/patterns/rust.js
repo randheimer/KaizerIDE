@@ -31,5 +31,5 @@ export const rustPatterns = [
   /macro_rules!\s+([a-zA-Z_][a-zA-Z0-9_]*)/gm,
 
   // Use declarations with aliases
-  /use\s+(?:[a-zA-Z_][a-zA-Z0-9_:]*::)*([a-zA-Z_][a-zA-Z0-9_]*)\s+as\s+([a-zA-Z_][a-zA-Z0-9_]*)/gm,
+  /use\s+(?:[a-zA-Z_][a-zA-Z0-9_]*::)*([a-zA-Z_][a-zA-Z0-9_]*)\s+as\s+([a-zA-Z_][a-zA-Z0-9_]*)/gm,
 ];
