@@ -49,19 +49,20 @@ const subsystems = initializeAgentSystem();
 /**
  * Main entry point - routes to appropriate agent based on mode
  */
-export async function runAgentTurn({ 
-  messages, 
-  settings, 
+export async function runAgentTurn({
+  messages,
+  settings,
   workspacePath,
   activeFile,
   activeFileContent,
   mode = 'agent',
-  onToken, 
-  onToolCall, 
-  onToolResult, 
+  onToken,
+  onToolCall,
+  onToolResult,
   onThinkingToken,
-  onDone, 
-  signal 
+  onIterationUpdate,
+  onDone,
+  signal
 }) {
   const { logger, metrics, tracer, sessionManager } = subsystems;
   
@@ -82,7 +83,7 @@ export async function runAgentTurn({
     onThinkingToken(token);
   } : null;
   
-  context.setCallbacks({ onToken, onToolCall, onToolResult, onThinkingToken: wrappedOnThinkingToken, onDone });
+  context.setCallbacks({ onToken, onToolCall, onToolResult, onThinkingToken: wrappedOnThinkingToken, onIterationUpdate, onDone });
   context.setAbortSignal(signal);
   
   let agent;
