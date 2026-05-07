@@ -13,6 +13,7 @@ import EmptyState from './EmptyState';
 import MessageList from './MessageList';
 import TypingIndicator from './TypingIndicator';
 import AnalysingIndicator from './AnalysingIndicator';
+import IterationProgressIndicator from './IterationProgressIndicator';
 import Composer from './Composer/Composer';
 import MessageActions from './MessageActions';
 import FileLink from './FileLink';
@@ -158,6 +159,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const [isAgentRunning, setIsAgentRunning] = useState(false);
   const [toolGroups, setToolGroups] = useState({});
   const [currentTurnId, setCurrentTurnId] = useState(null);
+  const [currentIteration, setCurrentIteration] = useState(0);
+  const [maxIterations, setMaxIterations] = useState(8);
 
   // Composer-related state lives in chatStore (consumed directly by Composer
   // and its sub-pickers; mirrored here via selectors so existing handlers work).
@@ -180,7 +183,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const [filesChangedCard, setFilesChangedCard] = useState(null);
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [analysingFiles, setAnalysingFiles] = useState([]);
-  
+  const [analysingCategory, setAnalysingCategory] = useState('analysing');
+
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   // Tracks whether the user has manually scrolled away from the bottom.
@@ -591,6 +595,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         activeFile,
         activeFileContent,
         mode: currentMode, // Pass the selected mode (agent/plan/ask/fixer)
+        onIterationUpdate: (current, max) => {
+          setCurrentIteration(current);
+          setMaxIterations(max);
+        },
         onToken: (token) => {
           // Clear analysing indicator when text response starts
           if (isAnalysing) {
@@ -670,15 +678,26 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           }
         },
         onToolCall: ({ id, name, args }) => {
-          // Detect context-gathering tools and start analysing indicator
+          // Categorize tools and start analysing indicator with appropriate label
           const contextTools = ['read_file', 'search_files', 'grep_index', 'search_index', 'list_directory'];
+          const writeTools = ['write_file'];
+          const commandTools = ['run_command'];
+
+          let category = 'working';
           if (contextTools.includes(name)) {
-            setIsAnalysing(true);
+            category = 'analysing';
             // Track file being read
             if (name === 'read_file' && args.path) {
               setAnalysingFiles(prev => [...prev, args.path]);
             }
+          } else if (writeTools.includes(name)) {
+            category = 'writing';
+          } else if (commandTools.includes(name)) {
+            category = 'running';
           }
+
+          setIsAnalysing(true);
+          setAnalysingCategory(category);
           
           // Add tool to current turn's group
           setToolGroups(prev => {
@@ -732,11 +751,14 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         onDone: () => {
           clearTimeout(streamingUpdateTimer.current);
           streamingUpdateTimer.current = null;
-          
+
           // Clear analysing indicator
           setIsAnalysing(false);
           setAnalysingFiles([]);
-          
+
+          // Reset iteration state
+          setCurrentIteration(0);
+
           // Commit streaming message to messages (only if exists)
           if (streamingMsgRef.current) {
             console.log('[ChatPanel] 📝 Finalizing message. Content length:', streamingMsgRef.current.content.length);
@@ -899,6 +921,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         setIsStreaming(false);
         setIsAgentRunning(false);
         setCurrentTurnId(null);
+        setCurrentIteration(0);
         thinkStartTime.current = null;
         setStreamingMsg(null);
         streamingMsgRef.current = null;
@@ -947,7 +970,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       setIsAgentRunning(false);
       setIsAnalysing(false);
       setAnalysingFiles([]);
-      
+      setCurrentIteration(0);
+
       // Mark current tool group as done
       if (currentTurnId && toolGroups[currentTurnId]) {
         setToolGroups(prev => ({
@@ -1458,10 +1482,17 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                 onToggleGroupExpanded={handleToggleGroupExpanded}
                 onToggleRowExpanded={handleToggleRowExpanded}
               />
+              {currentIteration > 1 && isAgentRunning && (
+                <IterationProgressIndicator
+                  current={currentIteration}
+                  max={maxIterations}
+                />
+              )}
               {isAnalysing && (
-                <AnalysingIndicator 
-                  files={analysingFiles} 
-                  totalFiles={analysingFiles.length} 
+                <AnalysingIndicator
+                  files={analysingFiles}
+                  totalFiles={analysingFiles.length}
+                  category={analysingCategory}
                 />
               )}
               {streamingMsg && (
