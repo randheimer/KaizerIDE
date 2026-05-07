@@ -140,7 +140,9 @@ function StatusBar({ activeFile, modelName, endpoint, cursorPosition, languageMo
           </div>
         )}
         {activeFile ? (
-          <span className="status-file">{activeFile}</span>
+          <span className="status-file" title={activeFile}>
+            {activeFile.split(/[\\/]/).pop()}
+          </span>
         ) : (
           <span className="status-file status-empty">No file open</span>
         )}
