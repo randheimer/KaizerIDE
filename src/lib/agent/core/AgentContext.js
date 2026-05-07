@@ -41,6 +41,7 @@ export class AgentContext {
     this.onToolCall = null;
     this.onToolResult = null;
     this.onThinkingToken = null;
+    this.onIterationUpdate = null;
     this.onDone = null;
   }
 
@@ -54,11 +55,12 @@ export class AgentContext {
   /**
    * Set callback functions
    */
-  setCallbacks({ onToken, onToolCall, onToolResult, onThinkingToken, onDone }) {
+  setCallbacks({ onToken, onToolCall, onToolResult, onThinkingToken, onIterationUpdate, onDone }) {
     this.onToken = onToken;
     this.onToolCall = onToolCall;
     this.onToolResult = onToolResult;
     this.onThinkingToken = onThinkingToken;
+    this.onIterationUpdate = onIterationUpdate;
     this.onDone = onDone;
   }
 

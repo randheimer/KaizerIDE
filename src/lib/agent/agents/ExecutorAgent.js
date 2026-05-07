@@ -15,7 +15,7 @@ import { indexer } from '../../indexer';
 export class ExecutorAgent extends AgentBase {
   constructor(config = {}) {
     super('executor', config);
-    this.maxIterations = config.maxIterations || 12;
+    this.maxIterations = config.maxIterations || 8;
     // Cached system prompt — rebuilt only when workspace/model changes
     this._cachedSystemPrompt = null;
     this._cachedPromptKey = null;
@@ -84,6 +84,12 @@ BEST PRACTICES:
 - Handle errors gracefully and fix issues autonomously
 - Think step-by-step using <think>...</think> tags
 
+STREAMING PROGRESS:
+- After executing tools, briefly describe what you learned or accomplished before requesting more tools
+- Stream progress updates between tool batches so the user knows what you're doing
+- Example: "Read config files, found auth settings" or "Modified 3 components, now testing"
+- Keep the user informed during multi-step operations
+
 You are the primary agent for getting work done. Be proactive, thorough, and reliable.`;
 
     this._cachedSystemPrompt = executorPrompt;
@@ -148,19 +154,24 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
       // Main agent loop
       for (let iteration = 0; iteration < this.maxIterations; iteration++) {
         context.incrementIteration();
-        
+
+        // Notify UI of iteration progress
+        if (context.onIterationUpdate) {
+          context.onIterationUpdate(iteration + 1, this.maxIterations);
+        }
+
         // Check for abort
         if (context.isAborted()) {
           context.logger?.info('[ExecutorAgent] Execution aborted');
           break;
         }
-        
+
         // Check max iterations
         if (context.hasReachedMaxIterations()) {
           context.logger?.warn('[ExecutorAgent] Max iterations reached');
           break;
         }
-        
+
         context.logger?.debug(`[ExecutorAgent] Iteration ${iteration + 1}/${this.maxIterations}`);
         
         // Make API call

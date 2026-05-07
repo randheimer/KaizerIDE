@@ -72,13 +72,25 @@ function isWindows() {
 }
 
 function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePicker, contextMenu, setContextMenu, remoteMode, onFolderNavigate, onOpenFolder }) {
-  const [expanded, setExpanded] = useState(depth === 0);
+  // Load expand state from localStorage
+  const storageKey = `folder-expanded:${node.path}`;
+  const savedExpanded = localStorage.getItem(storageKey);
+  const initialExpanded = savedExpanded !== null ? savedExpanded === 'true' : depth === 0;
+
+  const [expanded, setExpanded] = useState(initialExpanded);
   const [inlineMode, setInlineMode] = useState(null);
   const [inputValue, setInputValue] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef(null);
   const dragTimeoutRef = useRef(null);
+
+  // Save expand state to localStorage when it changes
+  useEffect(() => {
+    if (node.type === 'directory') {
+      localStorage.setItem(storageKey, expanded.toString());
+    }
+  }, [expanded, storageKey, node.type]);
 
   useEffect(() => {
     if (inlineMode && inputRef.current) {
@@ -453,7 +465,7 @@ function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePi
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="node-name">{node.name}</span>
+          <span className="node-name" title={node.name}>{node.name}</span>
         )}
         
         {node.type === 'dir' && childCount > 0 && (

@@ -33,7 +33,7 @@ function MessageList({
       if (msg.role === 'user') {
         userCount += 1;
         const group = groupsSorted[userCount - 1];
-        if (group && group.tools.length > 0 && group.status === 'done') {
+        if (group && group.tools.length > 0) {
           out.push({ kind: 'tool-group', group });
         }
       }
