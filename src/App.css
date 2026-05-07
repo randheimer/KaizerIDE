@@ -59,28 +59,34 @@
   opacity: 0.6;
 }
 
-/* Horizontal: thin visual bar, wide invisible hit area */
+/* Disable hover on all handles during resize */
+.is-resizing .resize-handle:not(:active)::after {
+  background: transparent !important;
+  opacity: 0 !important;
+}
+
+/* Horizontal: thin visual bar, narrow hit area */
 .resize-horizontal {
-  width: 12px;
+  width: 4px;
   cursor: col-resize;
   height: 100%;
 }
 
 .resize-horizontal::after {
-  width: 2px;
-  left: 5px;
+  width: 1px;
+  left: 1.5px;
 }
 
-/* Vertical: thin visual bar, wide invisible hit area */
+/* Vertical: thin visual bar, narrow hit area */
 .resize-vertical {
-  height: 12px;
+  height: 4px;
   cursor: row-resize;
   width: 100%;
 }
 
 .resize-vertical::after {
-  height: 2px;
-  top: 5px;
+  height: 1px;
+  top: 1.5px;
 }
 
 /* Zen Mode */

@@ -110,6 +110,11 @@ function App() {
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [languageMode, setLanguageMode] = useState('plaintext');
 
+  // ── Refs for resize targets ────────────────────────────────────────────
+  const sidebarRef = useRef(null);
+  const terminalRef = useRef(null);
+  const chatRef = useRef(null);
+
   useEffect(() => {
     const handleCursorChange = (e) => setCursorPosition(e.detail);
     const handleLanguageChange = (e) => setLanguageMode(e.detail);
@@ -651,7 +656,7 @@ function App() {
       <div className="main-content">
         {!zenMode && sidebarVisible && (
           <>
-            <div style={{ width: sidebarWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}>
+            <div ref={sidebarRef} style={{ width: sidebarWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}>
               <Sidebar
                 workspacePath={workspacePath}
                 activeFile={activeTabPath}
@@ -665,8 +670,9 @@ function App() {
             </div>
             <ResizeHandle
               direction="horizontal"
-              onDrag={(delta) => {
-                const next = Math.min(500, Math.max(220, sidebarWidth - delta));
+              targetRef={sidebarRef}
+              onDragEnd={(delta) => {
+                const next = Math.min(500, Math.max(220, sidebarWidth + delta));
                 setSidebarWidth(next);
               }}
             />
@@ -709,12 +715,13 @@ function App() {
             <>
               <ResizeHandle
                 direction="vertical"
-                onDrag={(delta) => {
-                  const next = Math.min(600, Math.max(120, terminalHeight - delta));
+                targetRef={terminalRef}
+                onDragEnd={(delta) => {
+                  const next = Math.min(600, Math.max(120, terminalHeight + delta));
                   setTerminalHeight(next);
                 }}
               />
-              <div style={{ height: terminalHeight, flexShrink: 0, overflow: 'hidden' }}>
+              <div ref={terminalRef} style={{ height: terminalHeight, flexShrink: 0, overflow: 'hidden' }}>
                 <TerminalPanel workspacePath={workspacePath} />
               </div>
             </>
@@ -751,14 +758,15 @@ function App() {
           <>
             <ResizeHandle
               direction="horizontal"
-              onDrag={(delta) => {
-                // Chat is on RIGHT side. Drag handle LEFT = delta negative = user wants chat BIGGER.
-                // So we SUBTRACT delta (negative delta → bigger width).
+              targetRef={chatRef}
+              invertDelta={true}
+              onDragEnd={(delta) => {
+                // Chat on right. Drag left (negative) = bigger. Subtract delta.
                 const next = Math.min(600, Math.max(260, chatWidth - delta));
                 setChatWidth(next);
               }}
             />
-            <div style={{ width: chatWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}>
+            <div ref={chatRef} style={{ width: chatWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}>
               <ChatPanel
                 workspacePath={workspacePath}
                 activeFile={activeTabPath}
