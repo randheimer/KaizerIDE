@@ -1,6 +1,6 @@
 {
   "name": "kaizer-ide",
-  "version": "6.1.1",
+  "version": "6.2.0",
   "description": "KaizerIDE - Modern AI-Powered Desktop IDE",
   "author": "Randheimer",
   "main": "electron/main.js",
@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
-    "concurrently": "^8.2.2",
+    "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
     "electron": "^41.2.2",
     "electron-builder": "^26.8.1",
