@@ -25,6 +25,7 @@
     "@xterm/addon-search": "^0.16.0",
     "@xterm/addon-web-links": "^0.12.0",
     "cmdk": "^1.1.1",
+    "electron-updater": "^6.8.3",
     "emmet": "^2.4.11",
     "lucide-react": "^1.11.0",
     "node-pty": "^1.1.0",
@@ -56,6 +57,11 @@
   "build": {
     "appId": "dev.kaizer.ide",
     "productName": "KaizerIDE",
+    "publish": {
+      "provider": "github",
+      "owner": "randheimer",
+      "repo": "KaizerIDE"
+    },
     "directories": {
       "output": "release"
     },

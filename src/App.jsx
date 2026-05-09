@@ -10,6 +10,7 @@ import StatusBar from './components/Common/StatusBar';
 import ResizeHandle from './components/Common/ResizeHandle';
 import ErrorToast from './components/Common/ErrorToast';
 import Toaster from './components/Common/Toaster';
+import UpdateNotification from './components/UpdateNotification';
 import { indexer } from './lib/indexer';
 import { useWorkspaceStore } from './lib/stores/workspaceStore';
 import { useEditorStore } from './lib/stores/editorStore';
@@ -644,6 +645,7 @@ function App() {
 
   return (
     <div className={`app${zenMode ? ' zen-mode' : ''}`}>
+      <UpdateNotification />
       {!zenMode && (
         <TitleBar
           workspacePath={workspacePath}

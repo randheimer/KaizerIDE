@@ -89,7 +89,17 @@ contextBridge.exposeInMainWorld('electron', {
   addRecentWorkspace: (workspacePath) => ipcRenderer.invoke('add-recent-workspace', workspacePath),
   openWorkspaceFromWelcome: (workspacePath) => ipcRenderer.invoke('open-workspace-from-welcome', workspacePath),
   openWorkspaceFromWelcomeWithSSH: () => ipcRenderer.invoke('open-workspace-from-welcome-with-ssh'),
-  
+
+  // Update API
+  update: {
+    onAvailable: (callback) => ipcRenderer.on('update-available', (_, data) => callback(data)),
+    onDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', (_, data) => callback(data)),
+    onDownloaded: (callback) => ipcRenderer.on('update-downloaded', (_, data) => callback(data)),
+    checkForUpdates: () => ipcRenderer.invoke('update:check'),
+    downloadUpdate: () => ipcRenderer.invoke('update:download'),
+    installUpdate: () => ipcRenderer.invoke('update:install')
+  },
+
   // IPC Renderer for custom events
   ipcRenderer: {
     on: (channel, callback) => {

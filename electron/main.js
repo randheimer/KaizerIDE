@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -11,6 +12,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isDev = process.env.NODE_ENV === 'development';
+
+// Configure auto-updater
+autoUpdater.autoDownload = false; // User chooses when to download
+autoUpdater.autoInstallOnAppQuit = true; // Install when app closes
 
 let mainWindow;
 let welcomeWindow;
@@ -288,6 +293,54 @@ if (!gotLock) {
   });
 }
 
+// Auto-updater event handlers
+autoUpdater.on('update-available', (info) => {
+  console.log('[AutoUpdater] Update available:', info.version);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-available', {
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes
+    });
+  }
+});
+
+autoUpdater.on('update-not-available', () => {
+  console.log('[AutoUpdater] No updates available');
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-download-progress', {
+      percent: progress.percent,
+      transferred: progress.transferred,
+      total: progress.total
+    });
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('[AutoUpdater] Update downloaded:', info.version);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-downloaded', {
+      version: info.version
+    });
+  }
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('[AutoUpdater] Error:', err);
+});
+
+function checkForUpdates() {
+  if (isDev) {
+    console.log('[AutoUpdater] Skipping update check in dev mode');
+    return;
+  }
+
+  autoUpdater.checkForUpdates();
+}
+
 app.whenReady().then(async () => {
   // Get the path from command line arguments
   openPath = getOpenPath();
@@ -305,6 +358,11 @@ app.whenReady().then(async () => {
       createWelcomeWindow();
     }
   });
+
+  // Check for updates 3 seconds after launch (avoid blocking startup)
+  setTimeout(() => {
+    checkForUpdates();
+  }, 3000);
 });
 
 app.on('window-all-closed', () => {
@@ -1687,19 +1745,43 @@ ipcMain.handle('open-workspace-from-welcome-with-ssh', async () => {
       welcomeWindow.close();
       welcomeWindow = null;
     }
-    
+
     // Create main window
     createWindow();
-    
+
     // Wait for window to load, then trigger SSH modal
     if (mainWindow) {
       mainWindow.webContents.once('did-finish-load', () => {
         mainWindow.webContents.send('open-ssh-modal');
       });
     }
-    
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
+});
+
+// Update IPC handlers
+ipcMain.handle('update:check', async () => {
+  if (isDev) return { available: false };
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { available: !!result?.updateInfo };
+  } catch (error) {
+    return { available: false, error: error.message };
+  }
+});
+
+ipcMain.handle('update:download', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('update:install', () => {
+  autoUpdater.quitAndInstall(false, true);
 });
