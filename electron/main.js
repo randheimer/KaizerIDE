@@ -183,7 +183,7 @@ function createWelcomeWindow() {
           "style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; " +
           "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net; " +
           "worker-src 'self' blob: data:; " +
-          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://*;"
+          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://* http://*.ts.net:* https://*.ts.net:*;"
         ]
       }
     });
@@ -231,7 +231,7 @@ function createWindow() {
           "style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; " +
           "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net; " +
           "worker-src 'self' blob: data:; " +
-          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://*;"
+          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://* http://*.ts.net:* https://*.ts.net:*;"
         ]
       }
     });
