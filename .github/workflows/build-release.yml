@@ -140,6 +140,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
+
+      # Pull latest changes (including version bump commit)
+      - name: Pull version bump
+        run: git pull origin main
 
       - uses: actions/setup-node@v4
         with:
