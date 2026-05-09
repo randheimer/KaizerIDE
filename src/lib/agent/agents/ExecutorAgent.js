@@ -149,7 +149,11 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
     
     // Track token usage for adaptive compression
     cwm.recordUsage(cwm.estimateTotal(systemPrompt, prunedMessages));
-    
+
+    // Track consecutive empty responses to detect stuck loops
+    let consecutiveEmptyResponses = 0;
+    const MAX_EMPTY_RESPONSES = 3;
+
     try {
       // Main agent loop
       for (let iteration = 0; iteration < this.maxIterations; iteration++) {
@@ -185,7 +189,25 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
         );
         
         context.logger?.debug(`[ExecutorAgent] Response: content="${content?.slice(0, 50)}...", thinking="${thinkingContent?.slice(0, 50)}...", tool_calls=${message.tool_calls?.length || 0}`);
-        
+
+        // Detect empty response loop (API returning tool calls but no content repeatedly)
+        if ((!content || content.trim().length === 0) && message.tool_calls && message.tool_calls.length > 0) {
+          consecutiveEmptyResponses++;
+          context.logger?.warn(`[ExecutorAgent] Empty response with tool calls (${consecutiveEmptyResponses}/${MAX_EMPTY_RESPONSES})`);
+
+          if (consecutiveEmptyResponses >= MAX_EMPTY_RESPONSES) {
+            context.logger?.error('[ExecutorAgent] Too many consecutive empty responses, breaking loop to prevent infinite tool calls');
+            // Add error message to chat
+            if (context.onToken) {
+              context.onToken('\n\n⚠️ Agent stopped: API returning empty responses repeatedly. Please try again or check API configuration.');
+            }
+            break;
+          }
+        } else if (content && content.trim().length > 0) {
+          // Reset counter when we get actual content
+          consecutiveEmptyResponses = 0;
+        }
+
         // Track token usage from the response
         const responseTokens = estimateTokens(content || '', 'code');
         cwm.recordUsage(responseTokens);
