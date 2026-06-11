@@ -69,13 +69,18 @@
       "dist/**/*",
       "electron/**/*",
       "package.json",
-      "node_modules/**/*",
+      "!node_modules/**/{CHANGELOG.md,README.md,readme.md,README,readme,test,__tests__,tests,powered-test,example,examples,*.d.ts,*.map}",
+      "!node_modules/.bin",
+      "!node_modules/*/man/**/*",
+      "!node_modules/*/docs/**/*",
+      "!**/*.{md,MD,txt,pdf}",
       "!src/**/*",
       "!.github/**/*",
-      "!*.md",
       "!images/Preview*.png"
     ],
-    "asarUnpack": [],
+    "asarUnpack": [
+      "**/node_modules/node-pty/**/*"
+    ],
     "compression": "maximum",
     "win": {
       "target": [

@@ -12,7 +12,24 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: 'dist',
-    emptyOutDir: true
+    emptyOutDir: true,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'monaco-editor': ['@monaco-editor/react'],
+          'react-vendor': ['react', 'react-dom'],
+          'xterm': ['xterm', '@xterm/addon-fit', '@xterm/addon-search', '@xterm/addon-web-links']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
   },
   server: {
     port: 5174
