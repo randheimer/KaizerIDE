@@ -1803,7 +1803,7 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange,
                 },
 
                 // Layout
-                padding: { top: 16, bottom: 16 },
+                padding: { top: 16, bottom: 16, left: 0, right: 0 },
                 lineNumbers: 'on',
                 lineNumbersMinChars: 3,
                 lineDecorationsWidth: 8,

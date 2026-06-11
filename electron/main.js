@@ -189,7 +189,7 @@ function createWelcomeWindow() {
           "style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; " +
           "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net; " +
           "worker-src 'self' blob: data:; " +
-          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://* http://*.ts.net:* https://*.ts.net:*;"
+          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://* http://*;"
         ]
       }
     });
@@ -225,7 +225,7 @@ function createWindow() {
     }
   });
 
-  // Set Content Security Policy to allow data URLs for fonts
+  // Set Content Security Policy to allow data URLs for fonts and API connections
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
@@ -237,7 +237,7 @@ function createWindow() {
           "style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; " +
           "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net; " +
           "worker-src 'self' blob: data:; " +
-          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://* http://*.ts.net:* https://*.ts.net:*;"
+          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://* http://*;"
         ]
       }
     });

@@ -187,6 +187,14 @@
   display: flex;
 }
 
+/* Force remove left padding/margin from Monaco editor */
+.editor-container .monaco-editor,
+.editor-container .monaco-editor .overflow-guard,
+.editor-container .monaco-editor .monaco-scrollable-element {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
 .editor-container.split-view {
   gap: 1px;
   background: var(--border);
