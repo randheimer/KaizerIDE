@@ -1,12 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { runAgentTurn } from '../../../lib/agent';
 import FilePicker from '../../Common/FilePicker';
 import Icon from '../../Common/Icon';
-import StreamingCodeBlock from './StreamingCodeBlock';
 import FilesChangedCard from './FilesChangedCard';
 import ChatHeader from './ChatHeader';
 import EmptyState from './EmptyState';
@@ -16,141 +12,18 @@ import AnalysingIndicator from './AnalysingIndicator';
 import IterationProgressIndicator from './IterationProgressIndicator';
 import Composer from './Composer/Composer';
 import MessageActions from './MessageActions';
-import FileLink from './FileLink';
 import { FilesChangedProvider } from './FilesChangedContext';
 import ChatHistoryModal from './modals/ChatHistoryModal';
 import AddModelModal from './modals/AddModelModal';
 import { useChatStore } from '../../../lib/stores/chatStore';
 import { toast } from '../../../lib/stores/toastStore';
-import remarkFileLinks from '../../../lib/markdown/remarkFileLinks';
+import {
+  CHAT_REMARK_PLUGINS,
+  MARKDOWN_LINK_RENDERER,
+  MARKDOWN_CODE_RENDERER_STREAMING,
+  MARKDOWN_CODE_RENDERER_STATIC,
+} from '../../../features/ai-chat/components/MarkdownRenderers';
 import './ChatPanel.css';
-
-// Shared ReactMarkdown plugin list + component renderers. We inject
-// these into every place the chat renders assistant markdown so the
-// remark pass runs once per parse and file links get consistent hover
-// previews.
-const CHAT_REMARK_PLUGINS = [remarkGfm, remarkFileLinks];
-
-const MARKDOWN_LINK_RENDERER = ({ node, href, children, ...props }) => {
-  if (href && href.startsWith('file://')) {
-    const path = href.replace('file://', '');
-    return <FileLink path={path}>{children}</FileLink>;
-  }
-  return (
-    <a
-      className="assistant-link"
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      {...props}
-    >
-      {children}
-    </a>
-  );
-};
-
-/**
- * react-markdown v9 no longer passes `inline` to the `code` component,
- * so every backtick-wrapped reference was rendering as a full-width
- * code block. We detect inline vs block ourselves:
- *   - Block if the code has a `language-xxx` class (fenced with lang).
- *   - Block if the code contains a newline (fenced multi-line, no lang).
- *   - Inline otherwise.
- */
-function isBlockCode(className, children) {
-  const raw = Array.isArray(children) ? children.join('') : String(children ?? '');
-  const langMatch = /language-(\w+)/.exec(className || '');
-  return {
-    isBlock: !!langMatch || raw.includes('\n'),
-    language: langMatch ? langMatch[1] : '',
-    raw: raw.replace(/\n$/, ''),
-  };
-}
-
-// Streaming-variant: used inside the currently streaming assistant
-// message. Uses StreamingCodeBlock (chunked update + caret) for block
-// code so the UI stays smooth as content arrives.
-const MARKDOWN_CODE_RENDERER_STREAMING = ({ node, className, children, ...props }) => {
-  const { isBlock, language, raw } = isBlockCode(className, children);
-  if (!isBlock) {
-    return (
-      <code className="assistant-inline-code" {...props}>
-        {children}
-      </code>
-    );
-  }
-  return (
-    <div className="code-block-wrapper">
-      {language && (
-        <div className="code-block-header">
-          <span className="code-language">{language}</span>
-        </div>
-      )}
-      <StreamingCodeBlock code={raw} language={language} />
-    </div>
-  );
-};
-
-// Static-variant: used for completed assistant messages. Full Prism
-// highlighting + copy-to-clipboard button in the header.
-function StaticCodeBlock({ language, code, ...props }) {
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      toast.success('Copied');
-    } catch {
-      toast.error('Copy failed');
-    }
-  };
-  return (
-    <div className="code-block-wrapper">
-      <div className="code-block-header">
-        {language ? <span className="code-block-lang">{language}</span> : <span />}
-        <button
-          className="code-copy-btn"
-          onClick={handleCopy}
-          title="Copy"
-          aria-label="Copy code"
-          type="button"
-        >
-          <Icon name="Copy" size={12} />
-        </button>
-      </div>
-      <SyntaxHighlighter
-        style={vscDarkPlus}
-        language={language || 'text'}
-        PreTag="div"
-        customStyle={{
-          margin: 0,
-          borderRadius: '0 0 8px 8px',
-          fontSize: '12.5px',
-          background: 'var(--bg-2)',
-        }}
-        codeTagProps={{
-          style: {
-            fontFamily: 'var(--font-mono)',
-            lineHeight: '1.5',
-          },
-        }}
-        {...props}
-      >
-        {code}
-      </SyntaxHighlighter>
-    </div>
-  );
-}
-
-const MARKDOWN_CODE_RENDERER_STATIC = ({ node, className, children, ...props }) => {
-  const { isBlock, language, raw } = isBlockCode(className, children);
-  if (!isBlock) {
-    return (
-      <code className="assistant-inline-code" {...props}>
-        {children}
-      </code>
-    );
-  }
-  return <StaticCodeBlock language={language} code={raw} {...props} />;
-};
 
 function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onOpenFile }) {
   const [messages, setMessages] = useState([]);
@@ -252,13 +125,13 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       try {
         const data = JSON.parse(e.dataTransfer.getData('application/json'));
         if (data.path) {
-          setContextPills(prev => [
+          setContextPills((prev) => [
             ...prev,
             {
               id: Date.now() + Math.random(),
               type: data.type === 'dir' ? 'folder' : 'file',
-              data: data.path
-            }
+              data: data.path,
+            },
           ]);
           showToast(`Added ${data.name} to context`);
         }
@@ -285,19 +158,19 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   useEffect(() => {
     const handleAttachContext = (e) => {
       const { items } = e.detail;
-      setContextPills(prev => [
+      setContextPills((prev) => [
         ...prev,
-        ...items.map(item => ({
+        ...items.map((item) => ({
           id: Date.now() + Math.random(),
           type: item.type === 'dir' ? 'folder' : 'file',
-          data: item.path
-        }))
+          data: item.path,
+        })),
       ]);
     };
 
     const handlePasteToChat = (e) => {
       const { text, type } = e.detail;
-      
+
       // Format based on type
       let formattedText = text;
       if (type === 'terminal') {
@@ -305,31 +178,31 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       } else if (type === 'code') {
         formattedText = '```\n' + text + '\n```';
       }
-      
-      setInput(prev => prev + (prev ? '\n\n' : '') + formattedText);
+
+      setInput((prev) => prev + (prev ? '\n\n' : '') + formattedText);
       textareaRef.current?.focus();
     };
 
     const handleCommandPermission = (e) => {
       const { command, cwd, onResponse } = e.detail;
-      
+
       // Auto-approve if enabled
       if (autoApproveCommands) {
         onResponse({ allowed: true });
         return;
       }
-      
+
       // Show permission dialog
       setCommandPermissionRequest({
         command,
         cwd,
-        onResponse
+        onResponse,
       });
     };
 
     const handleFileWritten = async (e) => {
       const { path, type, content, originalContent } = e.detail;
-      
+
       // Validate path
       if (!path || typeof path !== 'string') {
         console.warn('[ChatPanel] Invalid path in file-written event:', path);
@@ -339,7 +212,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       // Annotate the matching write_file tool row(s) with the captured
       // originalContent so the ToolGroupCard can render a real inline diff
       // when that row is expanded. We match by absolute path.
-      setToolGroups(prev => {
+      setToolGroups((prev) => {
         let changed = false;
         const next = { ...prev };
         for (const [turnId, group] of Object.entries(prev)) {
@@ -365,50 +238,50 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       });
 
       // Add or update file in filesChangedCard
-      setFilesChangedCard(prev => {
+      setFilesChangedCard((prev) => {
         const newLines = content ? content.split('\n') : [];
         const oldLines = originalContent ? originalContent.split('\n') : [];
-        
+
         let addedLines = newLines.length;
         let removedLines = oldLines.length;
-        
+
         const fileName = path.split(/[\\/]/).pop() || 'unknown';
-        
-        const newFile = { 
-          path, 
-          name: fileName, 
-          addedLines, 
-          removedLines, 
-          content, 
-          isNew: !originalContent || type === 'added'
+
+        const newFile = {
+          path,
+          name: fileName,
+          addedLines,
+          removedLines,
+          content,
+          isNew: !originalContent || type === 'added',
         };
-        
+
         const newUndoEntry = {
-          [path]: originalContent !== undefined ? originalContent : null
+          [path]: originalContent !== undefined ? originalContent : null,
         };
-        
+
         if (!prev) {
           // Create new card
           return {
             files: [newFile],
-            undoStack: newUndoEntry
+            undoStack: newUndoEntry,
           };
         }
-        
+
         // Merge with existing card
-        const existingFileIdx = prev.files.findIndex(f => f.path === path);
-        
+        const existingFileIdx = prev.files.findIndex((f) => f.path === path);
+
         if (existingFileIdx >= 0) {
           // Update existing file
           return {
-            files: prev.files.map((f, idx) => idx === existingFileIdx ? newFile : f),
-            undoStack: { ...prev.undoStack, ...newUndoEntry }
+            files: prev.files.map((f, idx) => (idx === existingFileIdx ? newFile : f)),
+            undoStack: { ...prev.undoStack, ...newUndoEntry },
           };
         } else {
           // Add new file
           return {
             files: [...prev.files, newFile],
-            undoStack: { ...prev.undoStack, ...newUndoEntry }
+            undoStack: { ...prev.undoStack, ...newUndoEntry },
           };
         }
       });
@@ -416,29 +289,37 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
 
     const handleImprovePlan = (e) => {
       const { planPath, planContent } = e.detail;
-      
+
       // Add the plan file as context instead of pasting content
-      setContextPills(prev => [...prev, {
-        id: Date.now(),
-        type: 'file',
-        data: planPath
-      }]);
-      
-      setInput(`Improve the plan in this file. Focus on making it more detailed, actionable, and comprehensive.`);
+      setContextPills((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          type: 'file',
+          data: planPath,
+        },
+      ]);
+
+      setInput(
+        `Improve the plan in this file. Focus on making it more detailed, actionable, and comprehensive.`
+      );
       setCurrentMode('plan');
       textareaRef.current?.focus();
     };
 
     const handleAskAboutPlan = (e) => {
       const { planPath, planContent } = e.detail;
-      
+
       // Add the plan file as context instead of pasting content
-      setContextPills(prev => [...prev, {
-        id: Date.now(),
-        type: 'file',
-        data: planPath
-      }]);
-      
+      setContextPills((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          type: 'file',
+          data: planPath,
+        },
+      ]);
+
       setInput(`I have questions about this plan:`);
       setCurrentMode('ask');
       textareaRef.current?.focus();
@@ -475,7 +356,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      const newHeight = Math.min(textareaRef.current.scrollHeight, 160)
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 160);
       textareaRef.current.style.height = `${newHeight}px`;
     }
   }, []);
@@ -500,22 +381,23 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   // Save chat to history
   const saveCurrentChat = useCallback(async () => {
     if (messages.length === 0) return;
-    
-    const chatTitle = messages.find(m => m.role === 'user')?.content.slice(0, 50) || 'New Chat';
+
+    const chatTitle = messages.find((m) => m.role === 'user')?.content.slice(0, 50) || 'New Chat';
     const timestamp = Date.now();
-    
+
     // Filter out empty assistant messages and only keep user/assistant/error messages
-    const cleanMessages = messages.filter(m => 
-      (m.role === 'user' || m.role === 'assistant' || m.role === 'error') &&
-      (m.role !== 'assistant' || m.content.trim() !== '')
+    const cleanMessages = messages.filter(
+      (m) =>
+        (m.role === 'user' || m.role === 'assistant' || m.role === 'error') &&
+        (m.role !== 'assistant' || m.content.trim() !== '')
     );
-    
+
     let updatedHistory;
-    
+
     if (currentChatId) {
       // Update existing chat
-      updatedHistory = chatHistory.map(chat => 
-        chat.id === currentChatId 
+      updatedHistory = chatHistory.map((chat) =>
+        chat.id === currentChatId
           ? { ...chat, messages: cleanMessages, toolGroups, title: chatTitle, timestamp }
           : chat
       );
@@ -526,12 +408,12 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         title: chatTitle,
         messages: cleanMessages,
         toolGroups,
-        timestamp
+        timestamp,
       };
       setCurrentChatId(timestamp);
       updatedHistory = [newChat, ...chatHistory].slice(0, 50); // Keep last 50 chats
     }
-    
+
     setChatHistory(updatedHistory);
     if (window.electron?.saveChatHistory) {
       await window.electron.saveChatHistory(updatedHistory, workspacePath);
@@ -560,18 +442,18 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     // Create new turn ID for this agent turn
     const turnId = Date.now();
     setCurrentTurnId(turnId);
-    
+
     // Initialize tool group for this turn
     const newToolGroup = {
       turnId,
       status: 'running',
       tools: [],
-      expanded: true
+      expanded: true,
     };
-    
-    setToolGroups(prev => ({
+
+    setToolGroups((prev) => ({
       ...prev,
-      [turnId]: newToolGroup
+      [turnId]: newToolGroup,
     }));
 
     // Initialize streaming message
@@ -581,7 +463,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       thinkingBlocks: [], // Array of thinking sessions
       currentThinkingIndex: -1,
       isThinking: false,
-      thinkingExpanded: true
+      thinkingExpanded: true,
     };
     setStreamingMsg({ ...streamingMsgRef.current });
 
@@ -605,7 +487,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             setIsAnalysing(false);
             setAnalysingFiles([]);
           }
-          
+
           streamingMsgRef.current.content += token;
           // Append to the current content segment (after last thinking block)
           const segmentIndex = streamingMsgRef.current.thinkingBlocks.length;
@@ -613,17 +495,22 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             streamingMsgRef.current.contentSegments[segmentIndex] = '';
           }
           streamingMsgRef.current.contentSegments[segmentIndex] += token;
-          
+
           // Debug: log every 100 characters
           if (streamingMsgRef.current.content.length % 100 === 0) {
-            console.log('[ChatPanel] 📄 Content length:', streamingMsgRef.current.content.length, 'Segment:', segmentIndex);
+            console.log(
+              '[ChatPanel] 📄 Content length:',
+              streamingMsgRef.current.content.length,
+              'Segment:',
+              segmentIndex
+            );
           }
-          
-          updateStreaming({ 
+
+          updateStreaming({
             content: streamingMsgRef.current.content,
-            contentSegments: [...streamingMsgRef.current.contentSegments]
+            contentSegments: [...streamingMsgRef.current.contentSegments],
           });
-          
+
           // Scroll to bottom
           if (!isUserScrolledUp.current && messagesContainerRef.current) {
             messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
@@ -638,38 +525,48 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               content: '',
               isThinking: true,
               expanded: true,
-              duration: null
+              duration: null,
             };
             streamingMsgRef.current.thinkingBlocks.push(newBlock);
-            streamingMsgRef.current.currentThinkingIndex = streamingMsgRef.current.thinkingBlocks.length - 1;
+            streamingMsgRef.current.currentThinkingIndex =
+              streamingMsgRef.current.thinkingBlocks.length - 1;
             // Start a new content segment after this thinking block
             streamingMsgRef.current.contentSegments.push('');
-            console.log('[ChatPanel] Created thinking block at index:', streamingMsgRef.current.currentThinkingIndex);
-            updateStreaming({ 
+            console.log(
+              '[ChatPanel] Created thinking block at index:',
+              streamingMsgRef.current.currentThinkingIndex
+            );
+            updateStreaming({
               thinkingBlocks: [...streamingMsgRef.current.thinkingBlocks],
               contentSegments: [...streamingMsgRef.current.contentSegments],
-              currentThinkingIndex: streamingMsgRef.current.currentThinkingIndex
+              currentThinkingIndex: streamingMsgRef.current.currentThinkingIndex,
             });
             return;
           }
-          
+
           if (token === '__END__') {
             const duration = Date.now() - thinkStartTime.current;
             const currentIdx = streamingMsgRef.current.currentThinkingIndex;
-            console.log('[ChatPanel] ✅ Thinking block ended at index:', currentIdx, 'Duration:', duration, 'ms');
+            console.log(
+              '[ChatPanel] ✅ Thinking block ended at index:',
+              currentIdx,
+              'Duration:',
+              duration,
+              'ms'
+            );
             if (currentIdx >= 0 && currentIdx < streamingMsgRef.current.thinkingBlocks.length) {
               streamingMsgRef.current.thinkingBlocks[currentIdx].isThinking = false;
               streamingMsgRef.current.thinkingBlocks[currentIdx].expanded = true; // Keep expanded by default
               streamingMsgRef.current.thinkingBlocks[currentIdx].duration = duration;
             }
             streamingMsgRef.current.currentThinkingIndex = -1;
-            updateStreaming({ 
+            updateStreaming({
               thinkingBlocks: [...streamingMsgRef.current.thinkingBlocks],
-              currentThinkingIndex: -1
+              currentThinkingIndex: -1,
             });
             return;
           }
-          
+
           // Append to current thinking block
           const currentIdx = streamingMsgRef.current.currentThinkingIndex;
           if (currentIdx >= 0 && currentIdx < streamingMsgRef.current.thinkingBlocks.length) {
@@ -679,7 +576,13 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         },
         onToolCall: ({ id, name, args }) => {
           // Categorize tools and start analysing indicator with appropriate label
-          const contextTools = ['read_file', 'search_files', 'grep_index', 'search_index', 'list_directory'];
+          const contextTools = [
+            'read_file',
+            'search_files',
+            'grep_index',
+            'search_index',
+            'list_directory',
+          ];
           const writeTools = ['write_file'];
           const commandTools = ['run_command'];
 
@@ -688,7 +591,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             category = 'analysing';
             // Track file being read
             if (name === 'read_file' && args.path) {
-              setAnalysingFiles(prev => [...prev, args.path]);
+              setAnalysingFiles((prev) => [...prev, args.path]);
             }
           } else if (writeTools.includes(name)) {
             category = 'writing';
@@ -698,12 +601,12 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
 
           setIsAnalysing(true);
           setAnalysingCategory(category);
-          
+
           // Add tool to current turn's group
-          setToolGroups(prev => {
+          setToolGroups((prev) => {
             const group = prev[turnId];
             if (!group) return prev;
-            
+
             const updatedGroup = {
               ...group,
               tools: [
@@ -714,38 +617,36 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                   args: JSON.stringify(args),
                   status: 'running',
                   result: null,
-                  expanded: false
-                }
-              ]
+                  expanded: false,
+                },
+              ],
             };
-            
+
             return {
               ...prev,
-              [turnId]: updatedGroup
+              [turnId]: updatedGroup,
             };
           });
         },
         onToolResult: ({ id, result, compressed, modelResult }) => {
           // Update tool status in current turn's group
-          setToolGroups(prev => {
+          setToolGroups((prev) => {
             const group = prev[turnId];
             if (!group) return prev;
-            
+
             const updatedGroup = {
               ...group,
-              tools: group.tools.map(tool =>
-                tool.id === id
-                  ? { ...tool, status: 'done', result, compressed, modelResult }
-                  : tool
-              )
+              tools: group.tools.map((tool) =>
+                tool.id === id ? { ...tool, status: 'done', result, compressed, modelResult } : tool
+              ),
             };
-            
+
             return {
               ...prev,
-              [turnId]: updatedGroup
+              [turnId]: updatedGroup,
             };
           });
-          
+
           // Don't clear analysing here - let it clear when text starts or agent finishes
         },
         onDone: () => {
@@ -761,44 +662,53 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
 
           // Commit streaming message to messages (only if exists)
           if (streamingMsgRef.current) {
-            console.log('[ChatPanel] 📝 Finalizing message. Content length:', streamingMsgRef.current.content.length);
-            console.log('[ChatPanel] 📝 Content segments:', streamingMsgRef.current.contentSegments.length);
-            console.log('[ChatPanel] 📝 Thinking blocks:', streamingMsgRef.current.thinkingBlocks.length);
-            
+            console.log(
+              '[ChatPanel] 📝 Finalizing message. Content length:',
+              streamingMsgRef.current.content.length
+            );
+            console.log(
+              '[ChatPanel] 📝 Content segments:',
+              streamingMsgRef.current.contentSegments.length
+            );
+            console.log(
+              '[ChatPanel] 📝 Thinking blocks:',
+              streamingMsgRef.current.thinkingBlocks.length
+            );
+
             const finalMsg = {
               id: crypto.randomUUID(),
               role: 'assistant',
               content: streamingMsgRef.current.content || '',
               contentSegments: streamingMsgRef.current.contentSegments || [''], // Save segments!
-              thinkingBlocks: streamingMsgRef.current.thinkingBlocks || []
+              thinkingBlocks: streamingMsgRef.current.thinkingBlocks || [],
             };
-            
-            setMessages(prev => [...prev, finalMsg]);
+
+            setMessages((prev) => [...prev, finalMsg]);
           }
-          
+
           setStreamingMsg(null);
           setIsStreaming(false);
           setIsAgentRunning(false);
           streamingMsgRef.current = null;
-          
+
           // Mark tool group as done and collapse it
-          setToolGroups(prev => {
+          setToolGroups((prev) => {
             const group = prev[turnId];
             if (!group) return prev;
-            
+
             return {
               ...prev,
               [turnId]: {
                 ...group,
                 status: 'done',
-                expanded: false
-              }
+                expanded: false,
+              },
             };
           });
-          
+
           setCurrentTurnId(null);
           thinkStartTime.current = null;
-          
+
           // Scroll to bottom when agent finishes
           isUserScrolledUp.current = false;
           requestAnimationFrame(() => {
@@ -806,10 +716,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
             }
           });
-          
+
           saveCurrentChat();
         },
-        signal: abortControllerRef.current.signal
+        signal: abortControllerRef.current.signal,
       });
 
       // Safety net: if an agent turn resolves without calling onDone,
@@ -820,13 +730,16 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           (streamingMsgRef.current.thinkingBlocks || []).length > 0;
 
         if (hasAssistantContent) {
-          setMessages(prev => [...prev, {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: streamingMsgRef.current.content || '',
-            contentSegments: streamingMsgRef.current.contentSegments || [''],
-            thinkingBlocks: streamingMsgRef.current.thinkingBlocks || []
-          }]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: streamingMsgRef.current.content || '',
+              contentSegments: streamingMsgRef.current.contentSegments || [''],
+              thinkingBlocks: streamingMsgRef.current.thinkingBlocks || [],
+            },
+          ]);
         }
 
         setStreamingMsg(null);
@@ -838,7 +751,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         clearTimeout(streamingUpdateTimer.current);
         streamingUpdateTimer.current = null;
 
-        setToolGroups(prev => {
+        setToolGroups((prev) => {
           const group = prev[turnId];
           if (!group) return prev;
           return {
@@ -846,124 +759,127 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             [turnId]: {
               ...group,
               status: 'done',
-              expanded: false
-            }
+              expanded: false,
+            },
           };
         });
 
         saveCurrentChat();
       }
     } catch (error) {
-        // Parse error message for better display
-        let errorMessage = error.message;
-        
-        // Check if it's an API error with JSON
-        const apiErrorMatch = errorMessage.match(/API (\d+): (.+)/);
-        if (apiErrorMatch) {
-          const statusCode = apiErrorMatch[1];
-          try {
-            const errorData = JSON.parse(apiErrorMatch[2]);
-            const innerMessage = errorData.error?.message || '';
-            
-            // Extract model name and reason
-            const modelMatch = innerMessage.match(/\[kiro\/([^\]]+)\]/);
-            const statusMatch = innerMessage.match(/\[(\d+)\]/);
-            
-            let modelName = '';
-            let reason = innerMessage;
-            
-            if (modelMatch) {
-              modelName = modelMatch[1]; // Get model name without kiro/ prefix
-            }
-            
-            // Extract the main error message (after all brackets)
-            const reasonMatch = innerMessage.match(/\]\s*:\s*(.+)$/);
-            if (reasonMatch) {
-              reason = reasonMatch[1];
-              
-              // Split by parentheses to separate main message and additional info
-              const parts = reason.match(/^([^(]+)(?:\s*\((.+)\))?$/);
-              if (parts) {
-                const mainReason = parts[1].trim();
-                const additionalInfo = parts[2] ? parts[2].trim() : '';
-                
-                errorMessage = `Error: API ${statusCode}`;
-                if (modelName) errorMessage += `\n${modelName}`;
-                errorMessage += `\n${mainReason}`;
-                if (additionalInfo) errorMessage += `\n${additionalInfo}`;
-              } else {
-                errorMessage = `Error: API ${statusCode}`;
-                if (modelName) errorMessage += `\n${modelName}`;
-                errorMessage += `\n${reason}`;
-              }
+      // Parse error message for better display
+      let errorMessage = error.message;
+
+      // Check if it's an API error with JSON
+      const apiErrorMatch = errorMessage.match(/API (\d+): (.+)/);
+      if (apiErrorMatch) {
+        const statusCode = apiErrorMatch[1];
+        try {
+          const errorData = JSON.parse(apiErrorMatch[2]);
+          const innerMessage = errorData.error?.message || '';
+
+          // Extract model name and reason
+          const modelMatch = innerMessage.match(/\[kiro\/([^\]]+)\]/);
+          const statusMatch = innerMessage.match(/\[(\d+)\]/);
+
+          let modelName = '';
+          let reason = innerMessage;
+
+          if (modelMatch) {
+            modelName = modelMatch[1]; // Get model name without kiro/ prefix
+          }
+
+          // Extract the main error message (after all brackets)
+          const reasonMatch = innerMessage.match(/\]\s*:\s*(.+)$/);
+          if (reasonMatch) {
+            reason = reasonMatch[1];
+
+            // Split by parentheses to separate main message and additional info
+            const parts = reason.match(/^([^(]+)(?:\s*\((.+)\))?$/);
+            if (parts) {
+              const mainReason = parts[1].trim();
+              const additionalInfo = parts[2] ? parts[2].trim() : '';
+
+              errorMessage = `Error: API ${statusCode}`;
+              if (modelName) errorMessage += `\n${modelName}`;
+              errorMessage += `\n${mainReason}`;
+              if (additionalInfo) errorMessage += `\n${additionalInfo}`;
             } else {
               errorMessage = `Error: API ${statusCode}`;
               if (modelName) errorMessage += `\n${modelName}`;
-              errorMessage += `\n${innerMessage}`;
+              errorMessage += `\n${reason}`;
             }
-          } catch (e) {
-            // If JSON parsing fails, use original message
-            errorMessage = `Error: API ${statusCode}\n${apiErrorMatch[2]}`;
+          } else {
+            errorMessage = `Error: API ${statusCode}`;
+            if (modelName) errorMessage += `\n${modelName}`;
+            errorMessage += `\n${innerMessage}`;
           }
+        } catch (e) {
+          // If JSON parsing fails, use original message
+          errorMessage = `Error: API ${statusCode}\n${apiErrorMatch[2]}`;
         }
-        
-        setMessages(prev => [...prev, {
-          role: 'error',
-          content: errorMessage
-        }]);
-        
-        requestAnimationFrame(() => {
-          if (!isUserScrolledUp.current && messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-          }
-        });
-        
-        setIsStreaming(false);
-        setIsAgentRunning(false);
-        setCurrentTurnId(null);
-        setCurrentIteration(0);
-        thinkStartTime.current = null;
-        setStreamingMsg(null);
-        streamingMsgRef.current = null;
-        setIsAnalysing(false);
-        setAnalysingFiles([]);
-        clearTimeout(streamingUpdateTimer.current);
-        streamingUpdateTimer.current = null;
-        
-        // Mark tool group as done on error
-        if (turnId && toolGroups[turnId]) {
-          setToolGroups(prev => ({
-            ...prev,
-            [turnId]: {
-              ...prev[turnId],
-              status: 'done',
-              expanded: false
-            }
-          }));
-        }
-        
-        saveCurrentChat();
       }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'error',
+          content: errorMessage,
+        },
+      ]);
+
+      requestAnimationFrame(() => {
+        if (!isUserScrolledUp.current && messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      });
+
+      setIsStreaming(false);
+      setIsAgentRunning(false);
+      setCurrentTurnId(null);
+      setCurrentIteration(0);
+      thinkStartTime.current = null;
+      setStreamingMsg(null);
+      streamingMsgRef.current = null;
+      setIsAnalysing(false);
+      setAnalysingFiles([]);
+      clearTimeout(streamingUpdateTimer.current);
+      streamingUpdateTimer.current = null;
+
+      // Mark tool group as done on error
+      if (turnId && toolGroups[turnId]) {
+        setToolGroups((prev) => ({
+          ...prev,
+          [turnId]: {
+            ...prev[turnId],
+            status: 'done',
+            expanded: false,
+          },
+        }));
+      }
+
+      saveCurrentChat();
+    }
   };
 
   const handleStop = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      
+
       clearTimeout(streamingUpdateTimer.current);
       streamingUpdateTimer.current = null;
-      
+
       // Commit partial content to messages
       if (streamingMsgRef.current) {
         const finalMsg = {
           id: crypto.randomUUID(),
           role: 'assistant',
           content: streamingMsgRef.current.content,
-          thinkingBlocks: streamingMsgRef.current.thinkingBlocks || []
+          thinkingBlocks: streamingMsgRef.current.thinkingBlocks || [],
         };
-        setMessages(prev => [...prev, finalMsg]);
+        setMessages((prev) => [...prev, finalMsg]);
       }
-      
+
       setStreamingMsg(null);
       streamingMsgRef.current = null;
       setIsStreaming(false);
@@ -974,16 +890,16 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
 
       // Mark current tool group as done
       if (currentTurnId && toolGroups[currentTurnId]) {
-        setToolGroups(prev => ({
+        setToolGroups((prev) => ({
           ...prev,
           [currentTurnId]: {
             ...prev[currentTurnId],
             status: 'done',
-            expanded: false
-          }
+            expanded: false,
+          },
         }));
       }
-      
+
       setCurrentTurnId(null);
       thinkStartTime.current = null;
     }
@@ -1002,7 +918,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   };
 
   const handleLoadChat = (chatId) => {
-    const chat = chatHistory.find(c => c.id === chatId);
+    const chat = chatHistory.find((c) => c.id === chatId);
     if (chat) {
       setMessages(chat.messages || []);
       setToolGroups(chat.toolGroups || {});
@@ -1012,12 +928,12 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   };
 
   const handleDeleteChat = async (chatId) => {
-    const updatedHistory = chatHistory.filter(c => c.id !== chatId);
+    const updatedHistory = chatHistory.filter((c) => c.id !== chatId);
     setChatHistory(updatedHistory);
     if (window.electron?.saveChatHistory) {
       await window.electron.saveChatHistory(updatedHistory, workspacePath);
     }
-    
+
     if (currentChatId === chatId) {
       setMessages([]);
       setCurrentChatId(null);
@@ -1033,37 +949,35 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   };
 
   const handleToggleGroupExpanded = (turnId) => {
-    setToolGroups(prev => ({
+    setToolGroups((prev) => ({
       ...prev,
       [turnId]: {
         ...prev[turnId],
-        expanded: !prev[turnId].expanded
-      }
+        expanded: !prev[turnId].expanded,
+      },
     }));
   };
 
   const handleToggleRowExpanded = (turnId, rowIdx) => {
     console.log('[ChatPanel] Toggling row:', turnId, rowIdx);
-    setToolGroups(prev => {
+    setToolGroups((prev) => {
       const group = prev[turnId];
       if (!group) {
         console.log('[ChatPanel] Group not found:', turnId);
         return prev;
       }
-      
+
       const tool = group.tools[rowIdx];
       console.log('[ChatPanel] Tool to toggle:', tool);
-      
+
       return {
         ...prev,
         [turnId]: {
           ...group,
           tools: group.tools.map((tool, idx) =>
-            idx === rowIdx
-              ? { ...tool, expanded: !tool.expanded }
-              : tool
-          )
-        }
+            idx === rowIdx ? { ...tool, expanded: !tool.expanded } : tool
+          ),
+        },
       };
     });
   };
@@ -1141,9 +1055,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   };
 
   const handlePinMessage = (_msg, idx) => {
-    setMessages((prev) =>
-      prev.map((m, i) => (i === idx ? { ...m, pinned: !m.pinned } : m))
-    );
+    setMessages((prev) => prev.map((m, i) => (i === idx ? { ...m, pinned: !m.pinned } : m)));
   };
 
   const extractFileFromArgs = (argsStr) => {
@@ -1157,14 +1069,16 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   };
 
   const toggleThinking = useCallback((msgId, blockIndex) => {
-    setMessages(prev => prev.map(m => {
-      if (m.id !== msgId) return m;
-      const blocks = [...(m.thinkingBlocks || [])];
-      if (blockIndex >= 0 && blockIndex < blocks.length) {
-        blocks[blockIndex].expanded = !blocks[blockIndex].expanded;
-      }
-      return { ...m, thinkingBlocks: blocks };
-    }));
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== msgId) return m;
+        const blocks = [...(m.thinkingBlocks || [])];
+        if (blockIndex >= 0 && blockIndex < blocks.length) {
+          blocks[blockIndex].expanded = !blocks[blockIndex].expanded;
+        }
+        return { ...m, thinkingBlocks: blocks };
+      })
+    );
   }, []);
 
   const renderStreamingMessage = (msg) => {
@@ -1173,67 +1087,70 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       // so rapid token updates don't restart it on every render.
       <div className="message-row assistant-row is-streaming" key="streaming">
         <div className="message-assistant">
-          <div className="assistant-avatar" aria-hidden="true">K</div>
+          <div className="assistant-avatar" aria-hidden="true">
+            K
+          </div>
           {/* Interleave content segments and thinking blocks */}
-          {msg.contentSegments && msg.contentSegments.map((segment, idx) => (
-            <React.Fragment key={`segment-${idx}`}>
-              {/* Render content segment */}
-              {segment && (
-                <div className="assistant-message">
-                  <ReactMarkdown 
-                    remarkPlugins={CHAT_REMARK_PLUGINS}
-                    unwrapDisallowed={true}
-                    components={{
-                      a: MARKDOWN_LINK_RENDERER,
-                      code: MARKDOWN_CODE_RENDERER_STREAMING,
-                    }}
-                  >
-                    {segment}
-                  </ReactMarkdown>
-                </div>
-              )}
-              
-              {/* Render thinking block after this segment (if exists) */}
-              {msg.thinkingBlocks && msg.thinkingBlocks[idx] && (
-                <div className="thinking-block">
-                  <div 
-                    className="thinking-header"
-                    onClick={() => {
-                      const blocks = [...streamingMsgRef.current.thinkingBlocks];
-                      blocks[idx].expanded = !blocks[idx].expanded;
-                      streamingMsgRef.current.thinkingBlocks = blocks;
-                      updateStreaming({ thinkingBlocks: blocks });
-                    }}
-                  >
-                    {msg.thinkingBlocks[idx].isThinking ? (
-                      <span className="thinking-spinner"></span>
-                    ) : (
-                      <Icon name="CheckCircle2" size={12} style={{ color: '#22c55e' }} />
-                    )}
-                    <span className="thinking-label">
-                      {msg.thinkingBlocks[idx].isThinking
-                        ? 'Thinking...'
-                        : `Thought for ${((msg.thinkingBlocks[idx].duration || 0) / 1000).toFixed(1)}s${
-                            (msg.thinkingBlocks[idx].content || '').length > 0
-                              ? ` • ${(msg.thinkingBlocks[idx].content || '').length} chars`
-                              : ''
-                          }`}
-                    </span>
-                    <Icon
-                      name={msg.thinkingBlocks[idx].expanded ? 'ChevronDown' : 'ChevronRight'}
-                      size={12}
-                      className="thinking-chevron"
-                    />
+          {msg.contentSegments &&
+            msg.contentSegments.map((segment, idx) => (
+              <React.Fragment key={`segment-${idx}`}>
+                {/* Render content segment */}
+                {segment && (
+                  <div className="assistant-message">
+                    <ReactMarkdown
+                      remarkPlugins={CHAT_REMARK_PLUGINS}
+                      unwrapDisallowed={true}
+                      components={{
+                        a: MARKDOWN_LINK_RENDERER,
+                        code: MARKDOWN_CODE_RENDERER_STREAMING,
+                      }}
+                    >
+                      {segment}
+                    </ReactMarkdown>
                   </div>
-                  {msg.thinkingBlocks[idx].expanded && (
-                    <div className="thinking-body">
-                      <pre>{msg.thinkingBlocks[idx].content}</pre>
+                )}
+
+                {/* Render thinking block after this segment (if exists) */}
+                {msg.thinkingBlocks && msg.thinkingBlocks[idx] && (
+                  <div className="thinking-block">
+                    <div
+                      className="thinking-header"
+                      onClick={() => {
+                        const blocks = [...streamingMsgRef.current.thinkingBlocks];
+                        blocks[idx].expanded = !blocks[idx].expanded;
+                        streamingMsgRef.current.thinkingBlocks = blocks;
+                        updateStreaming({ thinkingBlocks: blocks });
+                      }}
+                    >
+                      {msg.thinkingBlocks[idx].isThinking ? (
+                        <span className="thinking-spinner"></span>
+                      ) : (
+                        <Icon name="CheckCircle2" size={12} style={{ color: '#22c55e' }} />
+                      )}
+                      <span className="thinking-label">
+                        {msg.thinkingBlocks[idx].isThinking
+                          ? 'Thinking...'
+                          : `Thought for ${((msg.thinkingBlocks[idx].duration || 0) / 1000).toFixed(1)}s${
+                              (msg.thinkingBlocks[idx].content || '').length > 0
+                                ? ` • ${(msg.thinkingBlocks[idx].content || '').length} chars`
+                                : ''
+                            }`}
+                      </span>
+                      <Icon
+                        name={msg.thinkingBlocks[idx].expanded ? 'ChevronDown' : 'ChevronRight'}
+                        size={12}
+                        className="thinking-chevron"
+                      />
                     </div>
-                  )}
-                </div>
-              )}
-            </React.Fragment>
-          ))}
+                    {msg.thinkingBlocks[idx].expanded && (
+                      <div className="thinking-body">
+                        <pre>{msg.thinkingBlocks[idx].content}</pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </React.Fragment>
+            ))}
         </div>
       </div>
     );
@@ -1252,9 +1169,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                     <span className="context-pill-icon">
                       {ctx.type === 'file' ? '📄' : ctx.type === 'folder' ? '📁' : '💻'}
                     </span>
-                    <span className="context-pill-name">
-                      {ctx.data.split(/[\\/]/).pop()}
-                    </span>
+                    <span className="context-pill-name">{ctx.data.split(/[\\/]/).pop()}</span>
                   </div>
                 ))}
               </div>
@@ -1276,7 +1191,9 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       return (
         <div key={idx} className="message-row assistant-row">
           <div className="message-assistant">
-            <div className="assistant-avatar" aria-hidden="true">K</div>
+            <div className="assistant-avatar" aria-hidden="true">
+              K
+            </div>
             {/* Interleave content segments and thinking blocks */}
             {msg.contentSegments && msg.contentSegments.length > 0 ? (
               // New format with segments
@@ -1285,14 +1202,18 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                   {/* Render content segment */}
                   {segment && (
                     <div className="assistant-message">
-                      <ReactMarkdown 
+                      <ReactMarkdown
                         remarkPlugins={CHAT_REMARK_PLUGINS}
                         unwrapDisallowed={true}
                         components={{
                           a: MARKDOWN_LINK_RENDERER,
                           code: MARKDOWN_CODE_RENDERER_STATIC,
-                          p: ({ children }) => <div className="assistant-paragraph">{children}</div>,
-                          strong: ({ children }) => <strong className="assistant-bold">{children}</strong>,
+                          p: ({ children }) => (
+                            <div className="assistant-paragraph">{children}</div>
+                          ),
+                          strong: ({ children }) => (
+                            <strong className="assistant-bold">{children}</strong>
+                          ),
                           em: ({ children }) => <em className="assistant-italic">{children}</em>,
                           h1: ({ children }) => <h1 className="assistant-h1">{children}</h1>,
                           h2: ({ children }) => <h2 className="assistant-h2">{children}</h2>,
@@ -1303,30 +1224,39 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                           ul: ({ children }) => <ul className="assistant-ul">{children}</ul>,
                           ol: ({ children }) => <ol className="assistant-ol">{children}</ol>,
                           li: ({ children }) => <li className="assistant-li">{children}</li>,
-                          blockquote: ({ children }) => <blockquote className="assistant-blockquote">{children}</blockquote>,
+                          blockquote: ({ children }) => (
+                            <blockquote className="assistant-blockquote">{children}</blockquote>
+                          ),
                           hr: () => <hr className="assistant-hr" />,
-                          del: ({ children }) => <del className="assistant-strikethrough">{children}</del>
+                          del: ({ children }) => (
+                            <del className="assistant-strikethrough">{children}</del>
+                          ),
                         }}
                       >
                         {segment}
                       </ReactMarkdown>
                     </div>
                   )}
-                  
+
                   {/* Render thinking block after this segment (if exists) */}
                   {msg.thinkingBlocks && msg.thinkingBlocks[segIdx] && (
                     <div className="thinking-block">
-                      <div 
+                      <div
                         className="thinking-header"
                         onClick={() => {
-                          setMessages(prev => prev.map((m, i) => {
-                            if (i !== idx) return m;
-                            const blocks = [...(m.thinkingBlocks || [])];
-                            if (segIdx >= 0 && segIdx < blocks.length) {
-                              blocks[segIdx] = { ...blocks[segIdx], expanded: !blocks[segIdx].expanded };
-                            }
-                            return { ...m, thinkingBlocks: blocks };
-                          }));
+                          setMessages((prev) =>
+                            prev.map((m, i) => {
+                              if (i !== idx) return m;
+                              const blocks = [...(m.thinkingBlocks || [])];
+                              if (segIdx >= 0 && segIdx < blocks.length) {
+                                blocks[segIdx] = {
+                                  ...blocks[segIdx],
+                                  expanded: !blocks[segIdx].expanded,
+                                };
+                              }
+                              return { ...m, thinkingBlocks: blocks };
+                            })
+                          );
                         }}
                       >
                         <Icon name="CheckCircle2" size={12} style={{ color: '#22c55e' }} />
@@ -1340,7 +1270,9 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                             : 'Thinking'}
                         </span>
                         <Icon
-                          name={msg.thinkingBlocks[segIdx].expanded ? 'ChevronDown' : 'ChevronRight'}
+                          name={
+                            msg.thinkingBlocks[segIdx].expanded ? 'ChevronDown' : 'ChevronRight'
+                          }
                           size={12}
                           className="thinking-chevron"
                         />
@@ -1357,75 +1289,87 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             ) : (
               // Old format fallback - all thinking blocks first, then content
               <>
-                {msg.thinkingBlocks && msg.thinkingBlocks.map((block, blockIdx) => (
-              <div key={blockIdx} className="thinking-block">
-                <div 
-                  className="thinking-header"
-                  onClick={() => {
-                    // Toggle the expanded state directly in the messages array
-                    setMessages(prev => prev.map((m, i) => {
-                      if (i !== idx) return m;
-                      const blocks = [...(m.thinkingBlocks || [])];
-                      if (blockIdx >= 0 && blockIdx < blocks.length) {
-                        blocks[blockIdx] = { ...blocks[blockIdx], expanded: !blocks[blockIdx].expanded };
-                      }
-                      return { ...m, thinkingBlocks: blocks };
-                    }));
-                  }}
-                >
-                  <Icon name="CheckCircle2" size={12} style={{ color: '#22c55e' }} />
-                  <span className="thinking-label">
-                    {block.duration
-                      ? `Thought for ${(block.duration / 1000).toFixed(1)}s${
-                          (block.content || '').length > 0
-                            ? ` • ${(block.content || '').length} chars`
-                            : ''
-                        }`
-                      : 'Thinking'}
-                  </span>
-                  <Icon
-                    name={block.expanded ? 'ChevronDown' : 'ChevronRight'}
-                    size={12}
-                    className="thinking-chevron"
-                  />
-                </div>
-                {block.expanded && (
-                  <div className="thinking-body">
-                    <pre>{block.content}</pre>
+                {msg.thinkingBlocks &&
+                  msg.thinkingBlocks.map((block, blockIdx) => (
+                    <div key={blockIdx} className="thinking-block">
+                      <div
+                        className="thinking-header"
+                        onClick={() => {
+                          // Toggle the expanded state directly in the messages array
+                          setMessages((prev) =>
+                            prev.map((m, i) => {
+                              if (i !== idx) return m;
+                              const blocks = [...(m.thinkingBlocks || [])];
+                              if (blockIdx >= 0 && blockIdx < blocks.length) {
+                                blocks[blockIdx] = {
+                                  ...blocks[blockIdx],
+                                  expanded: !blocks[blockIdx].expanded,
+                                };
+                              }
+                              return { ...m, thinkingBlocks: blocks };
+                            })
+                          );
+                        }}
+                      >
+                        <Icon name="CheckCircle2" size={12} style={{ color: '#22c55e' }} />
+                        <span className="thinking-label">
+                          {block.duration
+                            ? `Thought for ${(block.duration / 1000).toFixed(1)}s${
+                                (block.content || '').length > 0
+                                  ? ` • ${(block.content || '').length} chars`
+                                  : ''
+                              }`
+                            : 'Thinking'}
+                        </span>
+                        <Icon
+                          name={block.expanded ? 'ChevronDown' : 'ChevronRight'}
+                          size={12}
+                          className="thinking-chevron"
+                        />
+                      </div>
+                      {block.expanded && (
+                        <div className="thinking-body">
+                          <pre>{block.content}</pre>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                {msg.content && (
+                  <div className="assistant-message">
+                    <ReactMarkdown
+                      remarkPlugins={CHAT_REMARK_PLUGINS}
+                      unwrapDisallowed={true}
+                      components={{
+                        a: MARKDOWN_LINK_RENDERER,
+                        code: MARKDOWN_CODE_RENDERER_STATIC,
+                        p: ({ children }) => <div className="assistant-paragraph">{children}</div>,
+                        strong: ({ children }) => (
+                          <strong className="assistant-bold">{children}</strong>
+                        ),
+                        em: ({ children }) => <em className="assistant-italic">{children}</em>,
+                        h1: ({ children }) => <h1 className="assistant-h1">{children}</h1>,
+                        h2: ({ children }) => <h2 className="assistant-h2">{children}</h2>,
+                        h3: ({ children }) => <h3 className="assistant-h3">{children}</h3>,
+                        h4: ({ children }) => <h4 className="assistant-h4">{children}</h4>,
+                        h5: ({ children }) => <h5 className="assistant-h5">{children}</h5>,
+                        h6: ({ children }) => <h6 className="assistant-h6">{children}</h6>,
+                        ul: ({ children }) => <ul className="assistant-ul">{children}</ul>,
+                        ol: ({ children }) => <ol className="assistant-ol">{children}</ol>,
+                        li: ({ children }) => <li className="assistant-li">{children}</li>,
+                        blockquote: ({ children }) => (
+                          <blockquote className="assistant-blockquote">{children}</blockquote>
+                        ),
+                        hr: () => <hr className="assistant-hr" />,
+                        del: ({ children }) => (
+                          <del className="assistant-strikethrough">{children}</del>
+                        ),
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
                   </div>
                 )}
-              </div>
-            ))}
-            
-            {msg.content && (
-              <div className="assistant-message">
-                <ReactMarkdown 
-                  remarkPlugins={CHAT_REMARK_PLUGINS}
-                  unwrapDisallowed={true}
-                  components={{
-                    a: MARKDOWN_LINK_RENDERER,
-                    code: MARKDOWN_CODE_RENDERER_STATIC,
-                    p: ({ children }) => <div className="assistant-paragraph">{children}</div>,
-                    strong: ({ children }) => <strong className="assistant-bold">{children}</strong>,
-                    em: ({ children }) => <em className="assistant-italic">{children}</em>,
-                    h1: ({ children }) => <h1 className="assistant-h1">{children}</h1>,
-                    h2: ({ children }) => <h2 className="assistant-h2">{children}</h2>,
-                    h3: ({ children }) => <h3 className="assistant-h3">{children}</h3>,
-                    h4: ({ children }) => <h4 className="assistant-h4">{children}</h4>,
-                    h5: ({ children }) => <h5 className="assistant-h5">{children}</h5>,
-                    h6: ({ children }) => <h6 className="assistant-h6">{children}</h6>,
-                    ul: ({ children }) => <ul className="assistant-ul">{children}</ul>,
-                    ol: ({ children }) => <ol className="assistant-ol">{children}</ol>,
-                    li: ({ children }) => <li className="assistant-li">{children}</li>,
-                    blockquote: ({ children }) => <blockquote className="assistant-blockquote">{children}</blockquote>,
-                    hr: () => <hr className="assistant-hr" />,
-                    del: ({ children }) => <del className="assistant-strikethrough">{children}</del>
-                  }}
-                >
-                  {msg.content}
-                </ReactMarkdown>
-              </div>
-            )}
               </>
             )}
             <MessageActions
@@ -1456,10 +1400,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   return (
     <div className="chat-panel">
       {/* Header */}
-      <ChatHeader
-        onNewChat={handleNewChat}
-        onOpenHistory={() => setShowHistoryModal(true)}
-      />
+      <ChatHeader onNewChat={handleNewChat} onOpenHistory={() => setShowHistoryModal(true)} />
 
       {/* Messages Area - owns its own scroll. Completed messages +
           interleaved tool groups come from MessageList; the live
@@ -1483,10 +1424,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                 onToggleRowExpanded={handleToggleRowExpanded}
               />
               {currentIteration > 1 && isAgentRunning && (
-                <IterationProgressIndicator
-                  current={currentIteration}
-                  max={maxIterations}
-                />
+                <IterationProgressIndicator current={currentIteration} max={maxIterations} />
               )}
               {isAnalysing && (
                 <AnalysingIndicator
@@ -1496,13 +1434,12 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                 />
               )}
               {streamingMsg && (
-                <div className="streaming-row">
-                  {renderStreamingMessage(streamingMsg)}
-                </div>
+                <div className="streaming-row">{renderStreamingMessage(streamingMsg)}</div>
               )}
-              {isAgentRunning && !streamingMsg?.content && !streamingMsg?.thinkingContent && !isAnalysing && (
-                <TypingIndicator />
-              )}
+              {isAgentRunning &&
+                !streamingMsg?.content &&
+                !streamingMsg?.thinkingContent &&
+                !isAnalysing && <TypingIndicator />}
               <div ref={messagesEndRef} style={{ height: 1 }} />
             </>
           )}
@@ -1521,10 +1458,11 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                 // File was newly created, delete it
                 if (window.electron?.runCommand) {
                   const isWindows = navigator.platform.toLowerCase().includes('win');
-                  const parentDir = path.split(/[\\/]/).slice(0, -1).join(isWindows ? '\\' : '/');
-                  const deleteCmd = isWindows 
-                    ? `del /f /q "${path}"`
-                    : `rm -f "${path}"`;
+                  const parentDir = path
+                    .split(/[\\/]/)
+                    .slice(0, -1)
+                    .join(isWindows ? '\\' : '/');
+                  const deleteCmd = isWindows ? `del /f /q "${path}"` : `rm -f "${path}"`;
                   await window.electron.runCommand(deleteCmd, parentDir || workspacePath);
                 }
               } else {
@@ -1533,16 +1471,18 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                   await window.electron.writeFile(path, originalContent);
                 }
               }
-              
+
               // Dispatch event to refresh editor and file tree
-              window.dispatchEvent(new CustomEvent('kaizer:file-written', {
-                detail: { path, content: originalContent || '', type: 'restored' }
-              }));
+              window.dispatchEvent(
+                new CustomEvent('kaizer:file-written', {
+                  detail: { path, content: originalContent || '', type: 'restored' },
+                })
+              );
             }
-            
+
             // Clear diff decorations
             window.dispatchEvent(new CustomEvent('kaizer:clear-diff'));
-            
+
             // Clear the files changed card
             setFilesChangedCard(null);
             showToast('Changes reverted');
@@ -1550,7 +1490,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           onAccept={() => {
             // Clear diff decorations
             window.dispatchEvent(new CustomEvent('kaizer:clear-diff'));
-            
+
             // Clear the files changed card
             setFilesChangedCard(null);
             showToast('Changes accepted');
@@ -1567,13 +1507,16 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             <div className="command-permission-text">
               <div className="command-permission-title">Command execution request</div>
               <div className="command-permission-command">
-                <span className="command-cwd">{commandPermissionRequest.cwd}{'>'}</span>
+                <span className="command-cwd">
+                  {commandPermissionRequest.cwd}
+                  {'>'}
+                </span>
                 <span className="command-text">{commandPermissionRequest.command}</span>
               </div>
             </div>
             <div className="command-permission-actions">
-              <button 
-                className="command-btn command-btn-deny" 
+              <button
+                className="command-btn command-btn-deny"
                 onClick={() => {
                   commandPermissionRequest.onResponse({ allowed: false });
                   setCommandPermissionRequest(null);
@@ -1581,8 +1524,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               >
                 Deny
               </button>
-              <button 
-                className="command-btn command-btn-allow" 
+              <button
+                className="command-btn command-btn-allow"
                 onClick={() => {
                   commandPermissionRequest.onResponse({ allowed: true });
                   setCommandPermissionRequest(null);
@@ -1590,8 +1533,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               >
                 Allow Once
               </button>
-              <button 
-                className="command-btn command-btn-always" 
+              <button
+                className="command-btn command-btn-always"
                 onClick={() => {
                   setAutoApproveCommands(true);
                   commandPermissionRequest.onResponse({ allowed: true });
@@ -1620,10 +1563,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
 
       {/* Settings Modal */}
       {showSettingsModal && (
-        <AddModelModal
-          endpoint={settings.endpoint}
-          onClose={() => setShowSettingsModal(false)}
-        />
+        <AddModelModal endpoint={settings.endpoint} onClose={() => setShowSettingsModal(false)} />
       )}
 
       {/* Chat History Modal */}
@@ -1642,7 +1582,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           startPath={workspacePath}
           workspacePath={workspacePath}
           onAttach={(items) => {
-            items.forEach(item => {
+            items.forEach((item) => {
               handleAddContext('file', item.path);
             });
             setShowFilePicker(false);
@@ -1663,15 +1603,17 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                 <p style={{ marginBottom: '12px', color: 'var(--text-1)' }}>
                   The AI wants to execute the following command:
                 </p>
-                <div style={{ 
-                  background: 'var(--bg-3)', 
-                  padding: '12px', 
-                  borderRadius: '6px',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '13px',
-                  marginBottom: '12px',
-                  border: '1px solid var(--border)'
-                }}>
+                <div
+                  style={{
+                    background: 'var(--bg-3)',
+                    padding: '12px',
+                    borderRadius: '6px',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '13px',
+                    marginBottom: '12px',
+                    border: '1px solid var(--border)',
+                  }}
+                >
                   <div style={{ color: 'var(--text-2)', fontSize: '11px', marginBottom: '4px' }}>
                     Working directory: {commandPermissionRequest.cwd}
                   </div>
@@ -1685,8 +1627,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               </div>
             </div>
             <div className="settings-modal-footer">
-              <button 
-                className="settings-btn-secondary" 
+              <button
+                className="settings-btn-secondary"
                 onClick={() => {
                   commandPermissionRequest.onResponse({ allowed: false });
                   setCommandPermissionRequest(null);
@@ -1694,8 +1636,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               >
                 Deny
               </button>
-              <button 
-                className="settings-btn-primary" 
+              <button
+                className="settings-btn-primary"
                 onClick={() => {
                   commandPermissionRequest.onResponse({ allowed: true });
                   setCommandPermissionRequest(null);
@@ -1703,8 +1645,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               >
                 Allow Once
               </button>
-              <button 
-                className="settings-btn-primary" 
+              <button
+                className="settings-btn-primary"
                 style={{ background: '#22c55e' }}
                 onClick={() => {
                   setAutoApproveCommands(true);
