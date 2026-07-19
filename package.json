@@ -1,6 +1,6 @@
 {
   "name": "kaizer-ide",
-  "version": "6.3.4",
+  "version": "6.3.5",
   "description": "KaizerIDE - Modern AI-Powered Desktop IDE",
   "author": "Randheimer",
   "main": "electron/main.js",
