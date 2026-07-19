@@ -15,6 +15,7 @@ import { indexer } from './lib/indexer';
 import { useWorkspaceStore } from './lib/stores/workspaceStore';
 import { useEditorStore } from './lib/stores/editorStore';
 import { useUIStore } from './lib/stores/uiStore';
+import { normalizeWindowsPath } from './shared/lib/path';
 import './App.css';
 
 // Expose indexer globally for debugging
@@ -29,12 +30,6 @@ const HelpModal = lazy(() => import('./components/UI/HelpModal'));
 const RemoteConnectionModal = lazy(() => import('./components/Modals/RemoteConnectionModal'));
 const CommandPalette = lazy(() => import('./components/Common/CommandPalette'));
 const GoToFile = lazy(() => import('./components/Common/GoToFile'));
-
-// Utility: Normalize file paths to use consistent separators (Windows backslashes)
-const normalizePath = (path) => {
-  if (!path) return path;
-  return path.replace(/\//g, '\\');
-};
 
 function App() {
   // ── Workspace store ──────────────────────────────────────────────────
@@ -131,82 +126,90 @@ function App() {
   const lastOpenPathCall = useRef({ path: null, timestamp: 0 });
 
   // Helper function to open a file in the editor
-  const handleFileOpen = useCallback(async (filePath, options = {}) => {
-    const normalizedPath = sshConnection ? filePath : normalizePath(filePath);
-    const existingTab = findTab(normalizedPath);
+  const handleFileOpen = useCallback(
+    async (filePath, options = {}) => {
+      const normalizedPath = sshConnection ? filePath : normalizeWindowsPath(filePath);
+      const existingTab = findTab(normalizedPath);
 
-    if (existingTab) {
-      setActiveTabPath(normalizedPath);
-      if (options.showDiff && options.newContent) {
-        updateTab(normalizedPath, {
-          showDiff: true,
-          newContent: options.newContent,
-          changeType: options.changeType,
-          originalContent: existingTab.content,
-        });
+      if (existingTab) {
+        setActiveTabPath(normalizedPath);
+        if (options.showDiff && options.newContent) {
+          updateTab(normalizedPath, {
+            showDiff: true,
+            newContent: options.newContent,
+            changeType: options.changeType,
+            originalContent: existingTab.content,
+          });
+        }
+        return;
       }
-      return;
-    }
 
-    const result = sshConnection
-      ? await window.electron.readRemoteFile(normalizedPath)
-      : await window.electron.readFile(normalizedPath);
+      const result = sshConnection
+        ? await window.electron.readRemoteFile(normalizedPath)
+        : await window.electron.readFile(normalizedPath);
 
-    if (result.success) {
-      const fileName = normalizedPath.split(/[\\/]/).pop();
-      const aiChange = aiFileChanges[normalizedPath];
+      if (result.success) {
+        const fileName = normalizedPath.split(/[\\/]/).pop();
+        const aiChange = aiFileChanges[normalizedPath];
 
-      addTab({
-        path: normalizedPath,
-        name: fileName,
-        content: result.content,
-        dirty: false,
-        showDiff: aiChange ? true : (options.showDiff || false),
-        newContent: aiChange ? aiChange.newContent : (options.newContent || null),
-        changeType: aiChange ? aiChange.changeType : (options.changeType || null),
-        originalContent: aiChange ? aiChange.oldContent : result.content,
-        isRemote: !!sshConnection,
-      });
-      setActiveTabPath(normalizedPath);
-    }
-  }, [sshConnection, aiFileChanges, findTab, setActiveTabPath, updateTab, addTab]);
+        addTab({
+          path: normalizedPath,
+          name: fileName,
+          content: result.content,
+          dirty: false,
+          showDiff: aiChange ? true : options.showDiff || false,
+          newContent: aiChange ? aiChange.newContent : options.newContent || null,
+          changeType: aiChange ? aiChange.changeType : options.changeType || null,
+          originalContent: aiChange ? aiChange.oldContent : result.content,
+          isRemote: !!sshConnection,
+        });
+        setActiveTabPath(normalizedPath);
+      }
+    },
+    [sshConnection, aiFileChanges, findTab, setActiveTabPath, updateTab, addTab]
+  );
 
   // Helper function to handle paths from context menu
-  const handleOpenPath = useCallback(async (p, options = {}) => {
-    if (!p) return;
-    const normalizedPath = normalizePath(p);
+  const handleOpenPath = useCallback(
+    async (p, options = {}) => {
+      if (!p) return;
+      const normalizedPath = normalizeWindowsPath(p);
 
-    const now = Date.now();
-    if (lastOpenPathCall.current.path === normalizedPath &&
-        now - lastOpenPathCall.current.timestamp < 100) {
-      return;
-    }
-    lastOpenPathCall.current = { path: normalizedPath, timestamp: now };
-
-    const info = await window.electron.getFileInfo(normalizedPath);
-
-    if (info.isDirectory) {
-      setWorkspacePath(normalizedPath);
-      await window.electron.saveWorkspacePath(normalizedPath);
-      const tree = await window.electron.getFileTree(normalizedPath);
-      if (tree.success) {
-        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
+      const now = Date.now();
+      if (
+        lastOpenPathCall.current.path === normalizedPath &&
+        now - lastOpenPathCall.current.timestamp < 100
+      ) {
+        return;
       }
-    } else {
-      if (options.fileOnly) {
-        await handleFileOpen(normalizedPath);
-      } else {
-        const parentDir = normalizedPath.split(/[\\/]/).slice(0, -1).join('\\') || normalizedPath;
-        setWorkspacePath(parentDir);
-        await window.electron.saveWorkspacePath(parentDir);
-        const tree = await window.electron.getFileTree(parentDir);
+      lastOpenPathCall.current = { path: normalizedPath, timestamp: now };
+
+      const info = await window.electron.getFileInfo(normalizedPath);
+
+      if (info.isDirectory) {
+        setWorkspacePath(normalizedPath);
+        await window.electron.saveWorkspacePath(normalizedPath);
+        const tree = await window.electron.getFileTree(normalizedPath);
         if (tree.success) {
           window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
         }
-        await handleFileOpen(normalizedPath);
+      } else {
+        if (options.fileOnly) {
+          await handleFileOpen(normalizedPath);
+        } else {
+          const parentDir = normalizedPath.split(/[\\/]/).slice(0, -1).join('\\') || normalizedPath;
+          setWorkspacePath(parentDir);
+          await window.electron.saveWorkspacePath(parentDir);
+          const tree = await window.electron.getFileTree(parentDir);
+          if (tree.success) {
+            window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
+          }
+          await handleFileOpen(normalizedPath);
+        }
       }
-    }
-  }, [setWorkspacePath, handleFileOpen]);
+    },
+    [setWorkspacePath, handleFileOpen]
+  );
 
   // Load workspace path on mount
   useEffect(() => {
@@ -229,7 +232,7 @@ function App() {
     if (indexer.workspacePath && indexer.workspacePath !== workspacePath) {
       indexer.indexStore.clear();
     }
-    indexer.loadFromStorage(workspacePath).then(cached => {
+    indexer.loadFromStorage(workspacePath).then((cached) => {
       if (!cached) indexer.startIndexing(workspacePath);
     });
   }, [workspacePath]);
@@ -265,14 +268,17 @@ function App() {
     const handleOpenSSHModal = () => setShowSSHModal(true);
     if (window.electron?.ipcRenderer) {
       window.electron.ipcRenderer.on('open-ssh-modal', handleOpenSSHModal);
-      sshModalCleanup = () => window.electron.ipcRenderer.removeListener('open-ssh-modal', handleOpenSSHModal);
+      sshModalCleanup = () =>
+        window.electron.ipcRenderer.removeListener('open-ssh-modal', handleOpenSSHModal);
     }
 
     const handleOpenRemoteWorkspace = (event) => {
       const { path, connection } = event.detail;
       setWorkspacePath(path);
       setSSHConnection(connection);
-      window.dispatchEvent(new CustomEvent('kaizer:tree-refresh-remote', { detail: { path, remoteMode: true } }));
+      window.dispatchEvent(
+        new CustomEvent('kaizer:tree-refresh-remote', { detail: { path, remoteMode: true } })
+      );
     };
     window.addEventListener('kaizer:open-remote-workspace', handleOpenRemoteWorkspace);
 
@@ -290,14 +296,20 @@ function App() {
 
   const handleTabSelect = useCallback((path) => setActiveTabPath(path), [setActiveTabPath]);
   const handleTabClose = useCallback((path) => removeTab(path), [removeTab]);
-  const handleContentChange = useCallback((newContent) => {
-    if (activeTabPath) updateContent(activeTabPath, newContent);
-  }, [activeTabPath, updateContent]);
+  const handleContentChange = useCallback(
+    (newContent) => {
+      if (activeTabPath) updateContent(activeTabPath, newContent);
+    },
+    [activeTabPath, updateContent]
+  );
 
-  const handleSettingsSave = useCallback((newSettings) => {
-    setSettings(newSettings);
-    closeSettings();
-  }, [setSettings, closeSettings]);
+  const handleSettingsSave = useCallback(
+    (newSettings) => {
+      setSettings(newSettings);
+      closeSettings();
+    },
+    [setSettings, closeSettings]
+  );
 
   // Keyboard shortcuts & event listeners
   useEffect(() => {
@@ -360,7 +372,7 @@ function App() {
         const handleNextKey = (e2) => {
           if (e2.key === 'z' || e2.key === 'Z') {
             e2.preventDefault();
-            setZenMode(prev => !prev);
+            setZenMode((prev) => !prev);
           }
           window.removeEventListener('keydown', handleNextKey);
         };
@@ -371,7 +383,7 @@ function App() {
 
     const handleFileWritten = (event) => {
       const { path, type, content, originalContent, oldContent, newContent } = event.detail;
-      const normalizedPath = normalizePath(path);
+      const normalizedPath = normalizeWindowsPath(path);
 
       setAiFileChange(normalizedPath, {
         oldContent: oldContent || originalContent || '',
@@ -380,7 +392,7 @@ function App() {
       });
 
       if (workspacePath) {
-        window.electron.getFileTree(workspacePath).then(result => {
+        window.electron.getFileTree(workspacePath).then((result) => {
           if (result.success) {
             window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: result.tree }));
           }
@@ -430,7 +442,10 @@ function App() {
       const { originalPath, content } = event.detail;
       const fileName = originalPath.split(/[\\/]/).pop();
       const previewPath = `${originalPath}:preview`;
-      if (findTab(previewPath)) { setActiveTabPath(previewPath); return; }
+      if (findTab(previewPath)) {
+        setActiveTabPath(previewPath);
+        return;
+      }
       addTab({
         path: previewPath,
         name: `${fileName} [Preview]`,
@@ -460,19 +475,31 @@ function App() {
       const { path, showPreview } = e.detail;
       if (!path) return;
       const result = await window.electron.readFile(path);
-      if (!result.success) { setErrorMessage(`Failed to open file: ${result.error}`); return; }
+      if (!result.success) {
+        setErrorMessage(`Failed to open file: ${result.error}`);
+        return;
+      }
       const fileName = path.split(/[\\/]/).pop();
 
       if (showPreview && path.endsWith('.md')) {
         const previewPath = `${path}:preview`;
         if (!findTab(previewPath)) {
-          addTab({ path: previewPath, name: `${fileName} (Preview)`, content: result.content, dirty: false, isPreview: true });
+          addTab({
+            path: previewPath,
+            name: `${fileName} (Preview)`,
+            content: result.content,
+            dirty: false,
+            isPreview: true,
+          });
         }
         setActiveTabPath(previewPath);
         return;
       }
 
-      if (findTab(path)) { setActiveTabPath(path); return; }
+      if (findTab(path)) {
+        setActiveTabPath(path);
+        return;
+      }
       addTab({ path, name: fileName, content: result.content, dirty: false });
       setActiveTabPath(path);
     };
@@ -492,11 +519,14 @@ function App() {
         const fileName = prompt('Enter file name:');
         if (fileName) {
           const newFilePath = `${workspacePath}\\${fileName}`;
-          window.electron.writeFile(newFilePath, '').then(result => {
+          window.electron.writeFile(newFilePath, '').then((result) => {
             if (result.success) {
               handleFileOpen(newFilePath);
-              window.electron.getFileTree(workspacePath).then(res => {
-                if (res.success) window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: res.tree }));
+              window.electron.getFileTree(workspacePath).then((res) => {
+                if (res.success)
+                  window.dispatchEvent(
+                    new CustomEvent('kaizer:tree-refresh', { detail: res.tree })
+                  );
               });
             } else {
               setErrorMessage(`Failed to create file: ${result.error}`);
@@ -527,7 +557,7 @@ function App() {
       const { path: filePath, diff, fileName } = event.detail;
       if (!filePath) return;
 
-      const normalizedPath = normalizePath(filePath);
+      const normalizedPath = normalizeWindowsPath(filePath);
       const existingTab = findTab(normalizedPath);
 
       if (existingTab) {
@@ -574,74 +604,127 @@ function App() {
       window.removeEventListener('kaizer:open-diff', handleOpenDiff);
       window.removeEventListener('keydown', handleKeyDownForZen);
     };
-  }, [activeTabPath, tabs, workspacePath, findTab, updateTab, removeTab, closeAllTabs,
-      markAllClean, handleFileOpen, handleOpenFolder, setWorkspacePath, setErrorMessage,
-      toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible, toggleChat, clearAiFileChanges,
-      zenMode, setZenMode,
-      setShowGoToFile]);
+  }, [
+    activeTabPath,
+    tabs,
+    workspacePath,
+    findTab,
+    updateTab,
+    removeTab,
+    closeAllTabs,
+    markAllClean,
+    handleFileOpen,
+    handleOpenFolder,
+    setWorkspacePath,
+    setErrorMessage,
+    toggleSidebar,
+    setShowHelpModal,
+    openSettings,
+    setTerminalVisible,
+    toggleChat,
+    clearAiFileChanges,
+    zenMode,
+    setZenMode,
+    setShowGoToFile,
+  ]);
 
-  const handleMenuAction = useCallback(async (action) => {
-    switch (action) {
-      case 'new-file':
-        if (workspacePath) {
-          const fileName = prompt('Enter file name:');
-          if (fileName) {
-            const newFilePath = `${workspacePath}\\${fileName}`;
-            const result = await window.electron.writeFile(newFilePath, '');
-            if (result.success) {
-              handleFileOpen(newFilePath);
-              window.electron.getFileTree(workspacePath).then(res => {
-                if (res.success) window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: res.tree }));
-              });
-            } else {
-              setErrorMessage(`Failed to create file: ${result.error}`);
+  const handleMenuAction = useCallback(
+    async (action) => {
+      switch (action) {
+        case 'new-file':
+          if (workspacePath) {
+            const fileName = prompt('Enter file name:');
+            if (fileName) {
+              const newFilePath = `${workspacePath}\\${fileName}`;
+              const result = await window.electron.writeFile(newFilePath, '');
+              if (result.success) {
+                handleFileOpen(newFilePath);
+                window.electron.getFileTree(workspacePath).then((res) => {
+                  if (res.success)
+                    window.dispatchEvent(
+                      new CustomEvent('kaizer:tree-refresh', { detail: res.tree })
+                    );
+                });
+              } else {
+                setErrorMessage(`Failed to create file: ${result.error}`);
+              }
             }
+          } else {
+            setErrorMessage('Please open a folder first');
           }
-        } else {
-          setErrorMessage('Please open a folder first');
+          break;
+        case 'open-folder':
+          handleOpenFolder();
+          break;
+        case 'save-file': {
+          if (!activeTabPath) break;
+          const activeTab = findTab(activeTabPath);
+          if (!activeTab || !activeTab.dirty) break;
+          const result = await window.electron.writeFile(activeTabPath, activeTab.content);
+          if (result.success) updateTab(activeTabPath, { dirty: false });
+          else setErrorMessage(`Failed to save file: ${result.error}`);
+          break;
         }
-        break;
-      case 'open-folder': handleOpenFolder(); break;
-      case 'save-file': {
-        if (!activeTabPath) break;
-        const activeTab = findTab(activeTabPath);
-        if (!activeTab || !activeTab.dirty) break;
-        const result = await window.electron.writeFile(activeTabPath, activeTab.content);
-        if (result.success) updateTab(activeTabPath, { dirty: false });
-        else setErrorMessage(`Failed to save file: ${result.error}`);
-        break;
+        case 'save-all':
+          for (const tab of tabs) {
+            if (tab.dirty) await window.electron.writeFile(tab.path, tab.content);
+          }
+          markAllClean();
+          break;
+        case 'close-tab':
+          if (activeTabPath) removeTab(activeTabPath);
+          break;
+        case 'close-folder':
+          setWorkspacePath(null);
+          closeAllTabs();
+          break;
+        case 'toggle-sidebar':
+          toggleSidebar();
+          break;
+        case 'toggle-explorer':
+          toggleSidebar();
+          break;
+        case 'toggle-search':
+          if (!sidebarVisible) toggleSidebar();
+          window.dispatchEvent(new CustomEvent('kaizer:show-search-tab'));
+          break;
+        case 'show-docs':
+          setShowHelpModal(true);
+          break;
+        case 'open-settings':
+          openSettings();
+          break;
+        case 'go-to-file':
+          setShowGoToFile(true);
+          break;
+        case 'new-terminal':
+          setTerminalVisible(true);
+          window.dispatchEvent(new CustomEvent('kaizer:new-terminal'));
+          break;
+        default:
+          console.log('Menu action not implemented:', action);
       }
-      case 'save-all':
-        for (const tab of tabs) {
-          if (tab.dirty) await window.electron.writeFile(tab.path, tab.content);
-        }
-        markAllClean();
-        break;
-      case 'close-tab':
-        if (activeTabPath) removeTab(activeTabPath);
-        break;
-      case 'close-folder':
-        setWorkspacePath(null);
-        closeAllTabs();
-        break;
-      case 'toggle-sidebar': toggleSidebar(); break;
-      case 'toggle-explorer': toggleSidebar(); break;
-      case 'toggle-search':
-        if (!sidebarVisible) toggleSidebar();
-        window.dispatchEvent(new CustomEvent('kaizer:show-search-tab'));
-        break;
-      case 'show-docs': setShowHelpModal(true); break;
-      case 'open-settings': openSettings(); break;
-      case 'go-to-file': setShowGoToFile(true); break;
-      case 'new-terminal':
-        setTerminalVisible(true);
-        window.dispatchEvent(new CustomEvent('kaizer:new-terminal'));
-        break;
-      default: console.log('Menu action not implemented:', action);
-    }
-  }, [workspacePath, activeTabPath, tabs, findTab, updateTab, removeTab, closeAllTabs,
-      markAllClean, handleFileOpen, handleOpenFolder, setWorkspacePath, setErrorMessage,
-      toggleSidebar, setShowHelpModal, openSettings, setTerminalVisible, setShowGoToFile]);
+    },
+    [
+      workspacePath,
+      activeTabPath,
+      tabs,
+      findTab,
+      updateTab,
+      removeTab,
+      closeAllTabs,
+      markAllClean,
+      handleFileOpen,
+      handleOpenFolder,
+      setWorkspacePath,
+      setErrorMessage,
+      toggleSidebar,
+      setShowHelpModal,
+      openSettings,
+      setTerminalVisible,
+      setShowGoToFile,
+    ]
+  );
 
   return (
     <div className={`app${zenMode ? ' zen-mode' : ''}`}>
@@ -658,7 +741,10 @@ function App() {
       <div className="main-content">
         {!zenMode && sidebarVisible && (
           <>
-            <div ref={sidebarRef} style={{ width: sidebarWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}>
+            <div
+              ref={sidebarRef}
+              style={{ width: sidebarWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}
+            >
               <Sidebar
                 workspacePath={workspacePath}
                 activeFile={activeTabPath}
@@ -680,8 +766,24 @@ function App() {
             />
           </>
         )}
-        <div style={{ display: 'flex', flexDirection: splitView ? 'row' : 'column', flex: 1, overflow: 'hidden', minWidth: 0 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minWidth: 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: splitView ? 'row' : 'column',
+            flex: 1,
+            overflow: 'hidden',
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              overflow: 'hidden',
+              minWidth: 0,
+            }}
+          >
             <EditorArea
               tabs={tabs}
               activeTab={activeTabPath}
@@ -699,7 +801,15 @@ function App() {
                   // Resize between panes - handled by flex layout
                 }}
               />
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minWidth: 0 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  flex: 1,
+                  overflow: 'hidden',
+                  minWidth: 0,
+                }}
+              >
                 <EditorArea
                   tabs={pane2Tabs}
                   activeTab={pane2ActiveTab}
@@ -723,7 +833,10 @@ function App() {
                   setTerminalHeight(next);
                 }}
               />
-              <div ref={terminalRef} style={{ height: terminalHeight, flexShrink: 0, overflow: 'hidden' }}>
+              <div
+                ref={terminalRef}
+                style={{ height: terminalHeight, flexShrink: 0, overflow: 'hidden' }}
+              >
                 <TerminalPanel workspacePath={workspacePath} />
               </div>
             </>
@@ -768,7 +881,10 @@ function App() {
                 setChatWidth(next);
               }}
             />
-            <div ref={chatRef} style={{ width: chatWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}>
+            <div
+              ref={chatRef}
+              style={{ width: chatWidth, minWidth: 0, flexShrink: 0, overflow: 'hidden' }}
+            >
               <ChatPanel
                 workspacePath={workspacePath}
                 activeFile={activeTabPath}
@@ -780,16 +896,18 @@ function App() {
           </>
         )}
       </div>
-      {!zenMode && <StatusBar
-        activeFile={activeTabPath}
-        modelName={settings.selectedModel.name}
-        endpoint={settings.endpoint}
-        cursorPosition={cursorPosition}
-        languageMode={languageMode}
-        chatVisible={chatVisible}
-        onToggleChat={toggleChat}
-        workspacePath={workspacePath}
-      />}
+      {!zenMode && (
+        <StatusBar
+          activeFile={activeTabPath}
+          modelName={settings.selectedModel.name}
+          endpoint={settings.endpoint}
+          cursorPosition={cursorPosition}
+          languageMode={languageMode}
+          chatVisible={chatVisible}
+          onToggleChat={toggleChat}
+          workspacePath={workspacePath}
+        />
+      )}
       {errorMessage && <ErrorToast message={errorMessage} onClose={clearError} />}
       <Suspense fallback={null}>
         {showSettings && (
@@ -812,7 +930,9 @@ function App() {
                 window.electron.saveWorkspacePath(folderPath);
                 closeFilePicker();
               } else {
-                window.dispatchEvent(new CustomEvent('kaizer:attach-context', { detail: { items } }));
+                window.dispatchEvent(
+                  new CustomEvent('kaizer:attach-context', { detail: { items } })
+                );
                 closeFilePicker();
               }
             }}
@@ -838,22 +958,113 @@ function App() {
             open={showCommandPalette}
             onClose={() => setShowCommandPalette(false)}
             commands={[
-              { id: 'file.new', group: 'File', title: 'New File', shortcut: 'Ctrl+N', run: () => handleMenuAction('new-file') },
-              { id: 'file.openFolder', group: 'File', title: 'Open Folder…', shortcut: 'Ctrl+K Ctrl+O', run: () => handleMenuAction('open-folder') },
-              { id: 'file.save', group: 'File', title: 'Save', shortcut: 'Ctrl+S', run: () => handleMenuAction('save-file') },
-              { id: 'file.saveAll', group: 'File', title: 'Save All', shortcut: 'Ctrl+K S', run: () => handleMenuAction('save-all') },
-              { id: 'file.closeTab', group: 'File', title: 'Close Tab', shortcut: 'Ctrl+W', run: () => handleMenuAction('close-tab') },
-              { id: 'file.closeFolder', group: 'File', title: 'Close Folder', run: () => handleMenuAction('close-folder') },
-              { id: 'view.toggleSidebar', group: 'View', title: 'Toggle Sidebar', shortcut: 'Ctrl+B', run: () => handleMenuAction('toggle-sidebar') },
-              { id: 'view.toggleTerminal', group: 'View', title: 'New Terminal', run: () => handleMenuAction('new-terminal') },
-              { id: 'view.toggleTerminalHide', group: 'View', title: 'Toggle Terminal Panel', run: () => setTerminalVisible((v) => !v) },
-              { id: 'view.toggleOutput', group: 'View', title: 'Toggle Output Panel', run: () => setOutputVisible((v) => !v) },
-              { id: 'view.toggleChat', group: 'View', title: 'Toggle AI Chat Panel', shortcut: 'Ctrl+Shift+C', run: () => toggleChat() },
-              { id: 'go.toFile', group: 'Go', title: 'Go to File…', shortcut: 'Ctrl+P', run: () => handleMenuAction('go-to-file') },
-              { id: 'app.settings', group: 'Preferences', title: 'Open Settings', shortcut: 'Ctrl+,', run: () => handleMenuAction('open-settings') },
-              { id: 'app.help', group: 'Help', title: 'Show Docs / Help', run: () => handleMenuAction('show-docs') },
-              { id: 'remote.ssh', group: 'Remote', title: 'Connect via SSH…', run: () => setShowSSHModal(true) },
-              { id: 'workspace.reindex', group: 'Workspace', title: 'Reindex Workspace', run: () => { if (workspacePath) indexer.reindex(workspacePath); } },
+              {
+                id: 'file.new',
+                group: 'File',
+                title: 'New File',
+                shortcut: 'Ctrl+N',
+                run: () => handleMenuAction('new-file'),
+              },
+              {
+                id: 'file.openFolder',
+                group: 'File',
+                title: 'Open Folder…',
+                shortcut: 'Ctrl+K Ctrl+O',
+                run: () => handleMenuAction('open-folder'),
+              },
+              {
+                id: 'file.save',
+                group: 'File',
+                title: 'Save',
+                shortcut: 'Ctrl+S',
+                run: () => handleMenuAction('save-file'),
+              },
+              {
+                id: 'file.saveAll',
+                group: 'File',
+                title: 'Save All',
+                shortcut: 'Ctrl+K S',
+                run: () => handleMenuAction('save-all'),
+              },
+              {
+                id: 'file.closeTab',
+                group: 'File',
+                title: 'Close Tab',
+                shortcut: 'Ctrl+W',
+                run: () => handleMenuAction('close-tab'),
+              },
+              {
+                id: 'file.closeFolder',
+                group: 'File',
+                title: 'Close Folder',
+                run: () => handleMenuAction('close-folder'),
+              },
+              {
+                id: 'view.toggleSidebar',
+                group: 'View',
+                title: 'Toggle Sidebar',
+                shortcut: 'Ctrl+B',
+                run: () => handleMenuAction('toggle-sidebar'),
+              },
+              {
+                id: 'view.toggleTerminal',
+                group: 'View',
+                title: 'New Terminal',
+                run: () => handleMenuAction('new-terminal'),
+              },
+              {
+                id: 'view.toggleTerminalHide',
+                group: 'View',
+                title: 'Toggle Terminal Panel',
+                run: () => setTerminalVisible((v) => !v),
+              },
+              {
+                id: 'view.toggleOutput',
+                group: 'View',
+                title: 'Toggle Output Panel',
+                run: () => setOutputVisible((v) => !v),
+              },
+              {
+                id: 'view.toggleChat',
+                group: 'View',
+                title: 'Toggle AI Chat Panel',
+                shortcut: 'Ctrl+Shift+C',
+                run: () => toggleChat(),
+              },
+              {
+                id: 'go.toFile',
+                group: 'Go',
+                title: 'Go to File…',
+                shortcut: 'Ctrl+P',
+                run: () => handleMenuAction('go-to-file'),
+              },
+              {
+                id: 'app.settings',
+                group: 'Preferences',
+                title: 'Open Settings',
+                shortcut: 'Ctrl+,',
+                run: () => handleMenuAction('open-settings'),
+              },
+              {
+                id: 'app.help',
+                group: 'Help',
+                title: 'Show Docs / Help',
+                run: () => handleMenuAction('show-docs'),
+              },
+              {
+                id: 'remote.ssh',
+                group: 'Remote',
+                title: 'Connect via SSH…',
+                run: () => setShowSSHModal(true),
+              },
+              {
+                id: 'workspace.reindex',
+                group: 'Workspace',
+                title: 'Reindex Workspace',
+                run: () => {
+                  if (workspacePath) indexer.reindex(workspacePath);
+                },
+              },
             ]}
           />
         )}
