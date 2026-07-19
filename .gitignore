@@ -33,3 +33,24 @@ start-dev.bat
 *.new
 *.old
 .claude/
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+
+# Test and tool output
+coverage
+.nyc_output
+.eslintcache
+.vite
+
+# Editor and OS metadata
+.vscode
+.idea
+Thumbs.db
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
