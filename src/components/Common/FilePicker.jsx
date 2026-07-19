@@ -1,60 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  getFileIcon,
+  getFileType,
+  formatBytes,
+  formatDate,
+} from '../../features/file-picker/lib/fileMetadata';
 import './FilePicker.css';
-
-const FILE_ICONS = {
-  js: { bg: '#f7df1e', text: 'JS', color: '#000' },
-  mjs: { bg: '#f7df1e', text: 'JS', color: '#000' },
-  ts: { bg: '#3178c6', text: 'TS', color: '#fff' },
-  jsx: { bg: '#61dafb', text: 'JSX', color: '#000' },
-  tsx: { bg: '#61dafb', text: 'TSX', color: '#000' },
-  py: { bg: '#3572A5', text: 'PY', color: '#fff' },
-  lua: { bg: '#000080', text: 'LUA', color: '#fff' },
-  rs: { bg: '#ce422b', text: 'RS', color: '#fff' },
-  cpp: { bg: '#00599c', text: 'C++', color: '#fff' },
-  c: { bg: '#555555', text: 'C', color: '#fff' },
-  cs: { bg: '#178600', text: 'C#', color: '#fff' },
-  go: { bg: '#00add8', text: 'GO', color: '#fff' },
-  java: { bg: '#b07219', text: 'JAVA', color: '#fff' },
-  html: { bg: '#e44d26', text: 'HTM', color: '#fff' },
-  css: { bg: '#563d7c', text: 'CSS', color: '#fff' },
-  json: { bg: '#cbcb41', text: '{}', color: '#000' },
-  md: { bg: '#083fa1', text: 'MD', color: '#fff' },
-  txt: { bg: '#888888', text: 'TXT', color: '#fff' },
-};
-
-function getFileIcon(filename) {
-  const ext = filename.split('.').pop()?.toLowerCase();
-  return FILE_ICONS[ext] || { bg: '#666666', text: 'FILE', color: '#fff' };
-}
-
-function getFileType(entry) {
-  if (entry.type === 'dir') return 'Folder';
-  const ext = entry.name.split('.').pop()?.toLowerCase();
-  const typeMap = {
-    js: 'JS File', mjs: 'JS File', ts: 'TS File', jsx: 'JSX File', tsx: 'TSX File',
-    py: 'Python File', lua: 'Lua File', rs: 'Rust File', cpp: 'C++ File', c: 'C File',
-    cs: 'C# File', go: 'Go File', java: 'Java File', html: 'HTML File', css: 'CSS File',
-    json: 'JSON File', md: 'Markdown', txt: 'Text File'
-  };
-  return typeMap[ext] || 'File';
-}
-
-function formatBytes(bytes) {
-  if (bytes === 0 || bytes === undefined) return '—';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-function formatDate(timestamp) {
-  if (!timestamp) return '—';
-  const date = new Date(timestamp);
-  const month = date.toLocaleDateString('en-US', { month: 'short' });
-  const day = date.getDate();
-  const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-  return `${month} ${day} ${time}`;
-}
 
 function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attach' }) {
   // mode can be 'attach' (for files) or 'folder' (for selecting a folder)
@@ -79,7 +30,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
   const [previewContent, setPreviewContent] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [folderItemCount, setFolderItemCount] = useState(null);
-  
+
   const overlayRef = useRef(null);
   const sortMenuRef = useRef(null);
   const newFolderInputRef = useRef(null);
@@ -87,9 +38,27 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
   const fileListRef = useRef(null);
 
   const PREVIEWABLE_EXTENSIONS = new Set([
-    'txt', 'md', 'js', 'ts', 'jsx', 'tsx', 'py', 'lua', 'json', 
-    'css', 'html', 'rs', 'go', 'cpp', 'c', 'cs', 'yaml', 'yml', 
-    'toml', 'sh', 'env'
+    'txt',
+    'md',
+    'js',
+    'ts',
+    'jsx',
+    'tsx',
+    'py',
+    'lua',
+    'json',
+    'css',
+    'html',
+    'rs',
+    'go',
+    'cpp',
+    'c',
+    'cs',
+    'yaml',
+    'yml',
+    'toml',
+    'sh',
+    'env',
   ]);
 
   // Load pinned directories from localStorage
@@ -110,12 +79,12 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
       console.log('[FilePicker] Detecting home directory...');
       const result = await window.electron.runCommand('echo %USERPROFILE%', null);
       console.log('[FilePicker] Home detection result:', result);
-      
+
       if (result.success && (result.output || result.stdout)) {
         const home = (result.output || result.stdout).trim();
         console.log('[FilePicker] Home path:', home);
         setHomePath(home);
-        
+
         // Navigate to initial path
         const initialPath = startPath || workspacePath || home;
         console.log('[FilePicker] Initial path will be:', initialPath);
@@ -133,12 +102,12 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
   useEffect(() => {
     const loadWorkspaceSubdirs = async () => {
       if (!workspacePath) return;
-      
+
       const result = await window.electron.listDir(workspacePath);
       if (result.success) {
         const items = result.items || result.entries;
         if (items) {
-          const dirs = items.filter(item => item.type === 'dir' || item.type === 'directory');
+          const dirs = items.filter((item) => item.type === 'dir' || item.type === 'directory');
           setWorkspaceSubdirs(dirs);
         }
       }
@@ -152,14 +121,14 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
     setLoading(true);
     setError(null);
     setShowNewFolderInput(false);
-    
+
     try {
       const result = await window.electron.listDir(path);
       console.log('[FilePicker] listDir result:', result);
-      
+
       // Handle both 'items' and 'entries' for compatibility
       const items = result.items || result.entries;
-      
+
       if (!result.success || !items) {
         console.error('[FilePicker] Failed to list directory:', result.error);
         setError('Cannot read directory');
@@ -167,9 +136,9 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
         setLoading(false);
         return;
       }
-      
+
       console.log('[FilePicker] Found', items.length, 'items');
-      
+
       // Fetch file info for each entry
       const entriesWithInfo = await Promise.all(
         items.map(async (item) => {
@@ -179,11 +148,11 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
           return {
             ...item,
             size: info.success ? info.size : 0,
-            mtime: info.success ? info.mtime : 0
+            mtime: info.success ? info.mtime : 0,
           };
         })
       );
-      
+
       console.log('[FilePicker] Entries with info:', entriesWithInfo);
       setEntries(entriesWithInfo);
       setLoading(false);
@@ -196,22 +165,25 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
   }, []);
 
   // Navigate to a path
-  const navigateTo = useCallback((path) => {
-    console.log('[FilePicker] navigateTo called with path:', path);
-    setCurrentPath(path);
-    setSearchQuery('');
-    setSelected(new Set());
-    setLastClickedIndex(-1);
-    
-    // Update history
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(path);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-    
-    // Load directory
-    loadDirectory(path);
-  }, [history, historyIndex, loadDirectory]);
+  const navigateTo = useCallback(
+    (path) => {
+      console.log('[FilePicker] navigateTo called with path:', path);
+      setCurrentPath(path);
+      setSearchQuery('');
+      setSelected(new Set());
+      setLastClickedIndex(-1);
+
+      // Update history
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(path);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+
+      // Load directory
+      loadDirectory(path);
+    },
+    [history, historyIndex, loadDirectory]
+  );
 
   // History navigation
   const goBack = useCallback(() => {
@@ -260,13 +232,21 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
         } else {
           onClose();
         }
-      } else if (e.key === 'Backspace' && !showNewFolderInput && document.activeElement.tagName !== 'INPUT') {
+      } else if (
+        e.key === 'Backspace' &&
+        !showNewFolderInput &&
+        document.activeElement.tagName !== 'INPUT'
+      ) {
         e.preventDefault();
         goUp();
-      } else if (e.key === 'Enter' && !showNewFolderInput && document.activeElement.tagName !== 'INPUT') {
+      } else if (
+        e.key === 'Enter' &&
+        !showNewFolderInput &&
+        document.activeElement.tagName !== 'INPUT'
+      ) {
         if (selected.size === 1) {
           const selectedPath = Array.from(selected)[0];
-          const entry = entries.find(e => e.path === selectedPath);
+          const entry = entries.find((e) => e.path === selectedPath);
           if (entry) {
             if (entry.type === 'dir' || entry.type === 'directory') {
               navigateTo(entry.path);
@@ -279,7 +259,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
       } else if (e.key === 'a' && e.ctrlKey && !showNewFolderInput) {
         e.preventDefault();
         const filtered = getFilteredEntries();
-        setSelected(new Set(filtered.map(e => e.path)));
+        setSelected(new Set(filtered.map((e) => e.path)));
       } else if (e.key === 'F5') {
         e.preventDefault();
         loadDirectory(currentPath);
@@ -296,7 +276,20 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, showSortMenu, showNewFolderInput, contextMenu, selected, entries, currentPath, goUp, goBack, goForward, loadDirectory, navigateTo]);
+  }, [
+    onClose,
+    showSortMenu,
+    showNewFolderInput,
+    contextMenu,
+    selected,
+    entries,
+    currentPath,
+    goUp,
+    goBack,
+    goForward,
+    loadDirectory,
+    navigateTo,
+  ]);
 
   // Close sort menu on outside click
   useEffect(() => {
@@ -328,10 +321,10 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
 
   // Pin/unpin directory
   const togglePin = (path, name) => {
-    const newPinned = pinnedDirs.some(p => p.path === path)
-      ? pinnedDirs.filter(p => p.path !== path)
+    const newPinned = pinnedDirs.some((p) => p.path === path)
+      ? pinnedDirs.filter((p) => p.path !== path)
       : [...pinnedDirs, { path, name }];
-    
+
     setPinnedDirs(newPinned);
     localStorage.setItem('kaizer-pinned-dirs', JSON.stringify(newPinned));
   };
@@ -375,7 +368,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
       }
 
       const selectedPath = Array.from(selected)[0];
-      const entry = entries.find(e => e.path === selectedPath);
+      const entry = entries.find((e) => e.path === selectedPath);
       if (!entry) return;
 
       if (entry.type === 'dir' || entry.type === 'directory') {
@@ -444,19 +437,17 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
   // Get filtered and sorted entries
   const getFilteredEntries = useCallback(() => {
     let filtered = entries;
-    
+
     // Apply search filter
     if (searchQuery) {
-      filtered = filtered.filter(e => 
-        e.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      filtered = filtered.filter((e) => e.name.toLowerCase().includes(searchQuery.toLowerCase()));
     }
-    
+
     // Apply sort
     const sorted = [...filtered];
-    const dirs = sorted.filter(e => e.type === 'dir' || e.type === 'directory');
-    const files = sorted.filter(e => e.type === 'file');
-    
+    const dirs = sorted.filter((e) => e.type === 'dir' || e.type === 'directory');
+    const files = sorted.filter((e) => e.type === 'file');
+
     const sortFn = (a, b) => {
       switch (sortBy) {
         case 'name-asc':
@@ -479,10 +470,10 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
           return 0;
       }
     };
-    
+
     dirs.sort(sortFn);
     files.sort(sortFn);
-    
+
     return [...dirs, ...files];
   }, [entries, searchQuery, sortBy]);
 
@@ -521,7 +512,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
       // Folder selection mode - select current folder or selected folder
       if (selected.size === 1) {
         const selectedPath = Array.from(selected)[0];
-        const entry = entries.find(e => e.path === selectedPath);
+        const entry = entries.find((e) => e.path === selectedPath);
         if (entry && (entry.type === 'dir' || entry.type === 'directory')) {
           onAttach([{ type: 'dir', path: entry.path, name: entry.name }]);
         }
@@ -532,16 +523,16 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
     } else {
       // File attachment mode
       if (selected.size === 0) return;
-      
-      const items = Array.from(selected).map(path => {
-        const entry = entries.find(e => e.path === path);
+
+      const items = Array.from(selected).map((path) => {
+        const entry = entries.find((e) => e.path === path);
         return {
           type: entry?.type || 'file',
           path,
-          name: entry?.name || path.split(/[\\/]/).pop()
+          name: entry?.name || path.split(/[\\/]/).pop(),
         };
       });
-      
+
       onAttach(items);
     }
     onClose();
@@ -561,25 +552,30 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
   const drives = getDrives();
   const workspaceName = workspacePath ? workspacePath.split(/[\\/]/).pop() : '';
   const filteredEntries = getFilteredEntries();
-  
+
   // Get selected entry for preview
-  const selectedEntry = selected.size === 1 
-    ? entries.find(e => e.path === Array.from(selected)[0])
-    : null;
-  
-  const selectedItems = Array.from(selected).map(path => {
-    const entry = entries.find(e => e.path === path);
+  const selectedEntry =
+    selected.size === 1 ? entries.find((e) => e.path === Array.from(selected)[0]) : null;
+
+  const selectedItems = Array.from(selected).map((path) => {
+    const entry = entries.find((e) => e.path === path);
     return entry?.name || path.split(/[\\/]/).pop();
   });
 
   const getSortLabel = () => {
     switch (sortBy) {
-      case 'name-asc': return 'Name ↑';
-      case 'name-desc': return 'Name ↓';
-      case 'modified': return 'Modified';
-      case 'size': return 'Size';
-      case 'type': return 'Type';
-      default: return 'Name ↑';
+      case 'name-asc':
+        return 'Name ↑';
+      case 'name-desc':
+        return 'Name ↓';
+      case 'modified':
+        return 'Modified';
+      case 'size':
+        return 'Size';
+      case 'type':
+        return 'Type';
+      default:
+        return 'Name ↑';
     }
   };
 
@@ -603,7 +599,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
               ))}
             </div>
           </div>
-          
+
           <div className="header-center">
             <input
               type="text"
@@ -613,7 +609,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          
+
           <div className="header-right">
             <button
               className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
@@ -638,30 +634,57 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
                 <rect x="9" y="9" width="5" height="5" />
               </svg>
             </button>
-            
+
             <div className="sort-dropdown-wrapper" ref={sortMenuRef}>
-              <button
-                className="sort-dropdown-btn"
-                onClick={() => setShowSortMenu(!showSortMenu)}
-              >
+              <button className="sort-dropdown-btn" onClick={() => setShowSortMenu(!showSortMenu)}>
                 {getSortLabel()}
                 <span className="dropdown-chevron">▾</span>
               </button>
               {showSortMenu && (
                 <div className="sort-dropdown-menu">
-                  <button className="sort-option" onClick={() => { setSortBy('name-asc'); setShowSortMenu(false); }}>
+                  <button
+                    className="sort-option"
+                    onClick={() => {
+                      setSortBy('name-asc');
+                      setShowSortMenu(false);
+                    }}
+                  >
                     Name ↑
                   </button>
-                  <button className="sort-option" onClick={() => { setSortBy('name-desc'); setShowSortMenu(false); }}>
+                  <button
+                    className="sort-option"
+                    onClick={() => {
+                      setSortBy('name-desc');
+                      setShowSortMenu(false);
+                    }}
+                  >
                     Name ↓
                   </button>
-                  <button className="sort-option" onClick={() => { setSortBy('modified'); setShowSortMenu(false); }}>
+                  <button
+                    className="sort-option"
+                    onClick={() => {
+                      setSortBy('modified');
+                      setShowSortMenu(false);
+                    }}
+                  >
                     Modified
                   </button>
-                  <button className="sort-option" onClick={() => { setSortBy('size'); setShowSortMenu(false); }}>
+                  <button
+                    className="sort-option"
+                    onClick={() => {
+                      setSortBy('size');
+                      setShowSortMenu(false);
+                    }}
+                  >
                     Size
                   </button>
-                  <button className="sort-option" onClick={() => { setSortBy('type'); setShowSortMenu(false); }}>
+                  <button
+                    className="sort-option"
+                    onClick={() => {
+                      setSortBy('type');
+                      setShowSortMenu(false);
+                    }}
+                  >
                     Type
                   </button>
                 </div>
@@ -675,7 +698,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
           {/* Left Column - Bookmarks */}
           <div className="bookmarks-column">
             <div className="bookmarks-title">BOOKMARKS</div>
-            
+
             {/* Quick Access */}
             <div className="bookmarks-section">
               {quickAccessPaths.map((item, idx) => (
@@ -720,10 +743,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
                     className={`bookmark-item workspace-subdir ${currentPath === dir.path ? 'active' : ''}`}
                     onClick={() => navigateTo(dir.path)}
                   >
-                    <div
-                      className="folder-color-square"
-                      style={{ backgroundColor: '#f5a623' }}
-                    />
+                    <div className="folder-color-square" style={{ backgroundColor: '#f5a623' }} />
                     <span className="bookmark-label">{dir.name}</span>
                   </button>
                 ))}
@@ -778,19 +798,12 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
                 >
                   →
                 </button>
-                <button
-                  className="toolbar-nav-btn"
-                  onClick={goUp}
-                  title="Up"
-                >
+                <button className="toolbar-nav-btn" onClick={goUp} title="Up">
                   ↑
                 </button>
               </div>
               <div className="toolbar-right">
-                <button
-                  className="new-folder-btn"
-                  onClick={() => setShowNewFolderInput(true)}
-                >
+                <button className="new-folder-btn" onClick={() => setShowNewFolderInput(true)}>
                   + New Folder
                 </button>
               </div>
@@ -801,21 +814,14 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
               {loading ? (
                 <div className="loading-skeleton">
                   {[70, 50, 80, 40, 65, 55, 75, 45].map((width, idx) => (
-                    <div
-                      key={idx}
-                      className="skeleton-row"
-                      style={{ width: `${width}%` }}
-                    />
+                    <div key={idx} className="skeleton-row" style={{ width: `${width}%` }} />
                   ))}
                 </div>
               ) : error ? (
                 <div className="error-state">
                   <div className="error-icon">⚠</div>
                   <div className="error-text">{error}</div>
-                  <button
-                    className="retry-btn"
-                    onClick={() => loadDirectory(currentPath)}
-                  >
+                  <button className="retry-btn" onClick={() => loadDirectory(currentPath)}>
                     Retry
                   </button>
                 </div>
@@ -830,7 +836,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
                       {filteredEntries.length} result{filteredEntries.length !== 1 ? 's' : ''}
                     </div>
                   )}
-                  
+
                   {viewMode === 'list' ? (
                     <div className="file-list-view">
                       {/* Column Headers */}
@@ -839,7 +845,9 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
                           className="header-col header-name"
                           onClick={() => handleColumnSort('name')}
                         >
-                          Name {(sortBy === 'name-asc' || sortBy === 'name-desc') && (sortBy === 'name-asc' ? '↑' : '↓')}
+                          Name{' '}
+                          {(sortBy === 'name-asc' || sortBy === 'name-desc') &&
+                            (sortBy === 'name-asc' ? '↑' : '↓')}
                         </div>
                         <div
                           className="header-col header-type"
@@ -897,7 +905,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
                           onContextMenu={(e) => handleEntryRightClick(entry, e)}
                         >
                           <div className="file-icon-cell">
-                            {(entry.type === 'dir' || entry.type === 'directory') ? (
+                            {entry.type === 'dir' || entry.type === 'directory' ? (
                               <svg width="16" height="16" viewBox="0 0 16 16" fill="#f5a623">
                                 <path d="M2 3a1 1 0 011-1h4l1 1h5a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" />
                               </svg>
@@ -955,7 +963,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
                           onDoubleClick={() => handleEntryDoubleClick(entry)}
                           onContextMenu={(e) => handleEntryRightClick(entry, e)}
                         >
-                          {(entry.type === 'dir' || entry.type === 'directory') ? (
+                          {entry.type === 'dir' || entry.type === 'directory' ? (
                             <svg width="20" height="20" viewBox="0 0 16 16" fill="#f5a623">
                               <path d="M2 3a1 1 0 011-1h4l1 1h5a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" />
                             </svg>
@@ -991,7 +999,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
               </div>
             ) : selected.size === 1 && selectedEntry ? (
               <div className="preview-single">
-                {(selectedEntry.type === 'dir' || selectedEntry.type === 'directory') ? (
+                {selectedEntry.type === 'dir' || selectedEntry.type === 'directory' ? (
                   <>
                     <svg width="40" height="40" viewBox="0 0 16 16" fill="#f5a623">
                       <path d="M2 3a1 1 0 011-1h4l1 1h5a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" />
@@ -999,7 +1007,9 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
                     <div className="preview-name">{selectedEntry.name}</div>
                     <div className="preview-type">Folder</div>
                     {folderItemCount !== null && (
-                      <div className="preview-meta">{folderItemCount} item{folderItemCount !== 1 ? 's' : ''}</div>
+                      <div className="preview-meta">
+                        {folderItemCount} item{folderItemCount !== 1 ? 's' : ''}
+                      </div>
                     )}
                   </>
                 ) : (
@@ -1017,7 +1027,7 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
                     <div className="preview-type">{getFileType(selectedEntry)}</div>
                     <div className="preview-meta">{formatBytes(selectedEntry.size)}</div>
                     <div className="preview-meta">{formatDate(selectedEntry.mtime)}</div>
-                    
+
                     {previewLoading ? (
                       <div className="preview-loading">Loading preview...</div>
                     ) : previewContent ? (
@@ -1090,7 +1100,9 @@ function FilePicker({ startPath, workspacePath, onAttach, onClose, mode = 'attac
               setContextMenu(null);
             }}
           >
-            {pinnedDirs.some(p => p.path === contextMenu.entry.path) ? '📌 Unpin from Bookmarks' : '📌 Pin to Bookmarks'}
+            {pinnedDirs.some((p) => p.path === contextMenu.entry.path)
+              ? '📌 Unpin from Bookmarks'
+              : '📌 Pin to Bookmarks'}
           </button>
         </div>
       )}
