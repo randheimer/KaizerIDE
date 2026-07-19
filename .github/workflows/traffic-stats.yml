@@ -1,0 +1,44 @@
+name: Generate Traffic Graphs
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+# Prevent overlapping runs if the job ever takes >24h
+concurrency:
+  group: traffic-stats
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install requests matplotlib
+
+      - name: Fetch and generate graphs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GHTOKEN }}
+        run: python .github/scripts/traffic.py
+
+      - name: Commit graphs
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add docs/graphs/ traffic_history.json
+          if git diff --staged --quiet; then
+            echo "No traffic changes to commit"
+            exit 0
+          fi
+          git commit -m "chore: update traffic graphs [skip ci]"
+          git push

@@ -1,0 +1,214 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   Single source of truth for spacing, type scale, radii, shadows, motion.
+   Legacy --bg-* / --text-* names from index.css are preserved as aliases.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Spacing scale (4px base) ─────────────────────────────────────────── */
+  --space-0: 0;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 20px;
+  --space-8: 24px;
+  --space-9: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── Type scale ───────────────────────────────────────────────────────── */
+  --font-size-xs: 10px;
+  --font-size-sm: 11px;
+  --font-size-base: 12px;
+  --font-size-md: 13px;
+  --font-size-lg: 14px;
+  --font-size-xl: 16px;
+  --font-size-2xl: 18px;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.65;
+
+  /* ── Radii ────────────────────────────────────────────────────────────── */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 9999px;
+
+  /* ── Shadows ──────────────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.55);
+
+  /* ── Motion ───────────────────────────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 260ms;
+
+  /* ── Semantic surfaces ────────────────────────────────────────────────── */
+  --surface-0: #0d0d0d;
+  --surface-1: #111111;
+  --surface-2: #161616;
+  --surface-3: #1a1a1a;
+  --surface-4: #222222;
+  --surface-overlay: rgba(0, 0, 0, 0.55);
+
+  /* ── Semantic borders ─────────────────────────────────────────────────── */
+  --border-subtle: #1e1e1e;
+  --border-default: #2a2a2a;
+  --border-strong: #3a3a3a;
+  --border-focus: var(--accent);
+
+  /* ── Semantic text ────────────────────────────────────────────────────── */
+  --text-primary: #f0f0f0;
+  --text-secondary: #cccccc;
+  --text-tertiary: #888888;
+  --text-disabled: #555555;
+  --text-on-accent: #ffffff;
+
+  /* ── Semantic status ──────────────────────────────────────────────────── */
+  --success: #22c55e;
+  --success-bg: rgba(34, 197, 94, 0.12);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.12);
+  --info: #3b82f6;
+  --info-bg: rgba(59, 130, 246, 0.12);
+
+  /* ── Z-index scale ────────────────────────────────────────────────────── */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 9000;
+  --z-modal: 9001;
+  --z-popover: 9500;
+  --z-toast: 9900;
+  --z-command-palette: 10000;
+
+  /* ── Glass / elevation system ─────────────────────────────────────────── */
+  --glass-soft: rgba(17, 17, 17, 0.58);
+  --glass-medium: rgba(17, 17, 17, 0.72);
+  --glass-strong: rgba(13, 13, 13, 0.86);
+  --glass-border: rgba(168, 85, 247, 0.2);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --glass-blur: 18px;
+  --glass-blur-strong: 24px;
+
+  --elevation-panel: 0 14px 38px rgba(0, 0, 0, 0.42);
+  --elevation-float: 0 22px 56px rgba(0, 0, 0, 0.56);
+  --elevation-modal: 0 32px 78px rgba(0, 0, 0, 0.68);
+
+  /* ── Interaction / focus system ───────────────────────────────────────── */
+  --interactive-hover: rgba(168, 85, 247, 0.12);
+  --interactive-active: rgba(168, 85, 247, 0.2);
+  --focus-ring: 0 0 0 2px rgba(168, 85, 247, 0.34);
+  --focus-ring-subtle: 0 0 0 1px rgba(168, 85, 247, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT THEME
+   Activated via data-theme="light" on <html> or <body>.
+   Only overrides semantic tokens — spacing/radii/motion are theme-agnostic.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] {
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  --surface-0: #f8f9fa;
+  --surface-1: #ffffff;
+  --surface-2: #f1f3f5;
+  --surface-3: #e9ecef;
+  --surface-4: #dee2e6;
+  --surface-overlay: rgba(0, 0, 0, 0.25);
+
+  /* ── Borders ──────────────────────────────────────────────────────────── */
+  --border-subtle: #e9ecef;
+  --border-default: #dee2e6;
+  --border-strong: #ced4da;
+  --border-focus: var(--accent);
+
+  /* ── Text ─────────────────────────────────────────────────────────────── */
+  --text-primary: #1a1a2e;
+  --text-secondary: #495057;
+  --text-tertiary: #868e96;
+  --text-disabled: #adb5bd;
+  --text-on-accent: #ffffff;
+
+  /* ── Status ───────────────────────────────────────────────────────────── */
+  --success: #16a34a;
+  --success-bg: rgba(22, 163, 74, 0.1);
+  --warning: #d97706;
+  --warning-bg: rgba(217, 119, 6, 0.1);
+  --danger: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.1);
+  --info: #2563eb;
+  --info-bg: rgba(37, 99, 235, 0.1);
+
+  /* ── Glass / elevation ────────────────────────────────────────────────── */
+  --glass-soft: rgba(255, 255, 255, 0.65);
+  --glass-medium: rgba(255, 255, 255, 0.78);
+  --glass-strong: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(168, 85, 247, 0.15);
+  --glass-highlight: rgba(255, 255, 255, 0.8);
+  --glass-blur: 18px;
+  --glass-blur-strong: 24px;
+
+  --elevation-panel: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --elevation-float: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --elevation-modal: 0 8px 32px rgba(0, 0, 0, 0.14);
+
+  /* ── Interaction ──────────────────────────────────────────────────────── */
+  --interactive-hover: rgba(168, 85, 247, 0.08);
+  --interactive-active: rgba(168, 85, 247, 0.14);
+  --focus-ring: 0 0 0 2px rgba(168, 85, 247, 0.25);
+  --focus-ring-subtle: 0 0 0 1px rgba(168, 85, 247, 0.2);
+
+  /* ── Shadows (lighter for light theme) ────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.16);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLASS PANEL UTILITY
+   Drop-in class for glassmorphism panels. Use instead of inline styles.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.glass-panel {
+  background: var(--glass-medium);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-panel);
+}
+
+.glass-panel--soft {
+  background: var(--glass-soft);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+}
+
+.glass-panel--strong {
+  background: var(--glass-strong);
+  backdrop-filter: blur(var(--glass-blur-strong));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-float);
+}

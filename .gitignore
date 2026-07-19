@@ -1,0 +1,35 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+release
+build
+test
+
+# Logs
+*.log
+
+# Documentation (except specific files)
+#*.md
+
+# GitHub workflow documentation (internal only)
+.github/WORKFLOW.md
+WORKFLOW.md
+
+# Wiki (local documentation only)
+docs/WIKI.md
+
+# OS files
+.DS_Store
+
+# Local development scripts
+build.bat
+start.bat
+start-quick.bat
+start-dev.bat
+
+*.backup
+*.new
+*.old
+.claude/

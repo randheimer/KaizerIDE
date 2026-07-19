@@ -1,0 +1,384 @@
+/* Search Panel - Custom Design matching right-click menu */
+
+.search-panel {
+  position: absolute;
+  top: 8px;
+  right: 24px;
+  background: rgba(13, 13, 13, 0.95);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 10px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.7),
+    0 0 0 0.5px rgba(255, 255, 255, 0.05) inset;
+  z-index: 1000;
+  padding: 8px;
+  min-width: 420px;
+  animation: searchPanelIn 150ms ease forwards;
+}
+
+@keyframes searchPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.search-row:last-child {
+  margin-bottom: 0;
+}
+
+.search-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-0);
+  outline: none;
+  font-family: var(--font-mono);
+  transition: all 0.15s;
+}
+
+.search-input::placeholder {
+  color: var(--text-3);
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.1);
+}
+
+.search-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.search-toggle {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-mono);
+  min-width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: var(--text-0);
+}
+
+.search-toggle.active {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.search-navigation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-count {
+  font-size: 11px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  min-width: 60px;
+  text-align: center;
+}
+
+.search-nav-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-nav-btn:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.15);
+  color: var(--accent);
+}
+
+.search-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.search-expand-btn,
+.search-close-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+}
+
+.search-expand-btn:hover,
+.search-close-btn:hover {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.search-close-btn {
+  font-size: 20px;
+  font-weight: 300;
+}
+
+.search-replace-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.search-replace-btn {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: var(--accent);
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.search-replace-btn:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.25);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.search-replace-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Monaco Editor Search Highlight Styles */
+.search-match {
+  background: rgba(168, 85, 247, 0.2);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.search-match-current {
+  background: rgba(168, 85, 247, 0.4);
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Cursor-v2 polish pass */
+.search-panel {
+  background: var(--ui-glass-strong);
+  backdrop-filter: blur(var(--ui-glass-blur-strong, 24px)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur-strong, 24px)) saturate(160%);
+  border: 1px solid var(--ui-glass-border);
+  box-shadow: var(--ui-elevation-float), inset 0 1px 0 var(--ui-glass-highlight);
+}
+
+.search-input {
+  border-color: rgba(168, 85, 247, 0.24);
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 120ms) var(--ease-out, ease),
+    box-shadow var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.search-input:focus {
+  box-shadow: var(--ui-focus-ring);
+}
+
+.search-toggle,
+.search-expand-btn,
+.search-close-btn,
+.search-nav-btn,
+.search-replace-btn {
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 120ms) var(--ease-out, ease),
+    transform var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.search-toggle:hover,
+.search-expand-btn:hover,
+.search-close-btn:hover,
+.search-nav-btn:hover:not(:disabled) {
+  background: var(--interactive-hover);
+}
+
+.search-toggle.active {
+  background: rgba(168, 85, 247, 0.22);
+}
+
+/* Search mode toggle */
+.search-mode-toggle {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-mode-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.search-mode-btn:hover {
+  color: var(--text-0);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.search-mode-btn.active {
+  background: rgba(168, 85, 247, 0.2);
+  color: var(--accent);
+}
+
+/* Workspace search results */
+.workspace-results {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 4px;
+}
+
+.workspace-results::-webkit-scrollbar {
+  width: 4px;
+}
+
+.workspace-results::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.workspace-result-file {
+  margin-bottom: 2px;
+}
+
+.workspace-result-file-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+
+.workspace-result-file-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.workspace-result-expand {
+  font-size: 8px;
+  color: var(--text-3);
+  width: 12px;
+  text-align: center;
+}
+
+.workspace-result-filename {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-1);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-result-count {
+  font-size: 10px;
+  color: var(--text-3);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+}
+
+.workspace-result-matches {
+  padding-left: 20px;
+}
+
+.workspace-result-match {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+
+.workspace-result-match:hover {
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.workspace-result-line {
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  min-width: 40px;
+}
+
+.workspace-result-content {
+  font-size: 12px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}

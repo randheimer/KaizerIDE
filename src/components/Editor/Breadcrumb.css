@@ -1,0 +1,62 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   BREADCRUMB BAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.breadcrumb-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 16px;
+  background: var(--bg-0);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+}
+
+.breadcrumb-bar::-webkit-scrollbar {
+  height: 0;
+}
+
+.breadcrumb-separator {
+  color: var(--text-3);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.breadcrumb-segment {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 100ms ease, color 100ms ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.breadcrumb-segment:hover {
+  background: var(--bg-hover);
+  color: var(--text-0);
+}
+
+.breadcrumb-folder {
+  color: var(--text-2);
+}
+
+.breadcrumb-file {
+  color: var(--text-1);
+  font-weight: 500;
+}
+
+.breadcrumb-file-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}

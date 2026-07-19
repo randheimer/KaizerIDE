@@ -1,0 +1,56 @@
+# test directories
+__tests__
+test
+tests
+powered-test
+
+# asset directories
+docs
+doc
+website
+images
+assets
+
+# examples
+example
+examples
+
+# code coverage directories
+coverage
+.nyc_output
+
+# build scripts
+Makefile
+Gulpfile.js
+Gruntfile.js
+
+# configs
+.tern-project
+.gitattributes
+.editorconfig
+.eslintrc
+.eslintrc.js
+.eslintrc.json
+.eslintrc.yml
+.eslintignore
+.stylelintrc
+.stylelintignore
+.prettierrc
+.prettierignore
+.babelrc
+.babelrc.js
+babel.config.js
+
+# misc
+*.md
+*.markdown
+*.txt
+AUTHORS
+CONTRIBUTORS
+LICENSE
+LICENCE
+*.ts
+!*.d.ts
+*.flow
+*.map
+*.patch

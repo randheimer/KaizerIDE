@@ -1,0 +1,276 @@
+:root {
+  --bg-0: #0d0d0d;
+  --bg-1: #0d0d0d;
+  --bg-2: #111111;
+  --bg-3: #161616;
+  --bg-hover: #1a1a1a;
+  --bg-active: #222222;
+  --border: #1e1e1e;
+  --border-2: #2a2a2a;
+  --text-0: #f0f0f0;
+  --text-1: #cccccc;
+  --text-2: #888888;
+  --text-3: #555555;
+  --accent: #a855f7;
+  --accent-dim: #7c3aed;
+  --accent-bg: rgba(168, 85, 247, 0.08);
+  --font-ui: system-ui, -apple-system, sans-serif;
+  --font-mono: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+
+  --ui-glass-soft: var(--glass-soft, rgba(17, 17, 17, 0.58));
+  --ui-glass-medium: var(--glass-medium, rgba(17, 17, 17, 0.72));
+  --ui-glass-strong: var(--glass-strong, rgba(13, 13, 13, 0.86));
+  --ui-glass-border: var(--glass-border, rgba(168, 85, 247, 0.2));
+  --ui-glass-highlight: var(--glass-highlight, rgba(255, 255, 255, 0.06));
+  --ui-glass-blur: var(--glass-blur, 18px);
+  --ui-elevation-panel: var(--elevation-panel, 0 14px 38px rgba(0, 0, 0, 0.42));
+  --ui-elevation-float: var(--elevation-float, 0 22px 56px rgba(0, 0, 0, 0.56));
+  --ui-elevation-modal: var(--elevation-modal, 0 32px 78px rgba(0, 0, 0, 0.68));
+  --ui-focus-ring: var(--focus-ring, 0 0 0 2px rgba(168, 85, 247, 0.34));
+}
+
+/* ── Light theme overrides for legacy aliases ───────────────────────────── */
+[data-theme="light"] {
+  --bg-0: #f8f9fa;
+  --bg-1: #ffffff;
+  --bg-2: #f1f3f5;
+  --bg-3: #e9ecef;
+  --bg-hover: #e9ecef;
+  --bg-active: #dee2e6;
+  --border: #dee2e6;
+  --border-2: #ced4da;
+  --text-0: #1a1a2e;
+  --text-1: #495057;
+  --text-2: #868e96;
+  --text-3: #adb5bd;
+  --accent: #7c3aed;
+  --accent-dim: #6d28d9;
+  --accent-bg: rgba(124, 58, 237, 0.08);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-0);
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(168, 85, 247, 0.08), transparent 40%),
+    radial-gradient(circle at 88% 0%, rgba(139, 92, 246, 0.05), transparent 34%);
+  color: var(--text-0);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[data-theme="light"] body {
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(168, 85, 247, 0.05), transparent 40%),
+    radial-gradient(circle at 88% 0%, rgba(139, 92, 246, 0.03), transparent 34%);
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 120ms) var(--ease-out, ease),
+    box-shadow var(--dur-fast, 120ms) var(--ease-out, ease),
+    transform var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+input, textarea {
+  font-family: inherit;
+  color: inherit;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  outline: none;
+}
+
+input:focus, textarea:focus {
+  border-color: var(--accent);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role='button']:focus-visible {
+  outline: none;
+  box-shadow: var(--ui-focus-ring);
+}
+
+/* Neutralize Monaco built-in context menu */
+.monaco-menu {
+  display: none !important;
+}
+
+.context-view {
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MONACO DIFF DECORATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.diff-added-line {
+  background: rgba(34, 197, 94, 0.12) !important;
+  border-left: none;
+  position: relative;
+}
+
+.diff-added-line::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #22c55e;
+  pointer-events: none;
+}
+
+.diff-added-gutter {
+  background: #22c55e !important;
+  width: 3px !important;
+  margin-left: 3px;
+}
+
+.diff-removed-line {
+  background: rgba(239, 68, 68, 0.12) !important;
+  position: relative;
+}
+
+.diff-removed-line::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ef4444;
+  pointer-events: none;
+}
+
+.diff-removed-gutter {
+  background: #ef4444 !important;
+  width: 3px !important;
+  margin-left: 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THINKING BLOCK STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.thinking-block {
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  background: rgba(168, 85, 247, 0.04);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.thinking-header {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-2);
+  user-select: none;
+}
+
+.thinking-header:hover {
+  background: rgba(168, 85, 247, 0.08);
+}
+
+.thinking-label {
+  color: var(--accent);
+  font-size: 12px;
+  flex: 1;
+}
+
+.thinking-chevron {
+  font-size: 10px;
+  color: var(--text-3);
+  transition: transform 150ms;
+}
+
+.thinking-spinner {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  border-top-color: transparent;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.thinking-body {
+  padding: 10px 12px;
+  font-size: 11.5px;
+  font-family: var(--font-mono);
+  color: var(--text-2);
+  line-height: 1.6;
+  max-height: 280px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(168, 85, 247, 0.15);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(0, 0, 0, 0.2);
+}

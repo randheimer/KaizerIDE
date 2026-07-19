@@ -1,0 +1,115 @@
+.app {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-0);
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  min-height: 0;
+  height: 100%;
+}
+
+.editor-terminal-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── Resize handles ─────────────────────────────────────────────────────── */
+.resize-handle {
+  flex-shrink: 0;
+  z-index: 50;
+  position: relative;
+}
+
+/* Visible bar — thin line */
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.resize-handle:hover::after {
+  background: var(--accent);
+  opacity: 0.4;
+}
+
+/* Kill all transitions during drag for instant visual feedback */
+.is-resizing,
+.is-resizing * {
+  transition: none !important;
+}
+
+.is-resizing .resize-handle::after {
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+/* Disable hover on all handles during resize */
+.is-resizing .resize-handle:not(:active)::after {
+  background: transparent !important;
+  opacity: 0 !important;
+}
+
+/* Horizontal: thin visual bar, narrow hit area */
+.resize-horizontal {
+  width: 4px;
+  cursor: col-resize;
+  height: 100%;
+}
+
+.resize-horizontal::after {
+  width: 1px;
+  left: 1.5px;
+}
+
+/* Vertical: thin visual bar, narrow hit area */
+.resize-vertical {
+  height: 4px;
+  cursor: row-resize;
+  width: 100%;
+}
+
+.resize-vertical::after {
+  height: 1px;
+  top: 1.5px;
+}
+
+/* Zen Mode */
+.app.zen-mode {
+  background: #0a0a0a;
+}
+
+.app.zen-mode .main-content {
+  padding: 0;
+}
+
+.app.zen-mode .editor-area {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.app.zen-mode .editor-tabs-wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.app.zen-mode .editor-container {
+  max-width: 900px;
+  margin: 0 auto;
+}

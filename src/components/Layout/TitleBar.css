@@ -1,0 +1,224 @@
+.titlebar {
+  height: 36px;
+  background: #0d0d0d;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 12px;
+  -webkit-app-region: drag;
+  user-select: none;
+  position: relative;
+  z-index: 120;
+  overflow: visible;
+}
+
+.titlebar-macos {
+  padding-left: 8px;
+}
+
+.titlebar-windows {
+  padding-left: 12px;
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+  overflow: visible;
+}
+
+.titlebar-left,
+.titlebar-center {
+  overflow: visible;
+}
+
+.titlebar-macos .titlebar-right {
+  gap: 8px;
+}
+
+.titlebar-windows .titlebar-right {
+  gap: 1px;
+}
+
+/* macOS Window Controls */
+.window-controls-macos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.macos-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.macos-btn svg {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.titlebar:hover .macos-btn svg {
+  opacity: 1;
+}
+
+.macos-btn.close {
+  background: #ff5f57;
+}
+
+.macos-btn.close:hover {
+  background: #ff4136;
+}
+
+.macos-btn.close svg {
+  color: #8b0000;
+}
+
+.macos-btn.minimize {
+  background: #ffbd2e;
+}
+
+.macos-btn.minimize:hover {
+  background: #ffaa00;
+}
+
+.macos-btn.minimize svg {
+  color: #995700;
+}
+
+.macos-btn.maximize {
+  background: #28c840;
+}
+
+.macos-btn.maximize:hover {
+  background: #1fa832;
+}
+
+.macos-btn.maximize svg {
+  color: #006400;
+}
+
+.logo {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+}
+
+.titlebar-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.titlebar-icon-btn:hover {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+
+.titlebar-icon-btn.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+/* Windows Window Controls */
+.titlebar-btn {
+  width: 46px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.titlebar-btn:hover {
+  background: var(--bg-hover);
+}
+
+.titlebar-btn.close:hover {
+  background: #e81123;
+  color: white;
+}
+
+/* Cursor-v2 polish pass */
+.titlebar {
+  background: linear-gradient(180deg, var(--ui-glass-medium), var(--ui-glass-strong));
+  backdrop-filter: blur(var(--ui-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur));
+  border-bottom: 1px solid var(--ui-glass-border);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.logo {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 16px rgba(168, 85, 247, 0.2);
+}
+
+.titlebar-icon-btn {
+  border: 1px solid transparent;
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 120ms) var(--ease-out, ease),
+    box-shadow var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.titlebar-icon-btn:hover {
+  background: var(--interactive-hover);
+  border-color: var(--ui-glass-border);
+  box-shadow: var(--focus-ring-subtle, 0 0 0 1px rgba(168, 85, 247, 0.3));
+}
+
+.titlebar-btn {
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.titlebar-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-0);
+}

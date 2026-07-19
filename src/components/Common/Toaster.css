@@ -1,0 +1,107 @@
+.toaster-root {
+  position: fixed;
+  bottom: var(--space-6, 16px);
+  right: var(--space-6, 16px);
+  z-index: var(--z-toast, 9900);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 6px);
+  pointer-events: none;
+  max-width: min(360px, calc(100vw - 32px));
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 6px);
+  padding: var(--space-4, 8px) var(--space-5, 12px);
+  background: var(--surface-3, #1a1a1a);
+  border: 1px solid var(--border-default, #2a2a2a);
+  border-radius: var(--radius-md, 6px);
+  box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.45));
+  color: var(--text-primary, #f0f0f0);
+  font-size: var(--font-size-base, 12px);
+  line-height: 1.4;
+  animation: toast-in 180ms var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.toast--success {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+.toast--success .toast__icon {
+  color: var(--success, #22c55e);
+}
+
+.toast--error {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.toast--error .toast__icon {
+  color: var(--danger, #ef4444);
+}
+
+.toast--warning {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+.toast--warning .toast__icon {
+  color: var(--warning, #f59e0b);
+}
+
+.toast--info .toast__icon {
+  color: var(--info, #3b82f6);
+}
+
+.toast__icon {
+  flex-shrink: 0;
+}
+
+.toast__msg {
+  flex: 1;
+  word-break: break-word;
+}
+
+.toast__close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text-tertiary, #888);
+  transition: color var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+.toast__close:hover {
+  color: var(--text-primary, #f0f0f0);
+  background: var(--surface-4, #222);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Cursor-v2 polish pass */
+.toast {
+  background: var(--ui-glass-strong);
+  border: 1px solid var(--ui-glass-border);
+  border-radius: 10px;
+  box-shadow: var(--ui-elevation-panel), inset 0 1px 0 var(--ui-glass-highlight);
+  backdrop-filter: blur(var(--ui-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur));
+}
+
+.toast__close {
+  border: 1px solid transparent;
+}
+
+.toast__close:hover {
+  border-color: rgba(168, 85, 247, 0.22);
+  background: var(--interactive-hover);
+}

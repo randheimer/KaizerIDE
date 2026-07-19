@@ -1,0 +1,39 @@
+KaizerIDE Custom License
+
+Copyright (c) 2026 randheimer
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, and distribute the Software, subject to the following conditions:
+
+1. MODIFICATION AND DISTRIBUTION:
+   You may modify and distribute the Software, provided that:
+   - You include the original author's name (randheimer) as a watermark or 
+     credit in a visible location within the software interface or documentation
+   - You clearly indicate what changes were made to the original Software
+   - You include this license file with any distribution
+
+2. COMMERCIAL USE RESTRICTION:
+   You may NOT sell, sublicense, or use the Software or any modified versions
+   for commercial purposes without explicit written permission from the 
+   original author (randheimer)
+
+3. ATTRIBUTION:
+   All copies or substantial portions of the Software, whether modified or not,
+   must retain the following attribution:
+   "Based on KaizerIDE by randheimer (https://github.com/randheimer/KaizerIDE)"
+
+4. NO WARRANTY:
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+5. TERMINATION:
+   This license automatically terminates if you fail to comply with any of its
+   terms and conditions.
+
+For commercial licensing inquiries, please contact: randheimer
