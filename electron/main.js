@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { Client } from 'ssh2';
 import simpleGit from 'simple-git';
 import { spawn as ptySpawn } from 'node-pty';
+import { buildFileTree, IGNORED_DIRS } from './services/file-tree-service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,47 +30,17 @@ let sftpClient = null;
 let isRemoteMode = false;
 const ptyProcesses = new Map(); // id -> pty process
 
-const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'release', '__pycache__', '.vscode', '.idea']);
-
-/**
- * Parse a .gitignore file into a Set of simple name patterns.
- * Only supports plain names and `name/` style patterns — not full glob.
- * Wildcard/glob lines are skipped; they're handled lazily elsewhere.
- */
-function parseGitignore(workspaceRoot) {
-  const ignored = new Set();
-  try {
-    const gitignorePath = path.join(workspaceRoot, '.gitignore');
-    if (!fs.existsSync(gitignorePath)) return ignored;
-    const content = fs.readFileSync(gitignorePath, 'utf-8');
-    for (const raw of content.split(/\r?\n/)) {
-      const line = raw.trim();
-      if (!line || line.startsWith('#') || line.startsWith('!')) continue;
-      // Skip complex glob patterns — stick with plain names/dirs
-      if (/[*?\[\]]/.test(line)) continue;
-      // Strip leading slash and trailing slash for name matching
-      const name = line.replace(/^\/+/, '').replace(/\/+$/, '');
-      if (name && !name.includes('/')) ignored.add(name);
-    }
-  } catch {
-    // Non-fatal: no gitignore or unreadable
-  }
-  return ignored;
-}
-
 function getOpenPath() {
   // In production: argv = [execPath, '--', path] or [execPath, path]
   // In dev: argv = [electron, main.js, path]
   const args = process.argv.slice(1);
-  
+
   // Filter out electron/chromium internal flags
-  const filtered = args.filter(a =>
-    !a.startsWith('--') &&
-    !a.endsWith('main.js') &&
-    !a.endsWith('app.asar') &&
-    a.trim() !== '.'
+  const filtered = args.filter(
+    (a) =>
+      !a.startsWith('--') && !a.endsWith('main.js') && !a.endsWith('app.asar') && a.trim() !== '.'
   );
-  
+
   if (filtered.length > 0) {
     const p = filtered[filtered.length - 1];
     // Verify it's an actual path that exists
@@ -81,80 +52,6 @@ function getOpenPath() {
     }
   }
   return null;
-}
-
-/**
- * Async, non-blocking file tree builder using fs.promises + withFileTypes.
- * Avoids stat-per-entry (single readdir yields both name and type).
- * Reads siblings concurrently at each level for better throughput.
- * Honors .gitignore simple name patterns at the workspace root.
- */
-async function buildFileTree(dirPath, depth = 0, maxDepth = 7, ignoredSet = null) {
-  if (depth > maxDepth) return null;
-
-  // Initialize merged ignore set at root
-  if (depth === 0 && ignoredSet === null) {
-    const fromGitignore = parseGitignore(dirPath);
-    ignoredSet = new Set([...IGNORED_DIRS, ...fromGitignore]);
-  } else if (ignoredSet === null) {
-    ignoredSet = IGNORED_DIRS;
-  }
-
-  try {
-    const name = path.basename(dirPath);
-
-    // Stat once to discover type
-    const stats = await fs.promises.stat(dirPath);
-
-    if (stats.isDirectory()) {
-      if (ignoredSet.has(name)) return null;
-
-      let entries;
-      try {
-        entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-      } catch {
-        return null;
-      }
-
-      const childResults = await Promise.all(
-        entries.map(async (entry) => {
-          if (ignoredSet.has(entry.name)) return null;
-          const childPath = path.join(dirPath, entry.name);
-          if (entry.isDirectory()) {
-            return buildFileTree(childPath, depth + 1, maxDepth, ignoredSet);
-          }
-          if (entry.isFile()) {
-            return { name: entry.name, path: childPath, type: 'file' };
-          }
-          // Symlinks / other: resolve lazily via recursive call
-          return buildFileTree(childPath, depth + 1, maxDepth, ignoredSet);
-        })
-      );
-
-      const children = childResults
-        .filter((node) => node !== null)
-        .sort((a, b) => {
-          if (a.type === b.type) return a.name.localeCompare(b.name);
-          return a.type === 'dir' ? -1 : 1;
-        });
-
-      return {
-        name,
-        path: dirPath,
-        type: 'dir',
-        children,
-        expanded: depth === 0,
-      };
-    }
-
-    return {
-      name,
-      path: dirPath,
-      type: 'file',
-    };
-  } catch {
-    return null;
-  }
 }
 
 function createWelcomeWindow() {
@@ -173,8 +70,8 @@ function createWelcomeWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: true
-    }
+      webSecurity: true,
+    },
   });
 
   // Set Content Security Policy
@@ -184,14 +81,14 @@ function createWelcomeWindow() {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdn.jsdelivr.net; " +
-          "font-src 'self' data: blob: https://cdn.jsdelivr.net; " +
-          "img-src 'self' data: blob: https:; " +
-          "style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net; " +
-          "worker-src 'self' blob: data:; " +
-          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://* http://*;"
-        ]
-      }
+            "font-src 'self' data: blob: https://cdn.jsdelivr.net; " +
+            "img-src 'self' data: blob: https:; " +
+            "style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net; " +
+            "worker-src 'self' blob: data:; " +
+            "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://* http://*;",
+        ],
+      },
     });
   });
 
@@ -221,8 +118,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: true
-    }
+      webSecurity: true,
+    },
   });
 
   // Set Content Security Policy to allow data URLs for fonts and API connections
@@ -232,14 +129,14 @@ function createWindow() {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdn.jsdelivr.net; " +
-          "font-src 'self' data: blob: https://cdn.jsdelivr.net; " +
-          "img-src 'self' data: blob: https:; " +
-          "style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net; " +
-          "worker-src 'self' blob: data:; " +
-          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://* http://*;"
-        ]
-      }
+            "font-src 'self' data: blob: https://cdn.jsdelivr.net; " +
+            "img-src 'self' data: blob: https:; " +
+            "style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net; " +
+            "worker-src 'self' blob: data:; " +
+            "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://* http://*;",
+        ],
+      },
     });
   });
 
@@ -271,14 +168,12 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', (event, argv) => {
-    const secondArgs = argv.filter(a =>
-      !a.startsWith('--') &&
-      !a.endsWith('main.js') &&
-      !a.endsWith('app.asar') &&
-      a.trim() !== '.'
+    const secondArgs = argv.filter(
+      (a) =>
+        !a.startsWith('--') && !a.endsWith('main.js') && !a.endsWith('app.asar') && a.trim() !== '.'
     );
     const secondPath = secondArgs[secondArgs.length - 1];
-    
+
     const wins = BrowserWindow.getAllWindows();
     if (wins.length > 0) {
       const win = wins[0];
@@ -301,7 +196,7 @@ autoUpdater.on('update-available', (info) => {
     mainWindow.webContents.send('update-available', {
       version: info.version,
       releaseDate: info.releaseDate,
-      releaseNotes: info.releaseNotes
+      releaseNotes: info.releaseNotes,
     });
   }
 });
@@ -315,7 +210,7 @@ autoUpdater.on('download-progress', (progress) => {
     mainWindow.webContents.send('update-download-progress', {
       percent: progress.percent,
       transferred: progress.transferred,
-      total: progress.total
+      total: progress.total,
     });
   }
 });
@@ -324,7 +219,7 @@ autoUpdater.on('update-downloaded', (info) => {
   console.log('[AutoUpdater] Update downloaded:', info.version);
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('update-downloaded', {
-      version: info.version
+      version: info.version,
     });
   }
 });
@@ -345,7 +240,7 @@ function checkForUpdates() {
 app.whenReady().then(async () => {
   // Get the path from command line arguments
   openPath = getOpenPath();
-  
+
   // If opened via context menu (right-click folder), open main window directly
   if (openPath) {
     createWindow();
@@ -353,7 +248,7 @@ app.whenReady().then(async () => {
     // Always show welcome screen when launched normally (no command-line path)
     createWelcomeWindow();
   }
-  
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWelcomeWindow();
@@ -405,13 +300,13 @@ ipcMain.handle('get-open-path', () => {
 ipcMain.handle('open-folder', async () => {
   const activeWindow = mainWindow || welcomeWindow;
   const result = await dialog.showOpenDialog(activeWindow, {
-    properties: ['openDirectory']
+    properties: ['openDirectory'],
   });
-  
+
   if (result.canceled) {
     return { canceled: true };
   }
-  
+
   return { canceled: false, path: result.filePaths[0] };
 });
 
@@ -451,10 +346,10 @@ ipcMain.handle('write-file', async (event, filePath, content) => {
 ipcMain.handle('list-dir', async (event, dirPath) => {
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    const result = entries.map(entry => ({
+    const result = entries.map((entry) => ({
       name: entry.name,
       path: path.join(dirPath, entry.name),
-      type: entry.isDirectory() ? 'directory' : 'file'
+      type: entry.isDirectory() ? 'directory' : 'file',
     }));
     return { success: true, entries: result };
   } catch (error) {
@@ -466,26 +361,26 @@ ipcMain.handle('run-command', async (event, command, cwd) => {
   const { exec } = await import('child_process');
   const { promisify } = await import('util');
   const execAsync = promisify(exec);
-  
+
   try {
     const { stdout, stderr } = await execAsync(command, {
       cwd: cwd || process.cwd(),
       timeout: 60000,
-      maxBuffer: 1024 * 1024 * 10 // 10MB
+      maxBuffer: 1024 * 1024 * 10, // 10MB
     });
-    return { 
-      success: true, 
+    return {
+      success: true,
       output: stdout || stderr,
       exitCode: 0,
-      cwd: cwd || process.cwd()
+      cwd: cwd || process.cwd(),
     };
   } catch (error) {
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error.message,
       output: error.stdout || error.stderr || '',
       exitCode: error.code || 1,
-      cwd: cwd || process.cwd()
+      cwd: cwd || process.cwd(),
     };
   }
 });
@@ -494,25 +389,25 @@ ipcMain.handle('execute-command', async (event, command, cwd) => {
   const { exec } = await import('child_process');
   const { promisify } = await import('util');
   const execAsync = promisify(exec);
-  
+
   try {
     const { stdout, stderr } = await execAsync(command, {
       cwd: cwd || process.cwd(),
       shell: 'powershell.exe',
       timeout: 60000,
-      maxBuffer: 1024 * 1024 * 10
+      maxBuffer: 1024 * 1024 * 10,
     });
-    return { 
-      success: true, 
+    return {
+      success: true,
       output: stdout || stderr,
-      cwd: cwd || process.cwd()
+      cwd: cwd || process.cwd(),
     };
   } catch (error) {
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error.message,
       output: error.stdout || error.stderr || '',
-      cwd: cwd || process.cwd()
+      cwd: cwd || process.cwd(),
     };
   }
 });
@@ -520,7 +415,19 @@ ipcMain.handle('execute-command', async (event, command, cwd) => {
 ipcMain.handle('search-files', async (event, query, directory, options = {}) => {
   const results = [];
   const MAX_RESULTS = 500;
-  const BINARY_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.exe', '.dll', '.so', '.dylib']);
+  const BINARY_EXTENSIONS = new Set([
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.gif',
+    '.ico',
+    '.pdf',
+    '.zip',
+    '.exe',
+    '.dll',
+    '.so',
+    '.dylib',
+  ]);
   const { matchCase = false, wholeWord = false, useRegex = false } = options;
 
   let searchPattern;
@@ -550,7 +457,7 @@ ipcMain.handle('search-files', async (event, query, directory, options = {}) => 
           results.push({
             file: filePath,
             line: index + 1,
-            content: line.trim()
+            content: line.trim(),
           });
         }
       });
@@ -558,18 +465,18 @@ ipcMain.handle('search-files', async (event, query, directory, options = {}) => 
       // Skip files that can't be read
     }
   }
-  
+
   function walkDirectory(dir) {
     if (results.length >= MAX_RESULTS) return;
-    
+
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         if (results.length >= MAX_RESULTS) break;
-        
+
         const fullPath = path.join(dir, entry.name);
-        
+
         if (entry.isDirectory()) {
           if (!IGNORED_DIRS.has(entry.name)) {
             walkDirectory(fullPath);
@@ -582,12 +489,12 @@ ipcMain.handle('search-files', async (event, query, directory, options = {}) => 
       // Skip directories that can't be read
     }
   }
-  
+
   try {
     if (!directory) {
       return { success: false, error: 'No directory specified' };
     }
-    
+
     walkDirectory(directory);
     return { success: true, results };
   } catch (error) {
@@ -599,12 +506,12 @@ ipcMain.handle('search-files', async (event, query, directory, options = {}) => 
 ipcMain.handle('get-app-data-path', async () => {
   const userDataPath = app.getPath('userData');
   const kaiserDataPath = path.join(userDataPath, 'KaizerIDE');
-  
+
   // Ensure directory exists
   if (!fs.existsSync(kaiserDataPath)) {
     fs.mkdirSync(kaiserDataPath, { recursive: true });
   }
-  
+
   return kaiserDataPath;
 });
 
@@ -614,33 +521,33 @@ ipcMain.handle('save-workspace-path', async (event, workspacePath) => {
     const userDataPath = app.getPath('userData');
     const configPath = path.join(userDataPath, 'workspace-config.json');
     fs.writeFileSync(configPath, JSON.stringify({ workspacePath }));
-    
+
     // Also add to recent workspaces
     const recentPath = path.join(userDataPath, 'recent-workspaces.json');
     let recentData = { workspaces: [] };
-    
+
     if (fs.existsSync(recentPath)) {
       const data = fs.readFileSync(recentPath, 'utf8');
       recentData = JSON.parse(data);
     }
-    
+
     // Remove if already exists
-    recentData.workspaces = recentData.workspaces.filter(w => w.path !== workspacePath);
-    
+    recentData.workspaces = recentData.workspaces.filter((w) => w.path !== workspacePath);
+
     // Add to front
     const name = path.basename(workspacePath);
     recentData.workspaces.unshift({
       path: workspacePath,
       name: name,
-      lastOpened: new Date().toISOString()
+      lastOpened: new Date().toISOString(),
     });
-    
+
     // Keep only last 5
     recentData.workspaces = recentData.workspaces.slice(0, 5);
-    
+
     // Save
     fs.writeFileSync(recentPath, JSON.stringify(recentData, null, 2), 'utf8');
-    
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -666,7 +573,7 @@ ipcMain.handle('save-chat-history', async (event, chatHistory, workspacePath) =>
   try {
     const userDataPath = app.getPath('userData');
     const kaiserDataPath = path.join(userDataPath, 'KaizerIDE');
-    
+
     // Create workspace-specific filename
     let fileName = 'chat-history.json';
     if (workspacePath) {
@@ -674,14 +581,14 @@ ipcMain.handle('save-chat-history', async (event, chatHistory, workspacePath) =>
       const workspaceHash = Buffer.from(workspacePath).toString('base64').replace(/[/+=]/g, '_');
       fileName = `chat-history-${workspaceHash}.json`;
     }
-    
+
     const chatHistoryPath = path.join(kaiserDataPath, fileName);
-    
+
     // Ensure directory exists
     if (!fs.existsSync(kaiserDataPath)) {
       fs.mkdirSync(kaiserDataPath, { recursive: true });
     }
-    
+
     fs.writeFileSync(chatHistoryPath, JSON.stringify(chatHistory, null, 2), 'utf-8');
     return { success: true };
   } catch (error) {
@@ -693,7 +600,7 @@ ipcMain.handle('load-chat-history', async (event, workspacePath) => {
   try {
     const userDataPath = app.getPath('userData');
     const kaiserDataPath = path.join(userDataPath, 'KaizerIDE');
-    
+
     // Create workspace-specific filename
     let fileName = 'chat-history.json';
     if (workspacePath) {
@@ -701,13 +608,13 @@ ipcMain.handle('load-chat-history', async (event, workspacePath) => {
       const workspaceHash = Buffer.from(workspacePath).toString('base64').replace(/[/+=]/g, '_');
       fileName = `chat-history-${workspaceHash}.json`;
     }
-    
+
     const chatHistoryPath = path.join(kaiserDataPath, fileName);
-    
+
     if (!fs.existsSync(chatHistoryPath)) {
       return { success: true, data: [] };
     }
-    
+
     const data = fs.readFileSync(chatHistoryPath, 'utf-8');
     return { success: true, data: JSON.parse(data) };
   } catch (error) {
@@ -800,15 +707,15 @@ ipcMain.handle('get-file-info', async (event, filePath) => {
       success: true,
       size: stats.size,
       mtime: stats.mtime.toISOString(),
-      isDirectory: stats.isDirectory()
+      isDirectory: stats.isDirectory(),
     };
   } catch (error) {
-    return { 
-      success: false, 
-      size: 0, 
-      mtime: null, 
-      isDirectory: false, 
-      error: error.message 
+    return {
+      success: false,
+      size: 0,
+      mtime: null,
+      isDirectory: false,
+      error: error.message,
     };
   }
 });
@@ -818,36 +725,37 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
     const content = fs.readFileSync(filePath, 'utf-8');
     const ext = path.extname(filePath).toLowerCase();
     const outline = [];
-    
+
     // Simple regex-based parsing for common languages
     if (['.js', '.jsx', '.ts', '.tsx', '.mjs'].includes(ext)) {
       // Match functions, classes, methods
       const functionRegex = /(?:export\s+)?(?:async\s+)?function\s+(\w+)/g;
-      const arrowFunctionRegex = /(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g;
+      const arrowFunctionRegex =
+        /(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g;
       const classRegex = /(?:export\s+)?class\s+(\w+)/g;
       const methodRegex = /^\s*(?:async\s+)?(\w+)\s*\([^)]*\)\s*{/gm;
-      
+
       const lines = content.split('\n');
-      
+
       // Find functions
       let match;
       while ((match = functionRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'function', name: match[1], line, level: 0 });
       }
-      
+
       // Find arrow functions
       while ((match = arrowFunctionRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'function', name: match[1], line, level: 0 });
       }
-      
+
       // Find classes
       while ((match = classRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'class', name: match[1], line, level: 0 });
       }
-      
+
       // Find methods (inside classes)
       while ((match = methodRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
@@ -861,13 +769,13 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
       // Python: classes and functions
       const classRegex = /^class\s+(\w+)/gm;
       const functionRegex = /^(?:\s*)def\s+(\w+)/gm;
-      
+
       let match;
       while ((match = classRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'class', name: match[1], line, level: 0 });
       }
-      
+
       while ((match = functionRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         const indent = match[0].match(/^\s*/)[0].length;
@@ -878,13 +786,13 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
       // Go: functions and types
       const functionRegex = /^func\s+(?:\([^)]+\)\s+)?(\w+)/gm;
       const typeRegex = /^type\s+(\w+)/gm;
-      
+
       let match;
       while ((match = functionRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'function', name: match[1], line, level: 0 });
       }
-      
+
       while ((match = typeRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'type', name: match[1], line, level: 0 });
@@ -894,18 +802,18 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
       const functionRegex = /^(?:pub\s+)?fn\s+(\w+)/gm;
       const structRegex = /^(?:pub\s+)?struct\s+(\w+)/gm;
       const implRegex = /^impl(?:<[^>]+>)?\s+(\w+)/gm;
-      
+
       let match;
       while ((match = functionRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'function', name: match[1], line, level: 0 });
       }
-      
+
       while ((match = structRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'struct', name: match[1], line, level: 0 });
       }
-      
+
       while ((match = implRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'impl', name: match[1], line, level: 0 });
@@ -913,15 +821,27 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
     } else if (['.c', '.h', '.cpp', '.hpp', '.cc', '.cxx'].includes(ext)) {
       // C/C++: functions, structs, typedefs, defines
       // Match function definitions (return_type function_name(...))
-      const functionRegex = /^(?:static\s+|inline\s+|extern\s+)?(?:[\w\s\*]+)\s+(\w+)\s*\([^)]*\)\s*(?:{|;)/gm;
+      const functionRegex =
+        /^(?:static\s+|inline\s+|extern\s+)?(?:[\w\s\*]+)\s+(\w+)\s*\([^)]*\)\s*(?:{|;)/gm;
       const structRegex = /^(?:typedef\s+)?struct\s+(\w+)/gm;
       const typedefRegex = /^typedef\s+(?:struct\s+)?[\w\s\*]+\s+(\w+)\s*;/gm;
       const defineRegex = /^#define\s+(\w+)/gm;
-      
+
       let match;
-      
+
       // Find functions (filter out common keywords)
-      const keywords = ['if', 'for', 'while', 'switch', 'return', 'sizeof', 'typedef', 'struct', 'union', 'enum'];
+      const keywords = [
+        'if',
+        'for',
+        'while',
+        'switch',
+        'return',
+        'sizeof',
+        'typedef',
+        'struct',
+        'union',
+        'enum',
+      ];
       while ((match = functionRegex.exec(content)) !== null) {
         const name = match[1];
         if (!keywords.includes(name)) {
@@ -929,19 +849,19 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
           outline.push({ kind: 'function', name, line, level: 0 });
         }
       }
-      
+
       // Find structs
       while ((match = structRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'struct', name: match[1], line, level: 0 });
       }
-      
+
       // Find typedefs
       while ((match = typedefRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'typedef', name: match[1], line, level: 0 });
       }
-      
+
       // Find #defines
       while ((match = defineRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
@@ -952,21 +872,21 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
       const functionRegex = /^function\s+(\w+(?:\.\w+)*)/gm;
       const localFunctionRegex = /^local\s+function\s+(\w+)/gm;
       const tableRegex = /^(?:local\s+)?(\w+)\s*=\s*{/gm;
-      
+
       let match;
-      
+
       // Find global functions
       while ((match = functionRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'function', name: match[1], line, level: 0 });
       }
-      
+
       // Find local functions
       while ((match = localFunctionRegex.exec(content)) !== null) {
         const line = content.substring(0, match.index).split('\n').length;
         outline.push({ kind: 'function', name: match[1], line, level: 0 });
       }
-      
+
       // Find tables
       while ((match = tableRegex.exec(content)) !== null) {
         const name = match[1];
@@ -977,10 +897,10 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
         }
       }
     }
-    
+
     // Sort by line number
     outline.sort((a, b) => a.line - b.line);
-    
+
     return { success: true, outline };
   } catch (error) {
     return { success: false, error: error.message, outline: [] };
@@ -1150,11 +1070,21 @@ ipcMain.handle('git:show', async (event, repoPath, commitHash) => {
   try {
     const git = simpleGit(repoPath);
     // Get files changed in this commit
-    const diffSummary = await git.raw(['diff-tree', '--no-commit-id', '-r', '--name-status', commitHash]);
-    const files = diffSummary.trim().split('\n').filter(Boolean).map(line => {
-      const [status, ...pathParts] = line.split('\t');
-      return { status: status.trim(), path: pathParts.join('\t') };
-    });
+    const diffSummary = await git.raw([
+      'diff-tree',
+      '--no-commit-id',
+      '-r',
+      '--name-status',
+      commitHash,
+    ]);
+    const files = diffSummary
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        const [status, ...pathParts] = line.split('\t');
+        return { status: status.trim(), path: pathParts.join('\t') };
+      });
     // Get the full diff for this commit
     const diff = await git.raw(['diff', `${commitHash}~1..${commitHash}`]);
     // Get commit stats (insertions/deletions)
@@ -1184,7 +1114,7 @@ ipcMain.handle('git:branches', async (event, repoPath) => {
     return {
       success: true,
       current: branches.current,
-      branches: branches.all.map(name => ({
+      branches: branches.all.map((name) => ({
         name,
         current: name === branches.current,
       })),
@@ -1220,7 +1150,9 @@ ipcMain.handle('pty:spawn', async (event, { id, cwd, shell }) => {
   try {
     // Kill existing PTY with same id
     if (ptyProcesses.has(id)) {
-      try { ptyProcesses.get(id).kill(); } catch {}
+      try {
+        ptyProcesses.get(id).kill();
+      } catch {}
       ptyProcesses.delete(id);
     }
 
@@ -1295,27 +1227,35 @@ ipcMain.handle('pty:kill', async (event, { id }) => {
 function startWatching(dirPath) {
   // Stop existing watcher if any
   stopWatching();
-  
+
   if (!dirPath) return;
-  
+
   watchedPath = dirPath;
-  
+
   try {
     // Use fs.watch for directory monitoring
     fileWatcher = fs.watch(dirPath, { recursive: true }, (eventType, filename) => {
       if (!filename) return;
-      
+
       // Ignore changes in certain directories
-      const ignoredPaths = ['node_modules', '.git', 'dist', 'release', '__pycache__', '.vscode', '.idea'];
-      const shouldIgnore = ignoredPaths.some(ignored => filename.includes(ignored));
-      
+      const ignoredPaths = [
+        'node_modules',
+        '.git',
+        'dist',
+        'release',
+        '__pycache__',
+        '.vscode',
+        '.idea',
+      ];
+      const shouldIgnore = ignoredPaths.some((ignored) => filename.includes(ignored));
+
       if (shouldIgnore) return;
-      
+
       // Debounce: clear existing timeout and set new one
       if (refreshTimeout) {
         clearTimeout(refreshTimeout);
       }
-      
+
       refreshTimeout = setTimeout(async () => {
         // Send refresh event to renderer
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1331,7 +1271,7 @@ function startWatching(dirPath) {
         refreshTimeout = null;
       }, 300); // 300ms debounce
     });
-    
+
     console.log('[FileWatcher] Started watching:', dirPath);
   } catch (error) {
     console.error('[FileWatcher] Error starting watcher:', error);
@@ -1343,7 +1283,7 @@ function stopWatching() {
     clearTimeout(refreshTimeout);
     refreshTimeout = null;
   }
-  
+
   if (fileWatcher) {
     try {
       fileWatcher.close();
@@ -1360,7 +1300,7 @@ function stopWatching() {
 ipcMain.handle('connect-ssh', async (event, config) => {
   try {
     console.log('[SSH] Attempting to connect to:', config.host);
-    
+
     // Close existing connection if any
     if (sshClient) {
       sshClient.end();
@@ -1370,10 +1310,10 @@ ipcMain.handle('connect-ssh', async (event, config) => {
 
     return new Promise((resolve, reject) => {
       const client = new Client();
-      
+
       client.on('ready', () => {
         console.log('[SSH] Connection established');
-        
+
         // Get SFTP session
         client.sftp((err, sftp) => {
           if (err) {
@@ -1382,51 +1322,51 @@ ipcMain.handle('connect-ssh', async (event, config) => {
             reject(new Error('Failed to establish SFTP session'));
             return;
           }
-          
+
           console.log('[SSH] SFTP session established');
           sshClient = client;
           sftpClient = sftp;
           isRemoteMode = true;
-          
+
           resolve({
             success: true,
             connection: {
               host: config.host,
               port: config.port,
               username: config.username,
-              connected: true
-            }
+              connected: true,
+            },
           });
         });
       });
-      
+
       client.on('error', (err) => {
         console.error('[SSH] Connection error:', err);
         reject(new Error(err.message || 'SSH connection failed'));
       });
-      
+
       client.on('end', () => {
         console.log('[SSH] Connection ended');
         sshClient = null;
         sftpClient = null;
         isRemoteMode = false;
       });
-      
+
       // Connect with provided credentials
       const connectConfig = {
         host: config.host,
         port: config.port || 22,
-        username: config.username
+        username: config.username,
       };
-      
+
       if (config.authType === 'password') {
         connectConfig.password = config.password;
       } else if (config.authType === 'key') {
         connectConfig.privateKey = config.privateKey;
       }
-      
+
       client.connect(connectConfig);
-      
+
       // Timeout after 30 seconds
       setTimeout(() => {
         if (!sshClient) {
@@ -1439,7 +1379,7 @@ ipcMain.handle('connect-ssh', async (event, config) => {
     console.error('[SSH] Connection failed:', error);
     return {
       success: false,
-      error: error.message || 'Connection failed'
+      error: error.message || 'Connection failed',
     };
   }
 });
@@ -1464,7 +1404,7 @@ ipcMain.handle('disconnect-ssh', async () => {
 ipcMain.handle('get-ssh-status', async () => {
   return {
     connected: isRemoteMode && !!sshClient,
-    isRemote: isRemoteMode
+    isRemote: isRemoteMode,
   };
 });
 
@@ -1473,9 +1413,14 @@ ipcMain.handle('get-remote-file-tree', async (event, dirPath) => {
   console.log('[SFTP] get-remote-file-tree called with path:', dirPath);
   console.log('[SFTP] isRemoteMode:', isRemoteMode);
   console.log('[SFTP] sftpClient exists:', !!sftpClient);
-  
+
   if (!sftpClient || !isRemoteMode) {
-    console.error('[SFTP] Not connected - sftpClient:', !!sftpClient, 'isRemoteMode:', isRemoteMode);
+    console.error(
+      '[SFTP] Not connected - sftpClient:',
+      !!sftpClient,
+      'isRemoteMode:',
+      isRemoteMode
+    );
     return { success: false, error: 'Not connected to remote server' };
   }
 
@@ -1510,7 +1455,26 @@ ipcMain.handle('get-remote-file-tree', async (event, dirPath) => {
 
         if (stats.isDirectory()) {
           // Skip common ignored directories and special Linux filesystems
-          const ignoredDirs = new Set([...IGNORED_DIRS, 'proc', 'sys', 'dev', 'run', 'boot', 'tmp', 'var', 'etc', 'usr', 'lib', 'lib64', 'bin', 'sbin', 'opt', 'srv', 'mnt', 'media']);
+          const ignoredDirs = new Set([
+            ...IGNORED_DIRS,
+            'proc',
+            'sys',
+            'dev',
+            'run',
+            'boot',
+            'tmp',
+            'var',
+            'etc',
+            'usr',
+            'lib',
+            'lib64',
+            'bin',
+            'sbin',
+            'opt',
+            'srv',
+            'mnt',
+            'media',
+          ]);
           if (ignoredDirs.has(name)) {
             console.log('[SFTP] Ignoring directory:', name);
             return null;
@@ -1548,20 +1512,26 @@ ipcMain.handle('get-remote-file-tree', async (event, dirPath) => {
             });
           }
 
-          console.log('[SFTP] Built directory node for', remotePath, 'with', children.length, 'children');
+          console.log(
+            '[SFTP] Built directory node for',
+            remotePath,
+            'with',
+            children.length,
+            'children'
+          );
           return {
             name,
             path: remotePath,
             type: 'dir',
             children,
-            expanded: depth === 0
+            expanded: depth === 0,
           };
         } else {
           console.log('[SFTP] Built file node for:', remotePath);
           return {
             name,
             path: remotePath,
-            type: 'file'
+            type: 'file',
           };
         }
       } catch (err) {
@@ -1639,11 +1609,11 @@ ipcMain.handle('get-recent-workspaces', async () => {
   try {
     const userDataPath = app.getPath('userData');
     const recentPath = path.join(userDataPath, 'recent-workspaces.json');
-    
+
     if (!fs.existsSync(recentPath)) {
       return { success: true, workspaces: [] };
     }
-    
+
     const data = fs.readFileSync(recentPath, 'utf8');
     const recentData = JSON.parse(data);
     return { success: true, workspaces: recentData.workspaces || [] };
@@ -1657,32 +1627,32 @@ ipcMain.handle('add-recent-workspace', async (event, workspacePath) => {
   try {
     const userDataPath = app.getPath('userData');
     const recentPath = path.join(userDataPath, 'recent-workspaces.json');
-    
+
     let recentData = { workspaces: [] };
-    
+
     // Load existing data
     if (fs.existsSync(recentPath)) {
       const data = fs.readFileSync(recentPath, 'utf8');
       recentData = JSON.parse(data);
     }
-    
+
     // Remove if already exists (to update timestamp)
-    recentData.workspaces = recentData.workspaces.filter(w => w.path !== workspacePath);
-    
+    recentData.workspaces = recentData.workspaces.filter((w) => w.path !== workspacePath);
+
     // Add to front
     const name = path.basename(workspacePath);
     recentData.workspaces.unshift({
       path: workspacePath,
       name: name,
-      lastOpened: new Date().toISOString()
+      lastOpened: new Date().toISOString(),
     });
-    
+
     // Keep only last 5
     recentData.workspaces = recentData.workspaces.slice(0, 5);
-    
+
     // Save
     fs.writeFileSync(recentPath, JSON.stringify(recentData, null, 2), 'utf8');
-    
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -1696,42 +1666,42 @@ ipcMain.handle('open-workspace-from-welcome', async (event, workspacePath) => {
     const userDataPath = app.getPath('userData');
     const configPath = path.join(userDataPath, 'workspace-config.json');
     fs.writeFileSync(configPath, JSON.stringify({ workspacePath }));
-    
+
     // Add to recent workspaces
     const recentPath = path.join(userDataPath, 'recent-workspaces.json');
     let recentData = { workspaces: [] };
-    
+
     if (fs.existsSync(recentPath)) {
       const data = fs.readFileSync(recentPath, 'utf8');
       recentData = JSON.parse(data);
     }
-    
+
     // Remove if already exists
-    recentData.workspaces = recentData.workspaces.filter(w => w.path !== workspacePath);
-    
+    recentData.workspaces = recentData.workspaces.filter((w) => w.path !== workspacePath);
+
     // Add to front
     const name = path.basename(workspacePath);
     recentData.workspaces.unshift({
       path: workspacePath,
       name: name,
-      lastOpened: new Date().toISOString()
+      lastOpened: new Date().toISOString(),
     });
-    
+
     // Keep only last 5
     recentData.workspaces = recentData.workspaces.slice(0, 5);
-    
+
     // Save
     fs.writeFileSync(recentPath, JSON.stringify(recentData, null, 2), 'utf8');
-    
+
     // Close welcome window
     if (welcomeWindow && !welcomeWindow.isDestroyed()) {
       welcomeWindow.close();
       welcomeWindow = null;
     }
-    
+
     // Create main window
     createWindow();
-    
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
