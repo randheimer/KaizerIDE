@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       force_version:
-        description: "Optional manual version (e.g. 2.0.0)"
+        description: 'Optional manual version (e.g. 2.0.0)'
         required: false
 
 # Cancel any in-progress run on the same ref (prevents racing version bumps)
@@ -175,8 +175,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          CSC_LINK: ""
-          CSC_KEY_PASSWORD: ""
+          CSC_LINK: ''
+          CSC_KEY_PASSWORD: ''
 
       - name: Prepare single installer + checksum
         shell: pwsh

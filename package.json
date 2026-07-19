@@ -19,7 +19,11 @@
     "lint": "eslint \"src/**/*.{js,jsx}\"",
     "lint:fix": "eslint \"src/**/*.{js,jsx}\" --fix",
     "format": "prettier --write \"src/**/*.{js,jsx,css,json}\"",
-    "format:check": "prettier --check \"src/**/*.{js,jsx,css,json}\""
+    "format:check": "prettier --check \"src/**/*.{js,jsx,css,json}\"",
+    "clean": "node scripts/clean.mjs",
+    "check": "npm run lint && npm run format:check && npm test",
+    "validate": "npm run check && npm run build",
+    "test": "node --test tests/path.test.js tests/file-metadata.test.js"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.19",
