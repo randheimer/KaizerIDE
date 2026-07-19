@@ -55,12 +55,18 @@ jobs:
     outputs:
       version: ${{ steps.semver.outputs.version }}
       tag: ${{ steps.semver.outputs.tag }}
+      commit_sha: ${{ steps.commit.outputs.commit_sha }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
 
       - name: Semantic Versioning
         id: semver
@@ -105,32 +111,34 @@ jobs:
               $patch++
             }
 
+            # Every non-documentation push to main must produce a unique
+            # release version. Unknown/non-conventional commit messages use a
+            # safe patch bump instead of reusing an existing Git tag.
+            else {
+              $patch++
+            }
+
             $newVersion = "$major.$minor.$patch"
           }
 
-          # Abort if nothing to bump and no forced version
-          if (-not $forced -and -not $bumpMajor -and -not $bumpMinor -and -not $bumpPatch) {
-            Write-Host "No conventional commits since last tag; skipping version bump."
-            echo "version=$version" >> $env:GITHUB_OUTPUT
-            echo "tag=v$version" >> $env:GITHUB_OUTPUT
-            echo "skip_bump=true" >> $env:GITHUB_OUTPUT
-            exit 0
+          if ($newVersion -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Invalid version '$newVersion'. Expected semantic version such as 6.3.4."
           }
 
-          $package.version = $newVersion
-          $package | ConvertTo-Json -Depth 100 | Set-Content package.json
+          # Keep package.json and package-lock.json synchronized for npm ci.
+          npm version $newVersion --no-git-tag-version
           echo "version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "tag=v$newVersion" >> $env:GITHUB_OUTPUT
-          echo "skip_bump=false" >> $env:GITHUB_OUTPUT
 
       - name: Commit version bump
-        if: steps.semver.outputs.skip_bump != 'true'
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "chore: bump version to ${{ steps.semver.outputs.version }}" || echo "No changes to commit"
-          git push || echo "Nothing to push"
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${{ steps.semver.outputs.version }}"
+          git push origin HEAD:main
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   build-electron:
     runs-on: windows-latest
@@ -139,16 +147,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ needs.version.outputs.commit_sha }}
           fetch-depth: 0
-
-      # Pull latest changes (including version bump commit)
-      - name: Pull version bump
-        run: git pull origin main
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.12.0
           cache: npm
 
       # Cache electron-builder downloads (Electron binary, Squirrel, etc.)
@@ -205,6 +209,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.version.outputs.commit_sha }}
           fetch-depth: 0
 
       - name: Download artifacts

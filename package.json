@@ -5,6 +5,9 @@
   "author": "Randheimer",
   "main": "electron/main.js",
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5174 && cross-env NODE_ENV=development electron .\"",
     "build": "vite build",
